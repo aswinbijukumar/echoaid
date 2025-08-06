@@ -178,7 +178,14 @@ export default function Login() {
             </Link>
           </div>
 
-          {/* Google Login - Primary Option */}
+          {/* Divider */}
+          <div className="flex items-center my-8">
+            <div className="flex-1 border-t border-gray-600"></div>
+            <span className="px-4 text-gray-400 text-sm">OR</span>
+            <div className="flex-1 border-t border-gray-600"></div>
+          </div>
+
+          {/* Google Login - Alternative Option */}
           <div className="mt-8">
             <button
               onClick={handleGoogleLogin}
@@ -206,13 +213,6 @@ export default function Login() {
             <p className="text-center text-gray-400 text-sm mt-3">
               Quick and secure sign-in
             </p>
-          </div>
-
-          {/* Divider */}
-          <div className="flex items-center my-8">
-            <div className="flex-1 border-t border-gray-600"></div>
-            <span className="px-4 text-gray-400 text-sm">OR</span>
-            <div className="flex-1 border-t border-gray-600"></div>
           </div>
 
           {/* Legal Text */}
