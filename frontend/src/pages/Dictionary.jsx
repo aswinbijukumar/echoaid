@@ -111,7 +111,7 @@ export default function Dictionary() {
 
       <div className="flex">
         {/* Fixed Left Sidebar - Navigation */}
-        <div className="fixed left-0 top-0 h-screen w-64 bg-[#1A1A1A] z-50 pt-20">
+        <div className="fixed left-0 top-0 h-screen w-64 bg-[#1A1A1A] z-50 pt-4">
           <div className="p-4">
             <div className="flex items-center space-x-2 mb-6">
               <HandRaisedIcon className="w-6 h-6 text-green-400" />
