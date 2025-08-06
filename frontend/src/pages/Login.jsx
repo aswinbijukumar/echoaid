@@ -14,7 +14,7 @@ export default function Login() {
   const [error, setError] = useState('');
   
   const { darkMode } = useTheme();
-  const { login, googleAuth } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
@@ -49,41 +49,11 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     try {
-      // Load Google OAuth script
-      if (!window.google) {
-        const script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        script.defer = true;
-        document.head.appendChild(script);
-        
-        script.onload = () => {
-          window.google.accounts.id.initialize({
-            client_id: '837632799022-ejqg1r9mms133c6co8npk5ohjkbdn203.apps.googleusercontent.com',
-            callback: handleGoogleCallback
-          });
-          window.google.accounts.id.prompt();
-        };
-      } else {
-        window.google.accounts.id.initialize({
-          client_id: '837632799022-ejqg1r9mms133c6co8npk5ohjkbdn203.apps.googleusercontent.com',
-          callback: handleGoogleCallback
-        });
-        window.google.accounts.id.prompt();
-      }
+      // Simple redirect to backend Google OAuth endpoint
+      const googleAuthUrl = 'http://localhost:5000/api/auth/google';
+      window.location.href = googleAuthUrl;
     } catch {
       setError('Google login failed. Please try again.');
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleCallback = async (response) => {
-    try {
-      await googleAuth(response.credential);
-      navigate('/dashboard');
-    } catch (err) {
-      setError(err.message || 'Google authentication failed.');
-    } finally {
       setIsLoading(false);
     }
   };

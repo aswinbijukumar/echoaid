@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
+import { google } from 'googleapis';
 import User from '../models/User.js';
 import sendEmail from '../utils/sendEmail.js';
 import crypto from 'crypto';
@@ -115,21 +116,59 @@ export const login = async (req, res) => {
   }
 };
 
-// @desc    Google OAuth
-// @route   POST /api/auth/google
+// @desc    Google OAuth - Initiate OAuth flow
+// @route   GET /api/auth/google
 // @access  Public
-export const googleAuth = async (req, res) => {
+export const googleAuthInitiate = async (req, res) => {
   try {
-    const { token } = req.body;
+    const oauth2Client = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      `http://localhost:5000/api/auth/google/callback`
+    );
 
-    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID
+    const authUrl = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: [
+        'https://www.googleapis.com/auth/userinfo.profile',
+        'https://www.googleapis.com/auth/userinfo.email'
+      ]
     });
 
-    const payload = ticket.getPayload();
-    const { email, name, picture, sub: googleId } = payload;
+    res.redirect(authUrl);
+  } catch (error) {
+    console.error('Google OAuth initiate error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to initiate Google OAuth'
+    });
+  }
+};
+
+// @desc    Google OAuth - Handle callback
+// @route   GET /api/auth/google/callback
+// @access  Public
+export const googleAuthCallback = async (req, res) => {
+  try {
+    const { code } = req.query;
+    
+    if (!code) {
+      return res.redirect(`http://localhost:3000/login?error=google_auth_failed`);
+    }
+
+    const oauth2Client = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      `http://localhost:5000/api/auth/google/callback`
+    );
+
+    const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+
+    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+    const { data } = await oauth2.userinfo.get();
+
+    const { email, name, picture, id: googleId } = data;
 
     // Check if user exists
     let user = await User.findOne({ email });
@@ -154,22 +193,11 @@ export const googleAuth = async (req, res) => {
     // Generate token
     const jwtToken = generateToken(user._id);
 
-    res.status(200).json({
-      success: true,
-      token: jwtToken,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        avatar: user.avatar
-      }
-    });
+    // Redirect to frontend with token
+    res.redirect(`http://localhost:3000/auth/google/success?token=${jwtToken}`);
   } catch (error) {
-    console.error('Google auth error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Google authentication failed'
-    });
+    console.error('Google OAuth callback error:', error);
+    res.redirect(`http://localhost:3000/login?error=google_auth_failed`);
   }
 };
 

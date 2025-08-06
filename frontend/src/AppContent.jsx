@@ -9,6 +9,7 @@ import Dictionary from './pages/Dictionary';
 import Forum from './pages/Forum';
 import Quiz from './pages/Quiz';
 import AccessibilitySettings from './pages/AccessibilitySettings';
+import GoogleAuthSuccess from './pages/GoogleAuthSuccess';
 
 function AppContent() {
   return (
@@ -24,6 +25,7 @@ function AppContent() {
           <Route path="/forum" element={<Forum />} />
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/accessibility" element={<AccessibilitySettings />} />
+          <Route path="/auth/google/success" element={<GoogleAuthSuccess />} />
         </Routes>
       </Router>
     </AuthProvider>
