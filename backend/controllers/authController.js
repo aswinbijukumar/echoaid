@@ -165,10 +165,19 @@ export const googleAuthCallback = async (req, res) => {
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
 
-    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
-    const { data } = await oauth2.userinfo.get();
+    // Get user info using the access token
+    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`
+      }
+    });
 
-    const { email, name, picture, id: googleId } = data;
+    if (!userInfoResponse.ok) {
+      throw new Error('Failed to get user info from Google');
+    }
+
+    const userData = await userInfoResponse.json();
+    const { email, name, picture, id: googleId } = userData;
 
     // Check if user exists
     let user = await User.findOne({ email });
@@ -186,7 +195,8 @@ export const googleAuthCallback = async (req, res) => {
         email,
         googleId,
         avatar: picture,
-        isEmailVerified: true
+        isEmailVerified: true,
+        password: crypto.randomBytes(32).toString('hex') // Generate random password for Google users
       });
     }
 
@@ -197,7 +207,18 @@ export const googleAuthCallback = async (req, res) => {
     res.redirect(`http://localhost:3000/auth/google/success?token=${jwtToken}`);
   } catch (error) {
     console.error('Google OAuth callback error:', error);
-    res.redirect(`http://localhost:3000/login?error=google_auth_failed`);
+    
+    // Provide more specific error messages
+    let errorMessage = 'google_auth_failed';
+    if (error.message.includes('invalid_client')) {
+      errorMessage = 'google_config_error';
+    } else if (error.message.includes('access_denied')) {
+      errorMessage = 'google_access_denied';
+    } else if (error.message.includes('network')) {
+      errorMessage = 'google_network_error';
+    }
+    
+    res.redirect(`http://localhost:3000/login?error=${errorMessage}`);
   }
 };
 
@@ -209,9 +230,10 @@ export const forgotPassword = async (req, res) => {
     const user = await User.findOne({ email: req.body.email });
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'There is no user with that email'
+      // Don't reveal if user exists or not for security
+      return res.status(200).json({
+        success: true,
+        message: 'If an account with that email exists, a password reset link has been sent.'
       });
     }
 
@@ -223,7 +245,22 @@ export const forgotPassword = async (req, res) => {
     // Create reset url
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-    const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n ${resetUrl}`;
+    const message = `
+Hello,
+
+You are receiving this email because you (or someone else) has requested the reset of your EchoAid password.
+
+Please click the link below to reset your password:
+
+${resetUrl}
+
+This link will expire in 10 minutes.
+
+If you did not request this password reset, please ignore this email and your password will remain unchanged.
+
+Best regards,
+The EchoAid Team
+    `;
 
     try {
       await sendEmail({
