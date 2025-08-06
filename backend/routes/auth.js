@@ -2,7 +2,8 @@ import express from 'express';
 import {
   register,
   login,
-  googleAuth,
+  googleAuthInitiate,
+  googleAuthCallback,
   forgotPassword,
   resetPassword,
   getMe
@@ -14,7 +15,8 @@ const router = express.Router();
 // Public routes
 router.post('/register', register);
 router.post('/login', login);
-router.post('/google', googleAuth);
+router.get('/google', googleAuthInitiate);
+router.get('/google/callback', googleAuthCallback);
 router.post('/forgotpassword', forgotPassword);
 router.put('/resetpassword/:resettoken', resetPassword);
 
