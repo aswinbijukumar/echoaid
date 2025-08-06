@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, EyeIcon, EyeSlashIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 
 export default function ResetPassword() {

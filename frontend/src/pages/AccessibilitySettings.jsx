@@ -1,4 +1,4 @@
-import { useTheme } from '../hooks/useTheme';
+import { useTheme } from '../context/ThemeContext';
 
 export default function AccessibilitySettings() {
   const { darkMode } = useTheme();
