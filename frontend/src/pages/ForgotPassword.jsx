@@ -29,7 +29,13 @@ export default function ForgotPassword() {
       await forgotPassword(email);
       setSuccess(true);
     } catch (err) {
-      setError(err.message || 'Failed to send reset email. Please try again.');
+      if (err.message.includes('network')) {
+        setError('Network error. Please check your connection and try again.');
+      } else if (err.message.includes('email')) {
+        setError('Email service error. Please try again later.');
+      } else {
+        setError(err.message || 'Failed to send reset email. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -61,6 +67,9 @@ export default function ForgotPassword() {
             <h1 className="text-2xl font-bold mb-4">Check your email</h1>
             <p className={`text-gray-400 mb-6`}>
               We've sent a password reset link to <strong>{email}</strong>
+            </p>
+            <p className={`text-sm text-gray-500 mb-6`}>
+              The link will expire in 10 minutes for security.
             </p>
             
             <div className="space-y-4">

@@ -151,7 +151,8 @@ export function AuthProvider({ children }) {
     signup,
     googleAuth,
     forgotPassword,
-    logout
+    logout,
+    setToken
   };
 
   return (
