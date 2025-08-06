@@ -1,4 +1,4 @@
-import { ThemeProvider } from './context/ThemeContext';
+import { ThemeProvider } from './context/ThemeContext.jsx';
 import AppContent from './AppContent';
 
 function App() {
