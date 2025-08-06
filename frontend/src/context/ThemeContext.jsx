@@ -1,12 +1,15 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-
-const ThemeContext = createContext();
+import React, { useEffect, useState } from 'react';
+import { ThemeContext } from './ThemeContext.js';
 
 export function ThemeProvider({ children }) {
   const [darkMode, setDarkMode] = useState(() => {
     const stored = localStorage.getItem('echoaid-theme');
     return stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
+
+  const toggleTheme = () => {
+    setDarkMode(prev => !prev);
+  };
 
   useEffect(() => {
     localStorage.setItem('echoaid-theme', darkMode ? 'dark' : 'light');
@@ -18,13 +21,9 @@ export function ThemeProvider({ children }) {
   }, [darkMode]);
 
   return (
-    <ThemeContext.Provider value={{ darkMode, setDarkMode }}>
+    <ThemeContext.Provider value={{ darkMode, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );
-}
-
-export function useTheme() {
-  return useContext(ThemeContext);
 }
 
