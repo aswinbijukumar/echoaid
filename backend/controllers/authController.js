@@ -80,7 +80,7 @@ The EchoAid Team
         message
       });
 
-      console.log('OTP sent successfully:', otp); // For testing purposes
+  
 
       res.status(201).json({
         success: true,
@@ -604,49 +604,7 @@ export const getMe = async (req, res) => {
   }
 }; 
 
-// @desc    Test email configuration
-// @route   POST /api/auth/test-email
-// @access  Public
-export const testEmail = async (req, res) => {
-  try {
-    const { email } = req.body;
-    
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide an email address'
-      });
-    }
-
-    const message = `
-Hello,
-
-This is a test email from EchoAid to verify that email configuration is working properly.
-
-If you received this email, the email service is configured correctly.
-
-Best regards,
-The EchoAid Team
-    `;
-
-    await sendEmail({
-      email: email,
-      subject: 'EchoAid Email Test',
-      message
-    });
-
-    res.status(200).json({
-      success: true,
-      message: 'Test email sent successfully'
-    });
-  } catch (error) {
-    console.error('Test email error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to send test email. Check email configuration.'
-    });
-  }
-}; 
+ 
 
 // @desc    Update profile photo
 // @route   PUT /api/auth/profile-photo

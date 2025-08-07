@@ -65,7 +65,7 @@ export default function Dashboard() {
     {
       id: 2,
       title: "Alphabet & Numbers",
-      description: "Master ASL alphabet and counting",
+              description: "Master ISL alphabet and counting",
       icon: AcademicCapIcon,
       progress: 60,
       color: "bg-blue-500",

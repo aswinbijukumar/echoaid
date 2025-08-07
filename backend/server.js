@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
+import dictionaryRoutes from './routes/dictionary.js';
 
 // Load env vars
 dotenv.config({ path: './config.env' });
@@ -26,6 +27,7 @@ mongoose.connect(process.env.MONGODB_URI)
 
 // Mount routers
 app.use('/api/auth', authRoutes);
+app.use('/api/dictionary', dictionaryRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
