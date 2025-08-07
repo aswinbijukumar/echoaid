@@ -53,6 +53,10 @@ export function AuthProvider({ children }) {
       const data = await response.json();
 
       if (!response.ok) {
+        // Check if user needs email verification
+        if (data.needsVerification && data.userId) {
+          throw new Error('EMAIL_VERIFICATION_REQUIRED');
+        }
         throw new Error(data.message || 'Login failed');
       }
 
@@ -152,7 +156,8 @@ export function AuthProvider({ children }) {
     googleAuth,
     forgotPassword,
     logout,
-    setToken
+    setToken,
+    setUser
   };
 
   return (

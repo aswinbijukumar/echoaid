@@ -69,7 +69,7 @@ export default function ForgotPassword() {
               We've sent a password reset link to <strong>{email}</strong>
             </p>
             <p className={`text-sm text-gray-500 mb-6`}>
-              The link will expire in 10 minutes for security.
+              The link will expire in 1 hour for security.
             </p>
             
             <div className="space-y-4">
@@ -114,6 +114,9 @@ export default function ForgotPassword() {
           <h1 className="text-3xl font-bold text-center mb-2">Forgot your password?</h1>
           <p className={`text-center ${text} mb-8`}>
             No worries! Enter your email and we'll send you reset instructions.
+          </p>
+          <p className={`text-center text-sm text-gray-500 mb-6`}>
+            The reset link will be valid for 1 hour.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
