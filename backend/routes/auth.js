@@ -4,7 +4,6 @@ import {
   login,
   verifyEmail,
   resendOTP,
-  testEmail,
   googleAuthInitiate,
   googleAuthCallback,
   forgotPassword,
@@ -35,7 +34,7 @@ router.post('/register', authRateLimit, validateRegistration, handleValidationEr
 router.post('/login', authRateLimit, validateLogin, handleValidationErrors, login);
 router.post('/verify-email', otpRateLimit, validateOTP, handleValidationErrors, verifyEmail);
 router.post('/resend-otp', otpRateLimit, resendOTP);
-router.post('/test-email', testEmail);
+
 router.get('/google', googleAuthInitiate);
 router.get('/google/callback', googleAuthCallback);
 router.post('/forgotpassword', passwordResetRateLimit, validateForgotPassword, handleValidationErrors, forgotPassword);
