@@ -21,6 +21,7 @@ import {
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContext';
 import { useEffect } from 'react';
+import Sidebar from '../components/Sidebar';
 
 export default function Dashboard() {
   const [currentStreak] = useState(0);
@@ -36,8 +37,8 @@ export default function Dashboard() {
 
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
   const text = darkMode ? 'text-white' : 'text-[#23272F]';
-  const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
   const border = darkMode ? 'border-gray-600' : 'border-gray-300';
+  const statusBarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
 
   // Scroll detection
   useEffect(() => {
@@ -122,7 +123,7 @@ export default function Dashboard() {
   return (
     <div className={`min-h-screen ${bg} ${text}`}>
       {/* Top Status Bar */}
-      <div className="bg-[#1A1A1A] border-b border-gray-600 px-4 py-3">
+      <div className={`${statusBarBg} border-b ${border} px-4 py-3`}>
         <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div className="flex items-center space-x-4">
             {/* Empty space on the left */}
@@ -151,71 +152,10 @@ export default function Dashboard() {
 
       <div className="flex">
         {/* Fixed Left Sidebar - Navigation */}
-        <div className="fixed left-0 top-0 h-screen w-64 bg-[#1A1A1A] z-50 pt-4">
-          <div className="p-4">
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="relative">
-                <div className="w-10 h-10 bg-gradient-to-br from-[#00CC00] to-[#00AA00] rounded-xl flex items-center justify-center shadow-lg">
-                  <span className="text-white font-black text-lg">E</span>
-                </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-br from-[#FFC107] to-[#FF9800] rounded-full animate-pulse"></div>
-                <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-[#00CC00]/20 rounded-full animate-ping"></div>
-              </div>
-              <span className="font-black text-xl text-[#00CC00]">EchoAid</span>
-            </div>
-            
-            <nav className="space-y-2">
-              <Link to="/dashboard" className="flex items-center space-x-3 p-3 bg-green-500 text-white rounded-lg">
-                <AcademicCapIcon className="w-5 h-5" />
-                <span className="font-semibold">LEARN</span>
-              </Link>
-              <Link to="/dictionary" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <BookOpenIcon className="w-5 h-5" />
-                <span>DICTIONARY</span>
-              </Link>
-              <Link to="/forum" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <ChatBubbleLeftRightIcon className="w-5 h-5" />
-                <span>COMMUNITY</span>
-              </Link>
-              <Link to="/quiz" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <PuzzlePieceIcon className="w-5 h-5" />
-                <span>QUIZ</span>
-              </Link>
-              <Link to="/accessibility" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <Cog6ToothIcon className="w-5 h-5" />
-                <span>SETTINGS</span>
-              </Link>
-              <Link to="/leaderboard" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <ShieldCheckIcon className="w-5 h-5" />
-                <span>LEADERBOARD</span>
-              </Link>
-              <Link to="/quests" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <GiftIcon className="w-5 h-5" />
-                <span>QUESTS</span>
-              </Link>
-              <Link to="/shop" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <ShoppingBagIcon className="w-5 h-5" />
-                <span>SHOP</span>
-              </Link>
-              <Link to="/profile" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <UserCircleIcon className="w-5 h-5" />
-                <span>PROFILE</span>
-              </Link>
-              <div className="border-t border-gray-600 pt-2">
-                <button 
-                  onClick={handleLogout}
-                  className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors w-full"
-                >
-                  <EllipsisHorizontalIcon className="w-5 h-5" />
-                  <span>MORE</span>
-                </button>
-              </div>
-            </nav>
-          </div>
-        </div>
+        <Sidebar handleLogout={handleLogout} />
 
         {/* Main Content Area with Left Margin */}
-        <div className="flex-1 ml-64 bg-[#1A1A1A]">
+        <div className={`flex-1 ml-64 ${bg}`}>
           <div className="max-w-6xl mx-auto">
             <div className="flex">
               {/* Main Content */}
@@ -227,8 +167,8 @@ export default function Dashboard() {
                       <ArrowUpIcon className="w-5 h-5 rotate-90" />
                     </Link>
                     <div>
-                      <h1 className="text-sm font-medium">SECTION {currentSection}, UNIT {currentUnit}</h1>
-                      <h2 className="text-xl font-bold">Master Basic Hand Signs</h2>
+                      <h1 className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>SECTION {currentSection}, UNIT {currentUnit}</h1>
+                      <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>Master Basic Hand Signs</h2>
                     </div>
                   </div>
                 </div>
@@ -239,7 +179,7 @@ export default function Dashboard() {
                     {learningModules.slice(0, 3).map((module) => (
                       <div
                         key={module.id}
-                        className={`${cardBg} p-4 rounded-lg border ${border} cursor-pointer hover:shadow-lg transition-all`}
+                        className={`p-4 rounded-lg border ${border} cursor-pointer hover:shadow-lg transition-all`}
                       >
                         <div className="flex items-center space-x-4">
                           <div className={`${module.color} p-3 rounded-full`}>
@@ -247,7 +187,7 @@ export default function Dashboard() {
                           </div>
                           <div className="flex-1">
                             <h3 className="font-semibold text-lg">{module.title}</h3>
-                            <p className="text-gray-400 text-sm">{module.description}</p>
+                            <p className={`text-gray-400 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{module.description}</p>
                             <div className="mt-2">
                               <div className="flex justify-between text-sm mb-1">
                                 <span>Progress</span>
@@ -273,7 +213,7 @@ export default function Dashboard() {
                     {learningModules.slice(3, 6).map((module) => (
                       <div
                         key={module.id}
-                        className={`${cardBg} p-4 rounded-lg border ${border} cursor-pointer hover:shadow-lg transition-all ${
+                        className={`p-4 rounded-lg border ${border} cursor-pointer hover:shadow-lg transition-all ${
                           module.status === 'locked' ? 'opacity-50' : ''
                         }`}
                       >
@@ -283,7 +223,7 @@ export default function Dashboard() {
                           </div>
                           <div className="flex-1">
                             <h3 className="font-semibold text-lg">{module.title}</h3>
-                            <p className="text-gray-400 text-sm">{module.description}</p>
+                            <p className={`text-gray-400 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{module.description}</p>
                             {module.status === 'locked' && (
                               <div className="mt-2">
                                 <div className="flex justify-between text-sm mb-1">
@@ -308,7 +248,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Daily Quests */}
-                <div className={`${cardBg} p-6 rounded-lg border ${border}`}>
+                <div className={`p-6 rounded-lg border ${border}`}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-bold">Daily Quests</h3>
                     <Link to="/quests" className="text-blue-400 hover:text-blue-300 text-sm">
@@ -333,7 +273,7 @@ export default function Dashboard() {
 
                 {/* Minimal Footer */}
                 <div className="mt-12 mb-8">
-                  <div className={`${cardBg} p-6 rounded-lg border ${border}`}>
+                  <div className={`p-6 rounded-lg border ${border}`}>
                     <div className="flex flex-col md:flex-row justify-between items-center">
                       <div className="flex items-center space-x-4 mb-4 md:mb-0">
                         <div className="flex items-center space-x-3">
@@ -384,7 +324,7 @@ export default function Dashboard() {
               {/* Right Sidebar - Promotions */}
               <div className="w-80 p-4 space-y-4">
                 {/* Premium Promotion */}
-                <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                <div className={`p-4 rounded-lg border ${border}`}>
                   <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-3 rounded-lg mb-3">
                     <h3 className="font-bold text-lg">PRO PREMIUM</h3>
                   </div>
@@ -398,7 +338,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Community Stats */}
-                <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                <div className={`p-4 rounded-lg border ${border}`}>
                   <h4 className="font-semibold mb-3">Community Stats</h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
@@ -417,7 +357,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Quick Actions */}
-                <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                <div className={`p-4 rounded-lg border ${border}`}>
                   <h4 className="font-semibold mb-3">Quick Actions</h4>
                   <div className="space-y-2">
                     <Link to="/dictionary" className="block w-full text-left p-2 hover:bg-gray-700 rounded transition-colors">
@@ -433,7 +373,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Newsletter Signup */}
-                <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                <div className={`p-4 rounded-lg border ${border}`}>
                   <h4 className="font-semibold mb-3">Stay Updated</h4>
                   <p className="text-gray-400 text-sm mb-3">
                     Get the latest learning tips and community updates
