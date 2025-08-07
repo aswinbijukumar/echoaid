@@ -23,8 +23,9 @@ export default function OTPVerification() {
   const border = darkMode ? 'border-gray-600' : 'border-gray-300';
   const inputBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
 
-  // Get tempUserId from location state or URL params
+  // Get tempUserId and verification type from location state or URL params
   const tempUserId = location.state?.tempUserId || new URLSearchParams(location.search).get('tempUserId');
+  const verificationType = location.state?.verificationType || 'signup'; // 'signup' or 'login'
 
   useEffect(() => {
     if (!tempUserId) {
@@ -103,7 +104,10 @@ export default function OTPVerification() {
         throw new Error(data.message || 'Verification failed');
       }
 
-      setSuccess('Email verified successfully! Redirecting...');
+      setSuccess(verificationType === 'login' 
+        ? 'Welcome back! Redirecting to dashboard...' 
+        : 'Email verified successfully! Welcome to EchoAid! Redirecting...'
+      );
       setToken(data.token);
       localStorage.setItem('token', data.token);
       
@@ -183,9 +187,14 @@ export default function OTPVerification() {
             <div className="w-16 h-16 bg-gradient-to-br from-[#00CC00] to-[#00AA00] rounded-full flex items-center justify-center mx-auto mb-4">
               <EnvelopeIcon className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold mb-2">Verify your email</h1>
+            <h1 className="text-2xl font-bold mb-2">
+              {verificationType === 'login' ? 'Welcome back! Verify your email' : 'Verify your email'}
+            </h1>
             <p className="text-gray-400 text-sm">
-              We've sent a 6-digit code to your email address
+              {verificationType === 'login' 
+                ? 'We\'ve sent a 6-digit code to verify your login' 
+                : 'We\'ve sent a 6-digit code to your email address'
+              }
             </p>
           </div>
 

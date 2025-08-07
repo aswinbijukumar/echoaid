@@ -11,6 +11,7 @@ export default function Login() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showLoadingPage, setShowLoadingPage] = useState(false);
   const [error, setError] = useState('');
   
   const { darkMode } = useTheme();
@@ -50,6 +51,12 @@ export default function Login() {
       if (!response.ok) {
         throw new Error(data.message || 'Login failed. Please try again.');
       }
+
+      // Show loading page
+      setShowLoadingPage(true);
+      
+      // Simulate a brief loading time for better UX
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Login success - user is verified
       setUser(data.user);
@@ -107,6 +114,21 @@ export default function Login() {
       setIsLoading(false);
     }
   };
+
+  // Loading page
+  if (showLoadingPage) {
+    return (
+      <div className={`min-h-screen ${bg} ${text} flex items-center justify-center p-4`}>
+        <div className="text-center">
+          <div className="w-20 h-20 bg-gradient-to-br from-[#00CC00] to-[#00AA00] rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Welcome back!</h2>
+          <p className="text-gray-400">Signing you in...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen ${bg} ${text} flex items-center justify-center p-4`}>

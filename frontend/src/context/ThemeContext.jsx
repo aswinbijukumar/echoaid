@@ -2,17 +2,47 @@ import React, { useEffect, useState } from 'react';
 import { ThemeContext } from './ThemeContext.js';
 
 export function ThemeProvider({ children }) {
-  const [darkMode, setDarkMode] = useState(() => {
-    const stored = localStorage.getItem('echoaid-theme');
-    return stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const [themeMode, setThemeMode] = useState(() => {
+    const stored = localStorage.getItem('echoaid-theme-mode');
+    return stored || 'system';
   });
 
+  const [darkMode, setDarkMode] = useState(() => {
+    if (themeMode === 'system') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return themeMode === 'dark';
+  });
+
+  const setTheme = (mode) => {
+    setThemeMode(mode);
+    localStorage.setItem('echoaid-theme-mode', mode);
+  };
+
   const toggleTheme = () => {
-    setDarkMode(prev => !prev);
+    const newMode = darkMode ? 'light' : 'dark';
+    setTheme(newMode);
   };
 
   useEffect(() => {
-    localStorage.setItem('echoaid-theme', darkMode ? 'dark' : 'light');
+    const updateTheme = () => {
+      if (themeMode === 'system') {
+        setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
+      } else {
+        setDarkMode(themeMode === 'dark');
+      }
+    };
+
+    updateTheme();
+
+    if (themeMode === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      mediaQuery.addEventListener('change', updateTheme);
+      return () => mediaQuery.removeEventListener('change', updateTheme);
+    }
+  }, [themeMode]);
+
+  useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
     } else {
@@ -21,7 +51,12 @@ export function ThemeProvider({ children }) {
   }, [darkMode]);
 
   return (
-    <ThemeContext.Provider value={{ darkMode, toggleTheme }}>
+    <ThemeContext.Provider value={{ 
+      darkMode, 
+      themeMode, 
+      setTheme, 
+      toggleTheme 
+    }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -29,6 +29,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContext';
+import Sidebar from '../components/Sidebar';
 
 export default function Profile() {
   const [activeTab, setActiveTab] = useState('following');
@@ -47,6 +48,8 @@ export default function Profile() {
   const text = darkMode ? 'text-white' : 'text-[#23272F]';
   const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
   const border = darkMode ? 'border-gray-600' : 'border-gray-300';
+  const sidebarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
+  const statusBarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
 
   // Mock user data - in real app, this would come from user context/API
   const userStats = {
@@ -208,7 +211,7 @@ export default function Profile() {
   return (
     <div className={`min-h-screen ${bg} ${text}`}>
       {/* Top Status Bar */}
-      <div className="bg-[#1A1A1A] border-b border-gray-600 px-4 py-3">
+      <div className={`${statusBarBg} border-b ${border} px-4 py-3`}>
         <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div className="flex items-center space-x-4">
             {/* Empty space on the left */}
@@ -236,77 +239,16 @@ export default function Profile() {
 
       <div className="flex">
         {/* Fixed Left Sidebar - Navigation */}
-        <div className="fixed left-0 top-0 h-screen w-64 bg-[#1A1A1A] z-50 pt-4">
-          <div className="p-4">
-                         <div className="flex items-center space-x-4 mb-6">
-               <div className="relative">
-                 <div className="w-10 h-10 bg-gradient-to-br from-[#00CC00] to-[#00AA00] rounded-xl flex items-center justify-center shadow-lg">
-                   <span className="text-white font-black text-lg">E</span>
-                 </div>
-                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-br from-[#FFC107] to-[#FF9800] rounded-full animate-pulse"></div>
-                 <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-[#00CC00]/20 rounded-full animate-ping"></div>
-               </div>
-               <span className="font-black text-xl text-[#00CC00]">EchoAid</span>
-             </div>
-            
-            <nav className="space-y-2">
-              <Link to="/dashboard" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <AcademicCapIcon className="w-5 h-5" />
-                <span>LEARN</span>
-              </Link>
-              <Link to="/dictionary" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <BookOpenIcon className="w-5 h-5" />
-                <span>DICTIONARY</span>
-              </Link>
-              <Link to="/forum" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <ChatBubbleLeftRightIcon className="w-5 h-5" />
-                <span>COMMUNITY</span>
-              </Link>
-              <Link to="/quiz" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <PuzzlePieceIcon className="w-5 h-5" />
-                <span>QUIZ</span>
-              </Link>
-              <Link to="/leaderboard" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <ShieldCheckIcon className="w-5 h-5" />
-                <span>LEADERBOARD</span>
-              </Link>
-              <Link to="/quests" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <GiftIcon className="w-5 h-5" />
-                <span>QUESTS</span>
-              </Link>
-              <Link to="/shop" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <ShoppingBagIcon className="w-5 h-5" />
-                <span>SHOP</span>
-              </Link>
-              <Link to="/profile" className="flex items-center space-x-3 p-3 bg-blue-500 text-white rounded-lg">
-                <UserCircleIcon className="w-5 h-5" />
-                <span>PROFILE</span>
-              </Link>
-              <Link to="/accessibility" className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                <Cog6ToothIcon className="w-5 h-5" />
-                <span>SETTINGS</span>
-              </Link>
-              <div className="border-t border-gray-600 pt-2">
-                <button 
-                  onClick={handleLogout}
-                  className="flex items-center space-x-3 p-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors w-full"
-                >
-                  <EllipsisHorizontalIcon className="w-5 h-5" />
-                  <span>MORE</span>
-                </button>
-              </div>
-            </nav>
-          </div>
-        </div>
+        <Sidebar handleLogout={handleLogout} />
 
         {/* Main Content Area */}
-        <div className="flex-1 ml-64 bg-[#1A1A1A]">
+        <div className={`flex-1 ml-64 ${bg}`}>
           <div className="max-w-6xl mx-auto">
             <div className="flex">
               {/* Main Content */}
               <div className="flex-1 p-6">
                 {/* Profile Header */}
-                <div className={`${cardBg} p-6 rounded-lg border ${border} mb-6`}>
+                <div className={`p-6 rounded-lg border ${border} mb-6`}>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center space-x-6">
                       <div className="relative photo-options-container">
@@ -344,8 +286,8 @@ export default function Profile() {
                                 disabled={isUploadingPhoto}
                                 className="w-full flex items-center space-x-2 p-2 hover:bg-gray-700 rounded text-sm transition-colors"
                               >
-                                <PhotoIcon className="w-4 h-4" />
-                                <span>{isUploadingPhoto ? 'Uploading...' : 'Upload New Photo'}</span>
+                                <PhotoIcon className="w-4 h-4 text-gray-900 font-semibold" />
+                                <span className="text-gray-900 font-semibold">{isUploadingPhoto ? 'Uploading...' : 'Upload New Photo'}</span>
                               </button>
                               
                               {getProfilePhoto() && (
@@ -353,14 +295,14 @@ export default function Profile() {
                                   onClick={handleRemovePhoto}
                                   className="w-full flex items-center space-x-2 p-2 hover:bg-gray-700 rounded text-sm transition-colors text-red-400"
                                 >
-                                  <XMarkIcon className="w-4 h-4" />
-                                  <span>{isGoogleUser() ? 'Remove Google Photo' : 'Remove Photo'}</span>
+                                  <XMarkIcon className="w-4 h-4 text-gray-900 font-semibold" />
+                                  <span className="text-gray-900 font-semibold">{isGoogleUser() ? 'Remove Google Photo' : 'Remove Photo'}</span>
                                 </button>
                               )}
                               
                               {isGoogleUser() && getProfilePhoto() && (
                                 <div className="p-2 text-xs text-gray-400 border-t border-gray-600 mt-2">
-                                  <p>Currently using Google profile photo</p>
+                                  <p className="text-gray-900 font-semibold">Currently using Google profile photo</p>
                                   <p className="text-yellow-400 mt-1">You can replace it with your own photo</p>
                                 </div>
                               )}
@@ -383,8 +325,8 @@ export default function Profile() {
                   </div>
                   
                   <div className="mt-4">
-                    <h1 className="text-2xl font-bold">{user?.name || 'User'}</h1>
-                    <p className="text-gray-400 text-sm">Joined {userStats.joinedDate}</p>
+                    <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>{user?.name || 'User'}</h1>
+                    <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} text-sm`}>Joined {userStats.joinedDate}</p>
                      {isGoogleUser() && (
                        <p className="text-green-400 text-sm">✓ Google Account</p>
                      )}
@@ -404,7 +346,7 @@ export default function Profile() {
                 
 
                 {/* Statistics Section */}
-                <div className={`${cardBg} p-6 rounded-lg border ${border} mb-6`}>
+                <div className={`p-6 rounded-lg border ${border} mb-6`}>
                   <h2 className="text-xl font-bold mb-4">Statistics</h2>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-gray-700 p-4 rounded-lg">
@@ -435,7 +377,7 @@ export default function Profile() {
                 </div>
 
                 {/* Achievements Section */}
-                <div className={`${cardBg} p-6 rounded-lg border ${border}`}>
+                <div className={`p-6 rounded-lg border ${border}`}>
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-xl font-bold">Achievements</h2>
                     <button className="text-blue-400 hover:text-blue-300 text-sm">
@@ -458,13 +400,62 @@ export default function Profile() {
                       </div>
                     ))}
                   </div>
-                </div>
-              </div>
+                                 </div>
 
-              {/* Right Sidebar */}
+                 {/* Minimal Footer */}
+                 <div className="mt-12 mb-8">
+                   <div className={`p-6 rounded-lg border ${border}`}>
+                     <div className="flex flex-col md:flex-row justify-between items-center">
+                       <div className="flex items-center space-x-4 mb-4 md:mb-0">
+                         <div className="flex items-center space-x-3">
+                           <div className="relative">
+                             <div className="w-8 h-8 bg-gradient-to-br from-[#00CC00] to-[#00AA00] rounded-lg flex items-center justify-center shadow-md">
+                               <span className="text-white font-black text-sm">E</span>
+                             </div>
+                             <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-br from-[#FFC107] to-[#FF9800] rounded-full animate-pulse"></div>
+                             <div className="absolute -bottom-0.5 -left-0.5 w-2 h-2 bg-[#00CC00]/20 rounded-full animate-ping"></div>
+                           </div>
+                           <span className="font-black text-lg text-[#00CC00]">EchoAid</span>
+                         </div>
+                         <span className="text-gray-400 text-sm">
+                           © 2024 EchoAid. All rights reserved.
+                         </span>
+                       </div>
+                       <div className="flex items-center space-x-6 text-sm">
+                         <Link to="/about" className="text-gray-400 hover:text-green-400 transition-colors">
+                           About
+                         </Link>
+                         <Link to="/blog" className="text-gray-400 hover:text-green-400 transition-colors">
+                           Blog
+                         </Link>
+                         <Link to="/store" className="text-gray-400 hover:text-green-400 transition-colors">
+                           Store
+                         </Link>
+                         <Link to="/efficacy" className="text-gray-400 hover:text-green-400 transition-colors">
+                           Efficacy
+                         </Link>
+                         <Link to="/careers" className="text-gray-400 hover:text-green-400 transition-colors">
+                           Careers
+                         </Link>
+                         <Link to="/investors" className="text-gray-400 hover:text-green-400 transition-colors">
+                           Investors
+                         </Link>
+                         <Link to="/terms" className="text-gray-400 hover:text-green-400 transition-colors">
+                           Terms
+                         </Link>
+                         <Link to="/privacy" className="text-gray-400 hover:text-green-400 transition-colors">
+                           Privacy
+                         </Link>
+                       </div>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+
+               {/* Right Sidebar */}
               <div className="w-80 p-4 space-y-4">
                 {/* Top Bar - User Stats/Currency */}
-                <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                <div className={`p-4 rounded-lg border ${border}`}>
                   <div className="flex items-center justify-between">
 
                     <div className="flex items-center space-x-2">
@@ -484,7 +475,7 @@ export default function Profile() {
                 </div>
 
                 {/* Following/Followers Tabs */}
-                <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                <div className={`p-4 rounded-lg border ${border}`}>
                   <div className="flex space-x-4 mb-4">
                     <button 
                       onClick={() => setActiveTab('following')}
@@ -516,7 +507,7 @@ export default function Profile() {
                 </div>
 
                 {/* Social Connection Prompt */}
-                <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                <div className={`p-4 rounded-lg border ${border}`}>
                   <div className="text-center py-6">
                     <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-blue-500 rounded-full mx-auto mb-4 flex items-center justify-center">
                       <HandRaisedIcon className="w-10 h-10 text-white" />
@@ -528,7 +519,7 @@ export default function Profile() {
                 </div>
 
                 {/* Add Friends Section */}
-                <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                <div className={`p-4 rounded-lg border ${border}`}>
                   <h3 className="font-semibold mb-3">Add friends</h3>
                   <div className="space-y-2">
                     <button className="flex items-center justify-between w-full p-3 hover:bg-gray-700 rounded-lg transition-colors">
@@ -548,19 +539,7 @@ export default function Profile() {
                   </div>
                 </div>
 
-                {/* Footer Links */}
-                <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <Link to="/about" className="text-gray-400 hover:text-green-400 transition-colors">ABOUT</Link>
-                    <Link to="/blog" className="text-gray-400 hover:text-green-400 transition-colors">BLOG</Link>
-                    <Link to="/store" className="text-gray-400 hover:text-green-400 transition-colors">STORE</Link>
-                    <Link to="/efficacy" className="text-gray-400 hover:text-green-400 transition-colors">EFFICACY</Link>
-                    <Link to="/careers" className="text-gray-400 hover:text-green-400 transition-colors">CAREERS</Link>
-                    <Link to="/investors" className="text-gray-400 hover:text-green-400 transition-colors">INVESTORS</Link>
-                    <Link to="/terms" className="text-gray-400 hover:text-green-400 transition-colors">TERMS</Link>
-                    <Link to="/privacy" className="text-gray-400 hover:text-green-400 transition-colors">PRIVACY</Link>
-                  </div>
-                </div>
+
               </div>
             </div>
           </div>

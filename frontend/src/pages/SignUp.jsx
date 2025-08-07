@@ -13,6 +13,7 @@ export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [showLoadingPage, setShowLoadingPage] = useState(false);
   const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState({});
   
@@ -85,6 +86,12 @@ export default function SignUp() {
         throw new Error(data.message || 'Signup failed. Please try again.');
       }
 
+      // Show loading page
+      setShowLoadingPage(true);
+      
+      // Simulate a brief loading time for better UX
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       // Redirect to OTP verification page with tempUserId
       navigate('/verify-email', { 
         state: { tempUserId: data.tempUserId },
@@ -117,6 +124,21 @@ export default function SignUp() {
       setIsGoogleLoading(false);
     }
   };
+
+  // Loading page
+  if (showLoadingPage) {
+    return (
+      <div className={`min-h-screen ${bg} ${text} flex items-center justify-center p-4`}>
+        <div className="text-center">
+          <div className="w-20 h-20 bg-gradient-to-br from-[#00CC00] to-[#00AA00] rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Creating your account...</h2>
+          <p className="text-gray-400">Please wait while we set up your profile</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen ${bg} ${text} flex items-center justify-center p-4`}>
