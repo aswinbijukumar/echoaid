@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../context/AuthContext';
+import PasswordStrength from '../components/PasswordStrength';
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
@@ -12,10 +12,11 @@ export default function SignUp() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState({});
   
   const { darkMode } = useTheme();
-  const { signup } = useAuth();
   const navigate = useNavigate();
 
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
@@ -30,17 +31,67 @@ export default function SignUp() {
       [e.target.name]: e.target.value
     });
     setError('');
+    setValidationErrors({});
+  };
+
+  const validatePassword = (password) => {
+    const errors = [];
+    if (password.length < 8) errors.push('At least 8 characters');
+    if (!/[A-Z]/.test(password)) errors.push('One uppercase letter');
+    if (!/[a-z]/.test(password)) errors.push('One lowercase letter');
+    if (!/\d/.test(password)) errors.push('One number');
+    if (!/[@$!%*?&]/.test(password)) errors.push('One special character (@$!%*?&)');
+    return errors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setValidationErrors({});
+
+    // Client-side validation
+    const passwordErrors = validatePassword(formData.password);
+    if (passwordErrors.length > 0) {
+      setValidationErrors({ password: passwordErrors.join(', ') });
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      await signup(formData);
-      navigate('/dashboard');
+      console.log('Submitting signup:', formData); // Debug log
+      
+      const response = await fetch('http://localhost:5000/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+      console.log('Signup response:', data); // Debug log
+
+      if (!response.ok) {
+        // Handle validation errors from server
+        if (data.errors) {
+          const errors = {};
+          data.errors.forEach(err => {
+            errors[err.field] = err.message;
+          });
+          setValidationErrors(errors);
+          throw new Error('Please fix the validation errors');
+        }
+        throw new Error(data.message || 'Signup failed. Please try again.');
+      }
+
+      // Redirect to OTP verification page with tempUserId
+      navigate('/verify-email', { 
+        state: { tempUserId: data.tempUserId },
+        replace: true 
+      });
     } catch (err) {
+      console.error('Signup error:', err); // Debug log
       setError(err.message || 'Signup failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -48,7 +99,7 @@ export default function SignUp() {
   };
 
   const handleGoogleSignup = async () => {
-    setIsLoading(true);
+    setIsGoogleLoading(true);
     setError('');
     
     try {
@@ -63,7 +114,7 @@ export default function SignUp() {
     } catch (error) {
       console.error('Google signup error:', error);
       setError('Google signup failed. Please try again.');
-      setIsLoading(false);
+      setIsGoogleLoading(false);
     }
   };
 
@@ -127,7 +178,9 @@ export default function SignUp() {
                 value={formData.password}
                 onChange={handleInputChange}
                 placeholder="Password"
-                className={`w-full px-4 py-3 pr-12 ${inputBg} ${border} border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00CC00] focus:border-transparent transition-colors`}
+                className={`w-full px-4 py-3 pr-12 ${inputBg} ${border} border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00CC00] focus:border-transparent transition-colors ${
+                  validationErrors.password ? 'border-red-500' : ''
+                }`}
                 required
               />
               <button
@@ -138,6 +191,26 @@ export default function SignUp() {
                 {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
               </button>
             </div>
+
+            {/* Password Strength Indicator */}
+            <PasswordStrength password={formData.password} />
+
+            {/* Field-specific Error Messages */}
+            {validationErrors.name && (
+              <div className="text-red-400 text-sm">
+                {validationErrors.name}
+              </div>
+            )}
+            {validationErrors.email && (
+              <div className="text-red-400 text-sm">
+                {validationErrors.email}
+              </div>
+            )}
+            {validationErrors.password && (
+              <div className="text-red-400 text-sm">
+                {validationErrors.password}
+              </div>
+            )}
 
             {/* Error Message */}
             {error && (
@@ -166,7 +239,7 @@ export default function SignUp() {
           {/* Google Signup */}
           <button
             onClick={handleGoogleSignup}
-            disabled={isLoading}
+            disabled={isGoogleLoading}
             className="w-full bg-white text-gray-800 font-semibold py-3 px-4 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center border border-gray-300 shadow-sm"
           >
             <div className="w-6 h-6 mr-3">
@@ -177,7 +250,7 @@ export default function SignUp() {
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
             </div>
-            {isLoading ? (
+            {isGoogleLoading ? (
               <span className="flex items-center">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
                 Connecting to Google...

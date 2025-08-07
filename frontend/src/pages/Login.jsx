@@ -14,7 +14,7 @@ export default function Login() {
   const [error, setError] = useState('');
   
   const { darkMode } = useTheme();
-  const { login } = useAuth();
+  const { setUser, setToken } = useAuth();
   const navigate = useNavigate();
 
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
@@ -37,7 +37,24 @@ export default function Login() {
     setError('');
 
     try {
-      await login(formData);
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed. Please try again.');
+      }
+
+      // Login success - user is verified
+      setUser(data.user);
+      setToken(data.token);
+      localStorage.setItem('token', data.token);
       navigate('/dashboard');
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');

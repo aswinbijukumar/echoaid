@@ -23,7 +23,15 @@ const userSchema = new mongoose.Schema({
     required: function() {
       return !this.googleId; // Only required if not using Google OAuth
     },
-    minlength: [6, 'Password must be at least 6 characters'],
+    minlength: [8, 'Password must be at least 8 characters'],
+    validate: {
+      validator: function(password) {
+        // At least 8 characters, 1 uppercase, 1 lowercase, 1 number, 1 special character
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        return passwordRegex.test(password);
+      },
+      message: 'Password must contain at least 8 characters, including uppercase, lowercase, number, and special character'
+    },
     select: false
   },
   googleId: {
@@ -37,7 +45,7 @@ const userSchema = new mongoose.Schema({
   },
   isEmailVerified: {
     type: Boolean,
-    default: false
+    default: true // All users in database are verified
   },
   resetPasswordToken: String,
   resetPasswordExpire: Date,
@@ -75,8 +83,8 @@ userSchema.methods.getResetPasswordToken = function() {
     .update(resetToken)
     .digest('hex');
 
-  // Set expire
-  this.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+  // Set expire (1 hour instead of 10 minutes)
+  this.resetPasswordExpire = Date.now() + 60 * 60 * 1000; // 1 hour
 
   return resetToken;
 };
