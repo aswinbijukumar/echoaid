@@ -408,6 +408,8 @@ export const googleAuthCallback = async (req, res) => {
 
     const userData = await userInfoResponse.json();
     const { email, name, picture, id: googleId } = userData;
+    
+    console.log('Google user data:', { email, name, hasPicture: !!picture, googleId });
 
     // Check if user exists
     let user = await User.findOne({ email });
@@ -418,6 +420,7 @@ export const googleAuthCallback = async (req, res) => {
       user.avatar = picture;
       user.lastLogin = Date.now();
       await user.save();
+      console.log('Updated existing user with Google data:', { userId: user._id, avatar: user.avatar });
     } else {
       // Create new user
       user = await User.create({
@@ -428,6 +431,7 @@ export const googleAuthCallback = async (req, res) => {
         isEmailVerified: true,
         password: crypto.randomBytes(32).toString('hex') // Generate random password for Google users
       });
+      console.log('Created new user with Google data:', { userId: user._id, avatar: user.avatar });
     }
 
     // Generate token
@@ -640,6 +644,96 @@ The EchoAid Team
     res.status(500).json({
       success: false,
       message: 'Failed to send test email. Check email configuration.'
+    });
+  }
+}; 
+
+// @desc    Update profile photo
+// @route   PUT /api/auth/profile-photo
+// @access  Private
+export const updateProfilePhoto = async (req, res) => {
+  try {
+    const { photoUrl } = req.body;
+    const userId = req.user.id;
+
+    if (!photoUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a photo URL'
+      });
+    }
+
+    // Validate URL format (allow both http/https URLs and data URLs)
+    if (!photoUrl.startsWith('data:image/') && !photoUrl.startsWith('http://') && !photoUrl.startsWith('https://')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid photo URL or data URL'
+      });
+    }
+
+    // Update user's avatar
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { avatar: photoUrl },
+      { new: true, runValidators: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile photo updated successfully',
+      data: {
+        avatar: user.avatar
+      }
+    });
+  } catch (error) {
+    console.error('Update profile photo error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+// @desc    Remove profile photo
+// @route   DELETE /api/auth/profile-photo
+// @access  Private
+export const removeProfilePhoto = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Update user's avatar to empty string
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { avatar: '' },
+      { new: true, runValidators: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile photo removed successfully',
+      data: {
+        avatar: user.avatar
+      }
+    });
+  } catch (error) {
+    console.error('Remove profile photo error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 }; 

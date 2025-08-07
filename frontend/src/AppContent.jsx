@@ -8,6 +8,7 @@ import TestEmail from './pages/TestEmail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
+import Profile from './pages/Profile';
 import Dictionary from './pages/Dictionary';
 import Forum from './pages/Forum';
 import Quiz from './pages/Quiz';
@@ -27,6 +28,7 @@ function AppContent() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:resetToken" element={<ResetPassword />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/dictionary" element={<Dictionary />} />
           <Route path="/forum" element={<Forum />} />
           <Route path="/quiz" element={<Quiz />} />
