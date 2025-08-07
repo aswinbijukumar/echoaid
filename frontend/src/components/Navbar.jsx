@@ -17,16 +17,16 @@ function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3 group">
+          <Link to="/" className="flex items-center space-x-4 group">
             <div className="relative">
-              <div className="w-12 h-12 bg-gradient-to-br from-[#00CC00] to-[#00AA00] rounded-2xl flex items-center justify-center shadow-xl group-hover:shadow-2xl transition-all duration-300 group-hover:scale-110">
-                <span className="text-white font-black text-xl">E</span>
+              <div className="w-14 h-14 bg-gradient-to-br from-[#00CC00] to-[#00AA00] rounded-2xl flex items-center justify-center shadow-xl group-hover:shadow-2xl transition-all duration-300 group-hover:scale-110 transform hover:-translate-y-1">
+                <span className="text-white font-black text-2xl">E</span>
               </div>
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-[#FFC107] rounded-full animate-pulse shadow-lg"></div>
+              <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-br from-[#FFC107] to-[#FF9800] rounded-full animate-pulse shadow-lg group-hover:animate-bounce transition-all duration-300"></div>
+              <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-[#00CC00]/20 rounded-full animate-ping"></div>
             </div>
             <div className="flex flex-col">
-              <span className="font-black text-3xl text-[#00CC00] leading-none">EchoAid</span>
-              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Learn • Connect • Grow</span>
+              <span className="font-black text-4xl text-[#00CC00] leading-none group-hover:text-[#00AA00] transition-colors duration-300">EchoAid</span>
             </div>
           </Link>
 

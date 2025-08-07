@@ -9,8 +9,9 @@ dotenv.config({ path: './config.env' });
 
 const app = express();
 
-// Body parser
-app.use(express.json());
+// Body parser - increase limit for image uploads
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Enable CORS
 app.use(cors({
@@ -34,6 +35,8 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+
 
 // Error handling middleware
 app.use((err, req, res, next) => {

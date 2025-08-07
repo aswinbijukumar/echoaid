@@ -14,6 +14,7 @@ export function AuthProvider({ children }) {
     const checkAuth = async () => {
       if (token) {
         try {
+          console.log('Checking auth with token:', token.substring(0, 20) + '...'); // Debug log
           const response = await fetch(`${API_BASE_URL}/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
@@ -22,8 +23,10 @@ export function AuthProvider({ children }) {
           
           if (response.ok) {
             const data = await response.json();
+            console.log('User data fetched:', data.user); // Debug log
             setUser(data.user);
           } else {
+            console.log('Auth check failed, removing token'); // Debug log
             // Token is invalid, remove it
             localStorage.removeItem('token');
             setToken(null);
@@ -41,104 +44,88 @@ export function AuthProvider({ children }) {
   }, [token]);
 
   const login = async (credentials) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(credentials)
-      });
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(credentials)
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (!response.ok) {
-        // Check if user needs email verification
-        if (data.needsVerification && data.userId) {
-          throw new Error('EMAIL_VERIFICATION_REQUIRED');
-        }
-        throw new Error(data.message || 'Login failed');
+    if (!response.ok) {
+      // Check if user needs email verification
+      if (data.needsVerification && data.userId) {
+        throw new Error('EMAIL_VERIFICATION_REQUIRED');
       }
-
-      setUser(data.user);
-      setToken(data.token);
-      localStorage.setItem('token', data.token);
-      return data;
-    } catch (error) {
-      throw error;
+      throw new Error(data.message || 'Login failed');
     }
+
+    setUser(data.user);
+    setToken(data.token);
+    localStorage.setItem('token', data.token);
+    return data;
   };
 
   const signup = async (userData) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(userData)
-      });
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(userData)
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Signup failed');
-      }
-
-      setUser(data.user);
-      setToken(data.token);
-      localStorage.setItem('token', data.token);
-      return data;
-    } catch (error) {
-      throw error;
+    if (!response.ok) {
+      throw new Error(data.message || 'Signup failed');
     }
+
+    setUser(data.user);
+    setToken(data.token);
+    localStorage.setItem('token', data.token);
+    return data;
   };
 
   const googleAuth = async (googleToken) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/google`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ token: googleToken })
-      });
+    const response = await fetch(`${API_BASE_URL}/auth/google`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ token: googleToken })
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Google authentication failed');
-      }
-
-      setUser(data.user);
-      setToken(data.token);
-      localStorage.setItem('token', data.token);
-      return data;
-    } catch (error) {
-      throw error;
+    if (!response.ok) {
+      throw new Error(data.message || 'Google authentication failed');
     }
+
+    setUser(data.user);
+    setToken(data.token);
+    localStorage.setItem('token', data.token);
+    return data;
   };
 
   const forgotPassword = async (email) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/forgotpassword`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email })
-      });
+    const response = await fetch(`${API_BASE_URL}/auth/forgotpassword`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email })
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Password reset failed');
-      }
-
-      return data;
-    } catch (error) {
-      throw error;
+    if (!response.ok) {
+      throw new Error(data.message || 'Password reset failed');
     }
+
+    return data;
   };
 
   const logout = () => {

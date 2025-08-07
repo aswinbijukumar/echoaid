@@ -153,9 +153,15 @@ export default function Dashboard() {
         {/* Fixed Left Sidebar - Navigation */}
         <div className="fixed left-0 top-0 h-screen w-64 bg-[#1A1A1A] z-50 pt-4">
           <div className="p-4">
-            <div className="flex items-center space-x-2 mb-6">
-              <HandRaisedIcon className="w-6 h-6 text-green-400" />
-              <span className="font-bold text-lg">EchoAid</span>
+            <div className="flex items-center space-x-4 mb-6">
+              <div className="relative">
+                <div className="w-10 h-10 bg-gradient-to-br from-[#00CC00] to-[#00AA00] rounded-xl flex items-center justify-center shadow-lg">
+                  <span className="text-white font-black text-lg">E</span>
+                </div>
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-br from-[#FFC107] to-[#FF9800] rounded-full animate-pulse"></div>
+                <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-[#00CC00]/20 rounded-full animate-ping"></div>
+              </div>
+              <span className="font-black text-xl text-[#00CC00]">EchoAid</span>
             </div>
             
             <nav className="space-y-2">
@@ -330,9 +336,15 @@ export default function Dashboard() {
                   <div className={`${cardBg} p-6 rounded-lg border ${border}`}>
                     <div className="flex flex-col md:flex-row justify-between items-center">
                       <div className="flex items-center space-x-4 mb-4 md:mb-0">
-                        <div className="flex items-center space-x-2">
-                          <HandRaisedIcon className="w-5 h-5 text-green-400" />
-                          <span className="font-semibold">EchoAid</span>
+                        <div className="flex items-center space-x-3">
+                          <div className="relative">
+                            <div className="w-8 h-8 bg-gradient-to-br from-[#00CC00] to-[#00AA00] rounded-lg flex items-center justify-center shadow-md">
+                              <span className="text-white font-black text-sm">E</span>
+                            </div>
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-br from-[#FFC107] to-[#FF9800] rounded-full animate-pulse"></div>
+                            <div className="absolute -bottom-0.5 -left-0.5 w-2 h-2 bg-[#00CC00]/20 rounded-full animate-ping"></div>
+                          </div>
+                          <span className="font-black text-lg text-[#00CC00]">EchoAid</span>
                         </div>
                         <span className="text-gray-400 text-sm">
                           © 2024 EchoAid. All rights reserved.

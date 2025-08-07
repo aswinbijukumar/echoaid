@@ -9,7 +9,9 @@ import {
   googleAuthCallback,
   forgotPassword,
   resetPassword,
-  getMe
+  getMe,
+  updateProfilePhoto,
+  removeProfilePhoto
 } from '../controllers/authController.js';
 import { protect } from '../middleware/auth.js';
 import { 
@@ -41,5 +43,9 @@ router.put('/resetpassword/:resettoken', passwordResetRateLimit, validatePasswor
 
 // Protected routes
 router.get('/me', protect, getMe);
+
+// Profile photo management
+router.put('/profile-photo', protect, updateProfilePhoto);
+router.delete('/profile-photo', protect, removeProfilePhoto);
 
 export default router; 
