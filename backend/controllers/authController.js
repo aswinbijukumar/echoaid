@@ -6,6 +6,9 @@ import sendEmail from '../utils/sendEmail.js';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs'; // Added bcrypt import
 
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+
 // Generate JWT Token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -186,7 +189,9 @@ export const verifyEmail = async (req, res) => {
         name: user.name,
         email: user.email,
         avatar: user.avatar,
-        isEmailVerified: user.isEmailVerified
+        isEmailVerified: user.isEmailVerified,
+        role: user.role,
+        permissions: user.permissions
       }
     });
   } catch (error) {
@@ -334,7 +339,9 @@ export const login = async (req, res) => {
         name: user.name,
         email: user.email,
         avatar: user.avatar,
-        isEmailVerified: user.isEmailVerified
+        isEmailVerified: user.isEmailVerified,
+        role: user.role,
+        permissions: user.permissions
       }
     });
   } catch (error) {
@@ -354,7 +361,7 @@ export const googleAuthInitiate = async (req, res) => {
     const oauth2Client = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      `http://localhost:5000/api/auth/google/callback`
+      `${BACKEND_URL}/api/auth/google/callback`
     );
 
     const authUrl = oauth2Client.generateAuthUrl({
@@ -368,10 +375,7 @@ export const googleAuthInitiate = async (req, res) => {
     res.redirect(authUrl);
   } catch (error) {
     console.error('Google OAuth initiate error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to initiate Google OAuth'
-    });
+    res.redirect(`${FRONTEND_URL}/login?error=google_auth_failed`);
   }
 };
 
@@ -383,13 +387,13 @@ export const googleAuthCallback = async (req, res) => {
     const { code } = req.query;
     
     if (!code) {
-      return res.redirect(`http://localhost:3000/login?error=google_auth_failed`);
+      return res.redirect(`${FRONTEND_URL}/login?error=google_auth_failed`);
     }
 
     const oauth2Client = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      `http://localhost:5000/api/auth/google/callback`
+      `${BACKEND_URL}/api/auth/google/callback`
     );
 
     const { tokens } = await oauth2Client.getToken(code);
@@ -409,8 +413,6 @@ export const googleAuthCallback = async (req, res) => {
     const userData = await userInfoResponse.json();
     const { email, name, picture, id: googleId } = userData;
     
-    console.log('Google user data:', { email, name, hasPicture: !!picture, googleId });
-
     // Check if user exists
     let user = await User.findOne({ email });
 
@@ -420,7 +422,6 @@ export const googleAuthCallback = async (req, res) => {
       user.avatar = picture;
       user.lastLogin = Date.now();
       await user.save();
-      console.log('Updated existing user with Google data:', { userId: user._id, avatar: user.avatar });
     } else {
       // Create new user
       user = await User.create({
@@ -431,14 +432,13 @@ export const googleAuthCallback = async (req, res) => {
         isEmailVerified: true,
         password: crypto.randomBytes(32).toString('hex') // Generate random password for Google users
       });
-      console.log('Created new user with Google data:', { userId: user._id, avatar: user.avatar });
     }
 
     // Generate token
     const jwtToken = generateToken(user._id);
 
-    // Redirect to frontend with token
-    res.redirect(`http://localhost:3000/auth/google/success?token=${jwtToken}`);
+    // Redirect to frontend with token and notice
+    res.redirect(`${FRONTEND_URL}/auth/google/success?token=${jwtToken}&notice=login_success`);
   } catch (error) {
     console.error('Google OAuth callback error:', error);
     
@@ -452,7 +452,7 @@ export const googleAuthCallback = async (req, res) => {
       errorMessage = 'google_network_error';
     }
     
-    res.redirect(`http://localhost:3000/login?error=${errorMessage}`);
+    res.redirect(`${FRONTEND_URL}/login?error=${errorMessage}`);
   }
 };
 
@@ -592,7 +592,9 @@ export const getMe = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        avatar: user.avatar
+        avatar: user.avatar,
+        role: user.role,
+        permissions: user.permissions
       }
     });
   } catch (error) {

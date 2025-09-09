@@ -11,6 +11,7 @@ export default function Login() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showLoadingPage, setShowLoadingPage] = useState(false);
   const [error, setError] = useState('');
   
@@ -96,7 +97,7 @@ export default function Login() {
   }, []);
 
   const handleGoogleLogin = async () => {
-    setIsLoading(true);
+    setIsGoogleLoading(true);
     setError('');
     
     try {
@@ -111,7 +112,7 @@ export default function Login() {
     } catch (error) {
       console.error('Google login error:', error);
       setError('Google login failed. Please try again.');
-      setIsLoading(false);
+      setIsGoogleLoading(false);
     }
   };
 
@@ -228,7 +229,7 @@ export default function Login() {
           <div className="mt-8">
             <button
               onClick={handleGoogleLogin}
-              disabled={isLoading}
+              disabled={isGoogleLoading}
               className="w-full bg-white text-gray-800 font-semibold py-4 px-6 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center border border-gray-300 shadow-lg hover:shadow-xl"
             >
               <div className="w-7 h-7 mr-4">
@@ -239,7 +240,7 @@ export default function Login() {
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
               </div>
-              {isLoading ? (
+              {isGoogleLoading ? (
                 <span className="flex items-center text-lg">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-600 mr-3"></div>
                   Connecting to Google...

@@ -8,6 +8,7 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "populate-db": "node scripts/populateSignsDatabase.js",
+    "create-admin": "node scripts/createSuperAdmin.js",
     "db:health": "node -e \"import('./config/database.js').then(db => db.checkDatabaseHealth()).then(console.log)\""
   },
   "dependencies": {
@@ -15,12 +16,14 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "express-fileupload": "^1.4.3",
     "express-rate-limit": "^8.0.1",
     "express-validator": "^7.2.1",
     "google-auth-library": "^9.0.0",
     "googleapis": "^155.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.3",
+    "multer": "^2.0.2",
     "nodemailer": "^6.9.7",
     "sharp": "^0.33.5"
   },

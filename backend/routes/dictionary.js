@@ -3,11 +3,49 @@ import path from 'path';
 import fs from 'fs';
 import sharp from 'sharp';
 import { fileURLToPath } from 'url';
+import Sign from '../microservices/dictionary/models/Sign.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = express.Router();
+
+// New: Serve signs from database (reflects Admin changes)
+router.get('/db/signs', async (req, res) => {
+  try {
+    const { category, q, limit = 200 } = req.query;
+    const filter = { isActive: true };
+    if (category) filter.category = category;
+    if (q) {
+      filter.$or = [
+        { word: { $regex: q, $options: 'i' } },
+        { description: { $regex: q, $options: 'i' } },
+        { tags: { $in: [new RegExp(q, 'i')] } }
+      ];
+    }
+
+    const signs = await Sign.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
+
+    const mapped = signs.map(sign => ({
+      id: String(sign._id),
+      word: sign.word,
+      category: sign.category,
+      difficulty: sign.difficulty,
+      description: sign.description,
+      imageUrl: sign.imageUrl || sign.imagePath,
+      thumbnailUrl: sign.thumbnailUrl || sign.imageUrl || sign.imagePath,
+      isActive: sign.isActive,
+      createdAt: sign.createdAt
+    }));
+
+    res.json({ signs: mapped });
+  } catch (error) {
+    console.error('Error getting DB signs:', error);
+    res.status(500).json({ error: 'Failed to get signs from database' });
+  }
+});
 
 // Serve optimized sign images
 router.get('/signs/:category/:imageName', async (req, res) => {

@@ -24,6 +24,8 @@ export function AuthProvider({ children }) {
           if (response.ok) {
             const data = await response.json();
             console.log('User data fetched:', data.user); // Debug log
+            console.log('User role:', data.user?.role); // Debug role
+            console.log('User permissions:', data.user?.permissions); // Debug permissions
             setUser(data.user);
           } else {
             console.log('Auth check failed, removing token'); // Debug log
@@ -62,6 +64,8 @@ export function AuthProvider({ children }) {
       throw new Error(data.message || 'Login failed');
     }
 
+    console.log('Login response user data:', data.user); // Debug log
+    console.log('Login response user role:', data.user?.role); // Debug role
     setUser(data.user);
     setToken(data.token);
     localStorage.setItem('token', data.token);

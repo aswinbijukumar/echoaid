@@ -108,14 +108,27 @@ signSchema.index({ category: 1, difficulty: 1 });
 signSchema.index({ tags: 1 });
 signSchema.index({ 'stats.views': -1 });
 
+function deriveCategoryFromPath(p) {
+  if (!p) return null;
+  // Expect paths like /assets/signs/<category>/<filename>
+  const parts = p.split('/').filter(Boolean);
+  const idx = parts.findIndex(seg => seg === 'signs');
+  if (idx >= 0 && parts[idx + 1]) return parts[idx + 1];
+  return null;
+}
+
 // Virtual for full image URL
 signSchema.virtual('imageUrl').get(function() {
-  return `/api/dictionary/signs/${this.category}/${this.imagePath.split('/').pop()}`;
+  const fileName = this.imagePath ? this.imagePath.split('/').pop() : '';
+  const actualCategory = deriveCategoryFromPath(this.imagePath) || this.category;
+  return `/api/dictionary/signs/${actualCategory}/${fileName}`;
 });
 
 // Virtual for thumbnail URL
 signSchema.virtual('thumbnailUrl').get(function() {
-  return `/api/dictionary/signs/${this.category}/${this.thumbnailPath.split('/').pop()}?width=200&height=200&quality=80`;
+  const fileName = this.thumbnailPath ? this.thumbnailPath.split('/').pop() : (this.imagePath ? this.imagePath.split('/').pop() : '');
+  const actualCategory = deriveCategoryFromPath(this.thumbnailPath) || deriveCategoryFromPath(this.imagePath) || this.category;
+  return `/api/dictionary/signs/${actualCategory}/${fileName}?width=200&height=200&quality=80`;
 });
 
 // Ensure virtuals are included in JSON
