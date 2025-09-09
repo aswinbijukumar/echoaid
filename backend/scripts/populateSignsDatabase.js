@@ -19,7 +19,7 @@ mongoose.connect(process.env.MONGODB_URI)
 // Sign data mapping
 const signData = {
   alphabet: {
-    // Numbers 0-9
+    // Numbers 0-10
     '0': { word: 'Zero', description: 'ISL sign for the number zero', difficulty: 'Beginner' },
     '1': { word: 'One', description: 'ISL sign for the number one', difficulty: 'Beginner' },
     '2': { word: 'Two', description: 'ISL sign for the number two', difficulty: 'Beginner' },
@@ -30,6 +30,7 @@ const signData = {
     '7': { word: 'Seven', description: 'ISL sign for the number seven', difficulty: 'Beginner' },
     '8': { word: 'Eight', description: 'ISL sign for the number eight', difficulty: 'Beginner' },
     '9': { word: 'Nine', description: 'ISL sign for the number nine', difficulty: 'Beginner' },
+    '10': { word: 'Ten', description: 'ISL sign for the number ten', difficulty: 'Beginner' },
     // Letters A-Z
     'a': { word: 'A', description: 'ISL sign for the letter A - Make a fist with your thumb on the side of your fingers', difficulty: 'Beginner' },
     'b': { word: 'B', description: 'ISL sign for the letter B - Hold your hand flat with fingers together and thumb tucked', difficulty: 'Beginner' },
@@ -79,34 +80,38 @@ async function populateSignsDatabase() {
       
       console.log(`📁 Found ${imageFiles.length} image files in alphabet folder`);
       
-             for (const file of imageFiles) {
-         // Extract the base name, removing any numbers in parentheses
-         let name = path.parse(file).name.toLowerCase();
-         name = name.replace(/\s*\(\d+\)$/, ''); // Remove "(3)" from "a (3)"
-         
-         const signInfo = signData.alphabet[name];
-         
-         if (signInfo) {
-                       const sign = new Sign({
-              word: signInfo.word,
-              category: 'alphabet',
-              difficulty: signInfo.difficulty,
-              description: signInfo.description,
-              imagePath: `assets/signs/alphabet/${file}`,
-              thumbnailPath: `assets/signs/alphabet/${file}`,
-              tags: [name, 'alphabet', 'letter'],
-              signLanguageType: 'ISL',
-              handDominance: 'right',
-              isActive: true
-            });
-           
-           await sign.save();
-           totalSigns++;
-           console.log(`✅ Added: ${signInfo.word}`);
-         } else {
-           console.log(`⚠️  No data found for: ${name} (from file: ${file})`);
-         }
-       }
+      for (const file of imageFiles) {
+        // Extract the base name, removing any numbers in parentheses
+        let name = path.parse(file).name.toLowerCase();
+        name = name.replace(/\s*\(\d+\)$/, ''); // Remove "(3)" from "a (3)"
+        
+        const signInfo = signData.alphabet[name];
+        
+        if (signInfo) {
+          // Decide category: digits (including multi-digit like 10) -> 'numbers', letters -> 'alphabet'
+          const isDigit = /^\d+$/.test(name);
+          const category = isDigit ? 'numbers' : 'alphabet';
+
+          const sign = new Sign({
+            word: signInfo.word,
+            category,
+            difficulty: signInfo.difficulty,
+            description: signInfo.description,
+            imagePath: `assets/signs/alphabet/${file}`,
+            thumbnailPath: `assets/signs/alphabet/${file}`,
+            tags: [name, category, isDigit ? 'number' : 'letter'],
+            signLanguageType: 'ISL',
+            handDominance: 'right',
+            isActive: true
+          });
+          
+          await sign.save();
+          totalSigns++;
+          console.log(`✅ Added: ${signInfo.word} (${category})`);
+        } else {
+          console.log(`⚠️  No data found for: ${name} (from file: ${file})`);
+        }
+      }
     }
     
     console.log(`\n🎉 Database population completed!`);

@@ -1,5 +1,36 @@
 @import "tailwindcss";
 
+/* Prevent white strip on horizontal scroll and remove default margin */
+html, body, #root {
+  height: 100%;
+}
+html {
+  background-color: #1A1A1A; /* match dashboard dark */
+  /* Firefox */
+  scrollbar-color: #4b5563 #1A1A1A;
+}
+body {
+  margin: 0;
+  background-color: #1A1A1A; /* dark base to match dashboard */
+}
+#root {
+  background-color: transparent; /* inherit page bg */
+}
+
+/* WebKit scrollbars */
+::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+  background-color: #1A1A1A;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #4b5563;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-corner {
+  background: #1A1A1A;
+}
+
 /* Custom Animations */
 @keyframes float {
   0%, 100% {

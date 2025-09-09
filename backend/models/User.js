@@ -26,6 +26,10 @@ const userSchema = new mongoose.Schema({
     minlength: [8, 'Password must be at least 8 characters'],
     validate: {
       validator: function(password) {
+        // Skip validation if password is already hashed (starts with $2a$ or $2b$)
+        if (password.startsWith('$2a$') || password.startsWith('$2b$')) {
+          return true;
+        }
         // At least 8 characters, 1 uppercase, 1 lowercase, 1 number, 1 special character
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
         return passwordRegex.test(password);
@@ -43,6 +47,33 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  role: {
+    type: String,
+    enum: ['user', 'admin', 'super_admin'],
+    default: 'user'
+  },
+  permissions: {
+    manageUsers: {
+      type: Boolean,
+      default: false
+    },
+    manageContent: {
+      type: Boolean,
+      default: false
+    },
+    manageSystem: {
+      type: Boolean,
+      default: false
+    },
+    viewAnalytics: {
+      type: Boolean,
+      default: false
+    },
+    moderateForum: {
+      type: Boolean,
+      default: false
+    }
+  },
   isEmailVerified: {
     type: Boolean,
     default: true // All users in database are verified
@@ -53,7 +84,14 @@ const userSchema = new mongoose.Schema({
   lastLogin: {
     type: Date,
     default: Date.now
-  }
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  assignedSections: [{
+    type: String
+  }]
 }, {
   timestamps: true
 });
@@ -88,5 +126,41 @@ userSchema.methods.getResetPasswordToken = function() {
 
   return resetToken;
 };
+
+// Set permissions based on role
+userSchema.pre('save', function(next) {
+  if (this.isModified('role')) {
+    switch (this.role) {
+      case 'super_admin':
+        this.permissions = {
+          manageUsers: true,
+          manageContent: true,
+          manageSystem: true,
+          viewAnalytics: true,
+          moderateForum: true
+        };
+        break;
+      case 'admin':
+        this.permissions = {
+          manageUsers: false,
+          manageContent: true,
+          manageSystem: false,
+          viewAnalytics: true,
+          moderateForum: true
+        };
+        break;
+      case 'user':
+        this.permissions = {
+          manageUsers: false,
+          manageContent: false,
+          manageSystem: false,
+          viewAnalytics: false,
+          moderateForum: false
+        };
+        break;
+    }
+  }
+  next();
+});
 
 export default mongoose.model('User', userSchema); 

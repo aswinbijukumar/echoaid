@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import RoleBasedRoute from './components/RoleBasedRoute';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
@@ -8,6 +9,8 @@ import TestEmail from './pages/TestEmail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
 import Dictionary from './pages/Dictionary';
 import Forum from './pages/Forum';
@@ -27,7 +30,21 @@ function AppContent() {
           <Route path="/test-email" element={<TestEmail />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:resetToken" element={<ResetPassword />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={
+            <RoleBasedRoute>
+              <Dashboard />
+            </RoleBasedRoute>
+          } />
+          <Route path="/admin" element={
+            <RoleBasedRoute allowedRoles={['admin', 'super_admin']}>
+              <AdminDashboard />
+            </RoleBasedRoute>
+          } />
+          <Route path="/super-admin" element={
+            <RoleBasedRoute allowedRoles={['super_admin']}>
+              <SuperAdminDashboard />
+            </RoleBasedRoute>
+          } />
           <Route path="/profile" element={<Profile />} />
           <Route path="/dictionary" element={<Dictionary />} />
           <Route path="/forum" element={<Forum />} />

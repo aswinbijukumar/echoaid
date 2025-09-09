@@ -9,14 +9,20 @@ import {
   GiftIcon,
   ShoppingBagIcon,
   UserCircleIcon,
-  EllipsisHorizontalIcon
+  ArrowRightOnRectangleIcon,
+  UsersIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
+import { useAuth } from '../context/AuthContext';
 
 export default function Sidebar({ handleLogout }) {
   const { darkMode } = useTheme();
+  const { user } = useAuth();
   const location = useLocation();
-  const links = [
+  
+  // Base links for all users
+  const baseLinks = [
     { to: '/dashboard', label: 'LEARN', icon: AcademicCapIcon },
     { to: '/dictionary', label: 'DICTIONARY', icon: BookOpenIcon },
     { to: '/forum', label: 'COMMUNITY', icon: ChatBubbleLeftRightIcon },
@@ -27,6 +33,35 @@ export default function Sidebar({ handleLogout }) {
     { to: '/shop', label: 'SHOP', icon: ShoppingBagIcon },
     { to: '/profile', label: 'PROFILE', icon: UserCircleIcon },
   ];
+
+  // Admin links
+  const adminLinks = [
+    { to: '/admin', label: 'ADMIN DASHBOARD', icon: ChartBarIcon },
+    { to: '/dictionary', label: 'DICTIONARY', icon: BookOpenIcon },
+    { to: '/forum', label: 'MODERATE FORUM', icon: ChatBubbleLeftRightIcon },
+    { to: '/quiz', label: 'MANAGE QUIZZES', icon: PuzzlePieceIcon },
+    { to: '/accessibility', label: 'SETTINGS', icon: Cog6ToothIcon },
+    { to: '/profile', label: 'PROFILE', icon: UserCircleIcon },
+  ];
+
+  // Super Admin links
+  const superAdminLinks = [
+    { to: '/super-admin', label: 'SUPER ADMIN', icon: ShieldCheckIcon },
+    { to: '/admin', label: 'ADMIN PANEL', icon: ChartBarIcon },
+    { to: '/dictionary', label: 'DICTIONARY', icon: BookOpenIcon },
+    { to: '/forum', label: 'MODERATE FORUM', icon: ChatBubbleLeftRightIcon },
+    { to: '/quiz', label: 'MANAGE QUIZZES', icon: PuzzlePieceIcon },
+    { to: '/accessibility', label: 'SYSTEM SETTINGS', icon: Cog6ToothIcon },
+    { to: '/profile', label: 'PROFILE', icon: UserCircleIcon },
+  ];
+
+  // Choose links based on user role
+  let links = baseLinks;
+  if (user?.role === 'super_admin') {
+    links = superAdminLinks;
+  } else if (user?.role === 'admin') {
+    links = adminLinks;
+  }
   return (
     <div className={`fixed left-0 top-0 h-screen w-64 ${darkMode ? 'bg-[#181C1F]' : 'bg-gray-100'} z-50 pt-4`}>
       <div className="p-4">
@@ -66,10 +101,10 @@ export default function Sidebar({ handleLogout }) {
             <button
               onClick={handleLogout}
               className={`flex items-center space-x-3 p-3 rounded-lg font-semibold w-full transition-colors
-                ${darkMode ? 'text-white hover:bg-[#23272F]' : 'text-gray-900 hover:bg-gray-200'}`}
+                ${darkMode ? 'text-white hover:bg-red-600 hover:bg-opacity-20' : 'text-gray-900 hover:bg-red-100'}`}
             >
-              <EllipsisHorizontalIcon className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} />
-              <span>MORE</span>
+              <ArrowRightOnRectangleIcon className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} />
+              <span>LOGOUT</span>
             </button>
           </div>
         </nav>

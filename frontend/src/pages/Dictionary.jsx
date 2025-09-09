@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   MagnifyingGlassIcon,
   HandRaisedIcon,
@@ -39,7 +39,13 @@ export default function Dictionary() {
   const [showPreview, setShowPreview] = useState(false);
   
   const { darkMode } = useTheme();
-  const { user, handleLogout } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
 
   // Mock user data - in real app, this would come from user context/API
   const userStats = {
@@ -72,25 +78,52 @@ export default function Dictionary() {
       try {
         setLoading(true);
         
-        // Fetch categories
+        // Fetch categories (filesystem-based is fine for list)
         const categoriesResponse = await fetch(`${API_BASE_URL}/api/dictionary/categories`);
         const categoriesData = await categoriesResponse.json();
         
-        if (categoriesData.categories) {
-          setCategories(categoriesData.categories);
+        let fetchedCategories = categoriesData.categories || [];
+        
+        // Ensure Numbers category appears if DB has any numbers
+        try {
+          const numbersResp = await fetch(`${API_BASE_URL}/api/dictionary/db/signs?category=numbers&limit=500`);
+          const numbersData = await numbersResp.json();
+          if (numbersData.signs && numbersData.signs.length > 0 && !fetchedCategories.find(c => c.id === 'numbers')) {
+            fetchedCategories = [
+              ...fetchedCategories,
+              { id: 'numbers', name: 'Numbers', count: numbersData.signs.length }
+            ];
+          }
+        } catch {
+          // Ignore secondary fallback error
         }
         
-        // Fetch all signs initially
-        const signsResponse = await fetch(`${API_BASE_URL}/api/dictionary/signs/alphabet`);
+        setCategories(fetchedCategories);
+        
+        // Fetch all signs from DB (reflects admin changes)
+        const signsResponse = await fetch(`${API_BASE_URL}/api/dictionary/db/signs?limit=500`);
         const signsData = await signsResponse.json();
         
-        if (signsData.signs) {
+        if (signsData.signs && signsData.signs.length > 0) {
           setSigns(signsData.signs);
+        } else {
+          // Fallback to filesystem alphabet
+          const fsResp = await fetch(`${API_BASE_URL}/api/dictionary/signs/alphabet`);
+          const fsData = await fsResp.json();
+          setSigns(fsData.signs || []);
         }
         
       } catch (err) {
         console.error('Error fetching data:', err);
         setError('Failed to load signs. Please try again.');
+        // Fallback attempt
+        try {
+          const fsResp = await fetch(`${API_BASE_URL}/api/dictionary/signs/alphabet`);
+          const fsData = await fsResp.json();
+          setSigns(fsData.signs || []);
+        } catch {
+          // Ignore secondary fallback error
+        }
       } finally {
         setLoading(false);
       }
@@ -106,15 +139,28 @@ export default function Dictionary() {
     const fetchCategorySigns = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${API_BASE_URL}/api/dictionary/signs/${selectedCategory}`);
+        const response = await fetch(`${API_BASE_URL}/api/dictionary/db/signs?category=${encodeURIComponent(selectedCategory)}&limit=500`);
         const data = await response.json();
         
-        if (data.signs) {
+        if (data.signs && data.signs.length > 0) {
           setSigns(data.signs);
+        } else {
+          // Fallback to filesystem for that category
+          const fsResp = await fetch(`${API_BASE_URL}/api/dictionary/signs/${encodeURIComponent(selectedCategory)}`);
+          const fsData = await fsResp.json();
+          setSigns(fsData.signs || []);
         }
       } catch (err) {
         console.error('Error fetching category signs:', err);
         setError('Failed to load signs for this category.');
+        // Fallback attempt
+        try {
+          const fsResp = await fetch(`${API_BASE_URL}/api/dictionary/signs/${encodeURIComponent(selectedCategory)}`);
+          const fsData = await fsResp.json();
+          setSigns(fsData.signs || []);
+        } catch {
+          // Ignore secondary fallback error
+        }
       } finally {
         setLoading(false);
       }
@@ -130,21 +176,34 @@ export default function Dictionary() {
     const searchSigns = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${API_BASE_URL}/api/dictionary/search?q=${encodeURIComponent(searchTerm)}`);
+        const response = await fetch(`${API_BASE_URL}/api/dictionary/db/signs?q=${encodeURIComponent(searchTerm)}&limit=500`);
         const data = await response.json();
         
-        if (data.signs) {
+        if (data.signs && data.signs.length > 0) {
           setSigns(data.signs);
+        } else {
+          // Fallback to filesystem search
+          const fsResp = await fetch(`${API_BASE_URL}/api/dictionary/search?q=${encodeURIComponent(searchTerm)}`);
+          const fsData = await fsResp.json();
+          setSigns(fsData.signs || []);
         }
       } catch (err) {
         console.error('Error searching signs:', err);
         setError('Failed to search signs.');
+        // Fallback attempt
+        try {
+          const fsResp = await fetch(`${API_BASE_URL}/api/dictionary/search?q=${encodeURIComponent(searchTerm)}`);
+          const fsData = await fsResp.json();
+          setSigns(fsData.signs || []);
+        } catch {
+          // Ignore secondary fallback error
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    const timeoutId = setTimeout(searchSigns, 500);
+    const timeoutId = setTimeout(searchSigns, 400);
     return () => clearTimeout(timeoutId);
   }, [searchTerm, API_BASE_URL]);
 
@@ -204,6 +263,7 @@ export default function Dictionary() {
   const categoryIcons = {
     all: { icon: HandRaisedIcon, color: 'bg-green-500' },
     alphabet: { icon: AcademicCapIcon, color: 'bg-blue-500' },
+    numbers: { icon: AcademicCapIcon, color: 'bg-teal-500' },
     phrases: { icon: ChatBubbleLeftRightIcon, color: 'bg-purple-500' },
     family: { icon: UserCircleIcon, color: 'bg-pink-500' },
     activities: { icon: BookOpenIcon, color: 'bg-orange-500' },
