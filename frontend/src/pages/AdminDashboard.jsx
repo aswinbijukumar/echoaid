@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   UsersIcon, 
   ChartBarIcon, 
@@ -12,7 +12,6 @@ import {
   EyeIcon,
   PlusIcon,
   ArrowUpIcon,
-  FireIcon,
   AcademicCapIcon,
   BookOpenIcon,
   ChatBubbleLeftRightIcon,
@@ -28,7 +27,6 @@ import {
   CheckBadgeIcon,
   XMarkIcon,
   ClockIcon,
-  StarIcon,
   ChartPieIcon,
   UserGroupIcon,
   TicketIcon,
@@ -46,29 +44,167 @@ import {
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
+import Modal from '../components/Modal';
 import ContentManagement from '../components/ContentManagement';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import AdminQuizManagement from '../components/AdminQuizManagement';
+import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { Bar, Pie } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
+// Quiz Analytics Section Component
+const QuizAnalyticsSection = () => {
+  const [quizAnalytics, setQuizAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const { token } = useAuth();
+
+  useEffect(() => {
+    const fetchQuizAnalytics = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('http://localhost:5000/api/admin/quiz/dashboard/overview', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setQuizAnalytics(data.data);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching quiz analytics:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuizAnalytics();
+  }, [token]);
+
+  if (loading) {
+    return (
+      <div className="p-6 rounded-lg border border-gray-300 bg-transparent backdrop-blur-sm">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-300 rounded w-1/4 mb-4"></div>
+          <div className="space-y-3">
+            <div className="h-4 bg-gray-300 rounded"></div>
+            <div className="h-4 bg-gray-300 rounded w-5/6"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 rounded-lg border border-gray-300 bg-transparent backdrop-blur-sm">
+      <h4 className="text-lg font-bold mb-4">Quiz Analytics</h4>
+      
+      {/* Quiz Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="p-4 bg-blue-50 rounded-lg">
+          <h5 className="text-sm font-medium text-blue-800">Total Quizzes</h5>
+          <p className="text-2xl font-bold text-blue-600">{quizAnalytics?.overview?.totalQuizzes || 0}</p>
+        </div>
+        <div className="p-4 bg-green-50 rounded-lg">
+          <h5 className="text-sm font-medium text-green-800">Total Attempts</h5>
+          <p className="text-2xl font-bold text-green-600">{quizAnalytics?.overview?.totalAttempts || 0}</p>
+        </div>
+        <div className="p-4 bg-yellow-50 rounded-lg">
+          <h5 className="text-sm font-medium text-yellow-800">Average Score</h5>
+          <p className="text-2xl font-bold text-yellow-600">{Math.round(quizAnalytics?.overview?.averageScore || 0)}%</p>
+        </div>
+        <div className="p-4 bg-purple-50 rounded-lg">
+          <h5 className="text-sm font-medium text-purple-800">Active Quizzes</h5>
+          <p className="text-2xl font-bold text-purple-600">{quizAnalytics?.overview?.activeQuizzes || 0}</p>
+        </div>
+      </div>
+
+      {/* Category Performance Chart */}
+      {quizAnalytics?.categoryStats && quizAnalytics.categoryStats.length > 0 && (
+        <div className="mb-6">
+          <h5 className="text-lg font-semibold mb-4">Performance by Category</h5>
+          <div className="h-64">
+            <Bar
+              data={{
+                labels: quizAnalytics.categoryStats.map(cat => cat._id),
+                datasets: [
+                  {
+                    label: 'Average Score',
+                    data: quizAnalytics.categoryStats.map(cat => Math.round(cat.avgScore || 0)),
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1
+                  }
+                ]
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    position: 'bottom'
+                  }
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Top Performing Quizzes */}
+      {quizAnalytics?.topQuizzes && quizAnalytics.topQuizzes.length > 0 && (
+        <div>
+          <h5 className="text-lg font-semibold mb-4">Top Performing Quizzes</h5>
+          <div className="space-y-2">
+            {quizAnalytics.topQuizzes.map((quiz, index) => (
+              <div key={quiz._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                    {index + 1}
+                  </span>
+                  <span className="font-medium">{quiz.title}</span>
+                </div>
+                <div className="text-sm text-gray-600">
+                  {Math.round(quiz.avgScore || 0)}% avg • {quiz.totalAttempts} attempts
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function AdminDashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [contentItems, setContentItems] = useState([]);
-  const [userQueries, setUserQueries] = useState([]);
-  const [forumPosts, setForumPosts] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [showQuizManagement, setShowQuizManagement] = useState(false);
   
-  // Content Management States
+  // Section Assignment States
+  const [assignedSection] = useState('alphabet');
+  
+  // Mock data states (for features not yet implemented)
+  
+  const [userQueries, setUserQueries] = useState([]);
+  
+  // Modal states for user queries
+  const [selectedQuery, setSelectedQuery] = useState(null);
+  const [showReplyModal, setShowReplyModal] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportNote, setReportNote] = useState('');
+  
+  // Content management modal states
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedContent, setSelectedContent] = useState(null);
   const [uploadForm, setUploadForm] = useState({
     title: '',
     description: '',
@@ -77,32 +213,25 @@ export default function AdminDashboard() {
     file: null,
     filePreview: null
   });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedContent, setSelectedContent] = useState(null);
   const [editForm, setEditForm] = useState({
     title: '',
     description: '',
-    category: '',
-    level: ''
+    category: 'alphabet',
+    level: 'beginner'
   });
-  
-  // User Support States
-  const [selectedQuery, setSelectedQuery] = useState(null);
-  const [showReplyModal, setShowReplyModal] = useState(false);
-  const [replyText, setReplyText] = useState('');
-  
-  // Moderation States
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [reportNote, setReportNote] = useState('');
-  
-  // Section Assignment States
-  const [assignedSection] = useState('alphabet');
-  
-  // Analytics States
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  // Add Admin (Super Admin only)
+  const [showAddAdminModal, setShowAddAdminModal] = useState(false);
+  const [addAdminForm, setAddAdminForm] = useState({ name: '', email: '', password: '' });
   
   const fileInputRef = useRef(null);
   
   const { darkMode } = useTheme();
-  const { user, logout, token } = useAuth();
+  const { logout, token, user: currentUser } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [totalUsersCount, setTotalUsersCount] = useState(0);
   const [activeUsersCount, setActiveUsersCount] = useState(0);
@@ -113,6 +242,17 @@ export default function AdminDashboard() {
   const text = darkMode ? 'text-white' : 'text-[#23272F]';
   const border = darkMode ? 'border-gray-600' : 'border-gray-300';
   const statusBarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
+
+  // Handle URL parameters for tab navigation
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['overview', 'content', 'users', 'analytics'].includes(tab)) {
+      setActiveTab(tab);
+    } else if (!tab) {
+      // Default to overview when no tab parameter is present
+      setActiveTab('overview');
+    }
+  }, [searchParams]);
 
   // Scroll detection
   useEffect(() => {
@@ -138,6 +278,7 @@ export default function AdminDashboard() {
         
         if (response.ok) {
           const data = await response.json();
+          setDashboardData(data.data);
           setContentItemsCount(data.data.totalSigns || 0);
         }
       } catch (error) {
@@ -220,26 +361,23 @@ export default function AdminDashboard() {
       ]);
     };
 
-    const fetchForumPosts = async () => {
-      // Mock forum posts data since the endpoint doesn't exist
-      setForumPosts([
-        {
-          id: 1,
-          title: 'Tips for learning sign language',
-          author: 'signlearner123',
-          status: 'approved',
-          replies: 5,
-          createdAt: new Date(Date.now() - 3600000) // 1 hour ago
-        },
-        {
-          id: 2,
-          title: 'Best practices for teaching',
-          author: 'teacher456',
-          status: 'pending',
-          replies: 2,
-          createdAt: new Date(Date.now() - 7200000) // 2 hours ago
+    
+
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/admin/users', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setUsers(data.data);
         }
-      ]);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      }
     };
 
     if (token) {
@@ -248,13 +386,60 @@ export default function AdminDashboard() {
       fetchUserStats();
       fetchPendingReviews();
       fetchUserQueries();
-      fetchForumPosts();
+      
+      fetchUsers();
     }
   }, [token]);
 
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  // Create Admin (Super Admin only)
+  const handleAddAdminFormChange = (e) => {
+    setAddAdminForm({ ...addAdminForm, [e.target.name]: e.target.value });
+  };
+
+  const handleCreateAdmin = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('http://localhost:5000/api/admin/admins', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ ...addAdminForm, role: 'admin' })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(prev => [data.data, ...prev]);
+        setShowAddAdminModal(false);
+        setAddAdminForm({ name: '', email: '', password: '' });
+      } else {
+        const err = await response.json().catch(() => ({}));
+        alert(err.message || 'Failed to create admin');
+      }
+    } catch (e) {
+      console.error('Create admin failed', e);
+      alert('Create admin failed');
+    }
+  };
+
+  // Content Management Functions
+  const getStatusIcon = (isActive) => {
+    return isActive ? (
+      <span className="text-green-500 flex items-center">
+        <CheckCircleIcon className="w-4 h-4 mr-1" />
+        Active
+      </span>
+    ) : (
+      <span className="text-red-500 flex items-center">
+        <XCircleIcon className="w-4 h-4 mr-1" />
+        Inactive
+      </span>
+    );
   };
 
   // getContentTypeIcon unused
@@ -422,22 +607,7 @@ export default function AdminDashboard() {
   };
 
   // Moderation Functions
-  const handleModeratePost = async (postId, action) => {
-    try {
-      const response = await fetch(`http://localhost:5000/api/support/forum/posts/${postId}/${action}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        setForumPosts(forumPosts.filter(post => post.id !== postId));
-      }
-    } catch (error) {
-      console.error('Error moderating post:', error);
-    }
-  };
+  
 
   const handleReportIssue = async () => {
     try {
@@ -496,10 +666,38 @@ export default function AdminDashboard() {
     );
   }
 
+  // Show quiz management component if selected
+  if (showQuizManagement) {
+    return (
+      <div className={`min-h-screen ${bg} ${text}`}>
+        <div className="flex">
+          <Sidebar handleLogout={handleLogout} />
+          <div className="flex-1 ml-64">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Quiz Management</h1>
+                  <p className="text-gray-600 dark:text-gray-300">Create and manage quizzes</p>
+                </div>
+                <button
+                  onClick={() => setShowQuizManagement(false)}
+                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  Back to Dashboard
+                </button>
+              </div>
+              <AdminQuizManagement />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen ${bg} ${text}`}>
-      {/* Top Status Bar */}
-      <div className={`${statusBarBg} border-b ${border} px-6 py-3`}>
+      {/* Top Status Bar - fixed so it doesn't scroll horizontally */}
+      <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64 fixed top-0 left-0 right-0 z-30`}>
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
             <ShieldCheckIcon className="w-6 h-6 text-blue-500" />
@@ -507,19 +705,13 @@ export default function AdminDashboard() {
           </div>
           
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <FireIcon className="w-5 h-5 text-orange-400" />
-              <span className="font-semibold">Content Management</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <UserCircleIcon className="w-8 h-8 text-gray-300" />
-              <span className="font-semibold">{user?.name || 'Admin'}</span>
-            </div>
+            <TopBarUserAvatar size={8} showName={false} />
           </div>
         </div>
       </div>
-      {/* Full-width divider to visually extend under right header */}
-      <div className={`w-full border-b ${border}`}></div>
+
+      {/* Spacer to offset fixed top bar height */}
+      <div className="h-[52px]"></div>
 
       <div className="flex">
         {/* Fixed Left Sidebar - Navigation */}
@@ -531,39 +723,55 @@ export default function AdminDashboard() {
             <div className="flex">
               {/* Main Content */}
               <div className="flex-1 p-6">
-                {/* Section Header */}
-                <div className="bg-blue-500 text-white p-4 rounded-lg mb-6">
-                  <div className="flex items-center space-x-3">
-                    <ShieldCheckIcon className="w-6 h-6" />
-                    <div>
-                      <h1 className="text-sm font-medium">ADMIN CONTROL PANEL</h1>
-                      <h2 className="text-xl font-bold">Content Management & Analytics</h2>
+                {/* Dynamic Section Header based on active tab */}
+                <div className="mb-6">
+                  {activeTab === 'overview' && (
+                    <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <ChartBarIcon className="w-8 h-8" />
+                        <div>
+                          <h1 className="text-2xl font-bold">Dashboard Overview</h1>
+                          <p className="text-blue-100">System statistics and quick actions</p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* Tab Navigation */}
-                <div className={`flex space-x-1 mb-6 ${darkMode ? 'bg-[#1F2937]' : 'bg-gray-100'} rounded-lg p-1`}>
-                  {[
-                    { id: 'overview', label: 'Overview', icon: ChartBarIcon },
-                    { id: 'content', label: 'Content Management', icon: DocumentTextIcon },
-                    { id: 'support', label: 'User Support', icon: ChatBubbleLeftIcon },
-                    { id: 'moderation', label: 'Forum Moderation', icon: FlagIcon },
-                    { id: 'analytics', label: 'Section Analytics', icon: ChartPieIcon }
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
-                        activeTab === tab.id
-                          ? `${darkMode ? 'bg-[#111827] text-blue-400' : 'bg-white text-blue-500'} shadow-sm`
-                          : `${darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`
-                      }`}
-                    >
-                      <tab.icon className="w-4 h-4" />
-                      <span>{tab.label}</span>
-                    </button>
-                  ))}
+                  )}
+                  
+                  {activeTab === 'content' && (
+                    <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <DocumentTextIcon className="w-8 h-8" />
+                        <div>
+                          <h1 className="text-2xl font-bold">Sign Management</h1>
+                          <p className="text-green-100">Manage sign language dictionary entries</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {activeTab === 'users' && (
+                    <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <UsersIcon className="w-8 h-8" />
+                        <div>
+                          <h1 className="text-2xl font-bold">User Management</h1>
+                          <p className="text-purple-100">Manage user accounts and permissions</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {activeTab === 'analytics' && (
+                    <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <ChartPieIcon className="w-8 h-8" />
+                        <div>
+                          <h1 className="text-2xl font-bold">Section Analytics</h1>
+                          <p className="text-orange-100">View performance and usage data</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                                  {/* Overview Tab */}
@@ -628,7 +836,16 @@ export default function AdminDashboard() {
                          {/* Learning Modules */}
                          <div 
                            onClick={() => setActiveTab('content')}
-                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all cursor-pointer`}
+                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'content' ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                           tabIndex={0}
+                           role="button"
+                           aria-pressed={activeTab === 'content'}
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter' || e.key === ' ') {
+                               e.preventDefault();
+                               setActiveTab('content');
+                             }
+                           }}
                          >
                            <div className="flex items-center space-x-3 mb-3">
                              <AcademicCapIcon className="w-6 h-6 text-blue-500" />
@@ -644,7 +861,15 @@ export default function AdminDashboard() {
                          {/* Dictionary */}
                          <div 
                            onClick={() => window.location.href = '/dictionary'}
-                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all cursor-pointer`}
+                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02]`}
+                           tabIndex={0}
+                           role="button"
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter' || e.key === ' ') {
+                               e.preventDefault();
+                               window.location.href = '/dictionary';
+                             }
+                           }}
                          >
                            <div className="flex items-center space-x-3 mb-3">
                              <BookOpenIcon className="w-6 h-6 text-green-500" />
@@ -659,8 +884,16 @@ export default function AdminDashboard() {
 
                          {/* Quizzes */}
                          <div 
-                           onClick={() => window.location.href = '/quiz'}
-                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all cursor-pointer`}
+                           onClick={() => setShowQuizManagement(true)}
+                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02]`}
+                           tabIndex={0}
+                           role="button"
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter' || e.key === ' ') {
+                               e.preventDefault();
+                               setShowQuizManagement(true);
+                             }
+                           }}
                          >
                            <div className="flex items-center space-x-3 mb-3">
                              <PuzzlePieceIcon className="w-6 h-6 text-purple-500" />
@@ -673,26 +906,21 @@ export default function AdminDashboard() {
                            </div>
                          </div>
 
-                         {/* Forum */}
-                         <div 
-                           onClick={() => setActiveTab('moderation')}
-                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all cursor-pointer`}
-                         >
-                           <div className="flex items-center space-x-3 mb-3">
-                             <ChatBubbleLeftRightIcon className="w-6 h-6 text-orange-500" />
-                             <h4 className="font-semibold">Forum</h4>
-                           </div>
-                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'} mb-3`}>Moderate community discussions</p>
-                           <div className="flex justify-between text-sm">
-                             <span>{forumPosts.length} posts</span>
-                             <span className="text-red-500">Review</span>
-                           </div>
-                         </div>
+                
 
                          {/* User Support */}
                          <div 
                            onClick={() => setActiveTab('support')}
-                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all cursor-pointer`}
+                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'support' ? 'ring-2 ring-pink-500 bg-pink-50 dark:bg-pink-900/20' : ''}`}
+                           tabIndex={0}
+                           role="button"
+                           aria-pressed={activeTab === 'support'}
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter' || e.key === ' ') {
+                               e.preventDefault();
+                               setActiveTab('support');
+                             }
+                           }}
                          >
                            <div className="flex items-center space-x-3 mb-3">
                              <ChatBubbleLeftIcon className="w-6 h-6 text-pink-500" />
@@ -708,7 +936,16 @@ export default function AdminDashboard() {
                          {/* Analytics */}
                          <div 
                            onClick={() => setActiveTab('analytics')}
-                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all cursor-pointer`}
+                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'analytics' ? 'ring-2 ring-red-500 bg-red-50 dark:bg-red-900/20' : ''}`}
+                           tabIndex={0}
+                           role="button"
+                           aria-pressed={activeTab === 'analytics'}
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter' || e.key === ' ') {
+                               e.preventDefault();
+                               setActiveTab('analytics');
+                             }
+                           }}
                          >
                            <div className="flex items-center space-x-3 mb-3">
                              <ChartPieIcon className="w-6 h-6 text-red-500" />
@@ -785,26 +1022,54 @@ export default function AdminDashboard() {
                      {/* Quick Actions */}
                      <div className={`p-6 rounded-lg border ${border} mb-8`}>
                        <h3 className="text-xl font-bold mb-4">Quick Actions</h3>
-                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <button className={`p-4 border rounded-lg ${darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'} transition-colors text-left`}>
-                           <AcademicCapIcon className="w-6 h-6 text-blue-500 mb-2" />
-                           <p className="font-semibold">Create Lesson</p>
-                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Add new learning content</p>
+                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <button 
+                          onClick={() => setActiveTab('content')}
+                          className={`p-4 border rounded-lg transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'content' ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
+                          tabIndex={0}
+                          aria-pressed={activeTab === 'content'}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setActiveTab('content');
+                            }
+                          }}
+                        >
+                           <DocumentTextIcon className="w-6 h-6 text-blue-500 mb-2" />
+                           <p className="font-semibold">Manage Signs</p>
+                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>View and edit sign language content</p>
                          </button>
-                        <button className={`p-4 border rounded-lg ${darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'} transition-colors text-left`}>
-                           <BookOpenIcon className="w-6 h-6 text-green-500 mb-2" />
-                           <p className="font-semibold">Add Signs</p>
-                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Update dictionary</p>
+                        <button 
+                          onClick={() => setActiveTab('users')}
+                          className={`p-4 border rounded-lg transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'users' ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-900/20' : darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
+                          tabIndex={0}
+                          aria-pressed={activeTab === 'users'}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setActiveTab('users');
+                            }
+                          }}
+                        >
+                           <UsersIcon className="w-6 h-6 text-green-500 mb-2" />
+                           <p className="font-semibold">Manage Users</p>
+                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Add and manage users in your section</p>
                          </button>
-                        <button className={`p-4 border rounded-lg ${darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'} transition-colors text-left`}>
-                           <PuzzlePieceIcon className="w-6 h-6 text-purple-500 mb-2" />
-                           <p className="font-semibold">Create Quiz</p>
-                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Build assessments</p>
-                         </button>
-                        <button className={`p-4 border rounded-lg ${darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'} transition-colors text-left`}>
-                           <ChatBubbleLeftRightIcon className="w-6 h-6 text-orange-500 mb-2" />
-                           <p className="font-semibold">Moderate Forum</p>
-                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Review posts</p>
+                        <button 
+                          onClick={() => setActiveTab('analytics')}
+                          className={`p-4 border rounded-lg transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'analytics' ? 'ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-900/20' : darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
+                          tabIndex={0}
+                          aria-pressed={activeTab === 'analytics'}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setActiveTab('analytics');
+                            }
+                          }}
+                        >
+                           <ChartPieIcon className="w-6 h-6 text-purple-500 mb-2" />
+                           <p className="font-semibold">View Analytics</p>
+                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Check section performance</p>
                          </button>
                        </div>
                      </div>
@@ -814,6 +1079,138 @@ export default function AdminDashboard() {
                 {/* Content Management Tab */}
                 {activeTab === 'content' && (
                   <ContentManagement />
+                )}
+
+                {/* User Management Tab */}
+                {activeTab === 'users' && (
+                  <div className={`p-6 rounded-lg border ${border} mb-8`}>
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-xl font-bold">User Management</h3>
+                      {currentUser?.role === 'super_admin' && (
+                        <button
+                          onClick={() => setShowAddAdminModal(true)}
+                          className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                        >
+                          <PlusIcon className="w-5 h-5 mr-2" />
+                          Add Admin
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Current Admin Info */}
+                    {currentUser && (
+                      <div className={`mb-4 p-4 rounded-lg border ${border}`}>
+                        <div className="flex flex-wrap items-center gap-4 text-sm">
+                          <span><span className="font-semibold">You:</span> {currentUser.name || currentUser.email}</span>
+                          <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">{currentUser.role?.replace('_', ' ') || 'user'}</span>
+                          {currentUser.userCode && (
+                            <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200">ID: {currentUser.userCode}</span>
+                          )}
+                          <span className="text-gray-500">Email: {currentUser.email}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className={`border-b ${border}`}>
+                            <th className="text-left py-3 px-4">User</th>
+                            <th className="text-left py-3 px-4">User Code</th>
+                            <th className="text-left py-3 px-4">Role</th>
+                            <th className="text-left py-3 px-4">Assigned Sections</th>
+                            <th className="text-left py-3 px-4">Status</th>
+                            <th className="text-left py-3 px-4">Last Login</th>
+                            <th className="text-left py-3 px-4">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {users.map((userItem) => (
+                            <tr key={userItem._id} className={`border-b ${border} hover:bg-gray-50 ${darkMode ? 'hover:bg-gray-800' : ''}`}>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+                                    <span className="text-sm font-semibold">
+                                      {userItem.name ? userItem.name.charAt(0).toUpperCase() : 'U'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold">{userItem.name || 'Unknown'}</p>
+                                    <p className="text-sm text-gray-500">{userItem.email}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-sm text-gray-600">{userItem.userCode || '—'}</td>
+                              <td className="py-3 px-4">
+                                <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200">
+                                  {(userItem.role || 'user').replace('_', ' ')}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex flex-wrap gap-1">
+                                  {(userItem.assignedSections || []).map(section => (
+                                    <span key={section} className="px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">
+                                      {section}
+                                    </span>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                {getStatusIcon(userItem.isActive)}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-gray-500">
+                                {userItem.lastLogin ? new Date(userItem.lastLogin).toLocaleDateString() : 'Never'}
+                              </td>
+                              <td className="py-3 px-4">
+                                {(() => {
+                                  const isSelf = currentUser && currentUser._id === userItem._id;
+                                  const isTargetSuper = userItem.role === 'super_admin';
+                                  const canAdminDelete = currentUser?.role === 'admin' && userItem.role === 'user';
+                                  const canSuperDelete = currentUser?.role === 'super_admin' && (userItem.role === 'user' || userItem.role === 'admin');
+                                  const canDelete = !isSelf && !isTargetSuper && (canAdminDelete || canSuperDelete);
+
+                                  const handleDeleteUser = async () => {
+                                    if (!canDelete) return;
+                                    if (!confirm(`Soft delete ${userItem.name || userItem.email}?`)) return;
+                                    try {
+                                      const res = await fetch(`http://localhost:5000/api/admin/users/${userItem._id}`, {
+                                        method: 'DELETE',
+                                        headers: {
+                                          'Authorization': `Bearer ${token}`,
+                                          'If-Updated-At': userItem.updatedAt || ''
+                                        }
+                                      });
+                                      const data = await res.json().catch(() => ({}));
+                                      if (!res.ok) {
+                                        alert(data.message || 'Failed to delete user');
+                                        return;
+                                      }
+                                      // Optimistically remove from list
+                                      setUsers(prev => prev.filter(u => u._id !== userItem._id));
+                                    } catch (e) {
+                                      console.error('Delete failed', e);
+                                      alert('Delete failed');
+                                    }
+                                  };
+
+                                  return (
+                                    <button
+                                      onClick={handleDeleteUser}
+                                      disabled={!canDelete}
+                                      className={`inline-flex items-center px-3 py-1 rounded text-sm ${canDelete ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+                                      title={canDelete ? 'Soft delete user' : 'Action not allowed'}
+                                    >
+                                      <TrashIcon className="w-4 h-4 mr-1" /> Delete
+                                    </button>
+                                  );
+                                })()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 )}
 
                 {/* User Support Tab */}
@@ -862,72 +1259,7 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {/* Forum Moderation Tab */}
-                {activeTab === 'moderation' && (
-                  <div className={`p-6 rounded-lg border ${border} mb-8`}>
-                    <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-xl font-bold">Forum Moderation</h3>
-                      <div className="flex items-center space-x-4">
-                        <span className="text-sm text-gray-500">{forumPosts.filter(p => p.status === 'pending' || p.status === 'flagged').length} need review</span>
-                        <button 
-                          onClick={() => setShowReportModal(true)}
-                          className="px-3 py-1 bg-orange-500 text-white rounded text-sm hover:bg-orange-600"
-                        >
-                          Report Issue
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      {forumPosts.map((post) => (
-                        <div key={post.id} className={`p-4 border ${border} rounded-lg`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-3 mb-2">
-                                <h4 className="font-semibold">{post.title}</h4>
-                                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(post.status)}`}>
-                                  {post.status}
-                                </span>
-                              </div>
-                              <p className="text-sm text-gray-500">By: {post.author}</p>
-                              <p className="text-sm text-gray-500">{post.replies} replies • {post.createdAt.toLocaleString()}</p>
-                            </div>
-                            <div className="flex space-x-2">
-                              {post.status === 'pending' && (
-                                <>
-                                  <button 
-                                    onClick={() => handleModeratePost(post.id, 'approve')}
-                                    className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600"
-                                  >
-                                    <CheckBadgeIcon className="w-4 h-4 inline mr-1" />
-                                    Approve
-                                  </button>
-                                  <button 
-                                    onClick={() => handleModeratePost(post.id, 'reject')}
-                                    className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-                                  >
-                                    <XMarkIcon className="w-4 h-4 inline mr-1" />
-                                    Reject
-                                  </button>
-                                </>
-                              )}
-                              {post.status === 'flagged' && (
-                                <button className="px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600">
-                                  <FlagIcon className="w-4 h-4 inline mr-1" />
-                                  Review
-                                </button>
-                              )}
-                              <button className="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">
-                                <EyeIcon className="w-4 h-4 inline mr-1" />
-                                View
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                
 
                 {/* Section Analytics Tab */}
                 {activeTab === 'analytics' && (
@@ -943,6 +1275,9 @@ export default function AdminDashboard() {
                         <span>Export CSV</span>
                       </button>
                     </div>
+
+                    {/* Quiz Analytics Section */}
+                    <QuizAnalyticsSection />
 
                     {/* Charts Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1100,73 +1435,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Right Sidebar - Notifications & Support */}
-              <div className="w-80 p-4 space-y-4">
-                {/* Pending Reviews */}
-                <div className={`p-4 rounded-lg border ${border}`}>
-                  <h4 className="font-semibold mb-3">Pending Reviews</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className={`p-2 rounded border ${darkMode ? 'bg-transparent border-yellow-600/40' : 'bg-yellow-50 border-yellow-200'}`}>
-                      <p className={`font-medium ${darkMode ? 'text-white' : 'text-yellow-800'}`}>Forum post flagged</p>
-                      <p className={`${darkMode ? 'text-yellow-300' : 'text-yellow-600'}`}>2 hours ago</p>
-                    </div>
-                    <div className={`p-2 rounded border ${darkMode ? 'bg-transparent border-blue-600/40' : 'bg-blue-50 border-blue-200'}`}>
-                      <p className={`font-medium ${darkMode ? 'text-white' : 'text-blue-800'}`}>New lesson submitted</p>
-                      <p className={`${darkMode ? 'text-blue-300' : 'text-blue-600'}`}>4 hours ago</p>
-                    </div>
-                    <div className={`p-2 rounded border ${darkMode ? 'bg-transparent border-green-600/40' : 'bg-green-50 border-green-200'}`}>
-                      <p className={`font-medium ${darkMode ? 'text-white' : 'text-green-800'}`}>Quiz ready for review</p>
-                      <p className={`${darkMode ? 'text-green-300' : 'text-green-600'}`}>1 day ago</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Content Stats */}
-                <div className={`p-4 rounded-lg border ${border}`}>
-                  <h4 className="font-semibold mb-3">Content Statistics</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Total Lessons</span>
-                      <span className="text-blue-400">12</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Dictionary Entries</span>
-                      <span className="text-green-400">1,247</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Active Quizzes</span>
-                      <span className="text-purple-400">8</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Forum Topics</span>
-                      <span className="text-orange-400">23</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* System Status */}
-                <div className={`p-4 rounded-lg border ${border}`}>
-                  <h4 className="font-semibold mb-3">System Status</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Content Server</span>
-                      <span className="text-green-400">✓ Online</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Media Storage</span>
-                      <span className="text-green-400">✓ Available</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Database</span>
-                      <span className="text-green-400">✓ Connected</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>CDN</span>
-                      <span className="text-green-400">✓ Active</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* Right Sidebar removed to maximize main table space */}
             </div>
           </div>
         </div>
@@ -1177,10 +1446,13 @@ export default function AdminDashboard() {
 
       {/* Upload Content Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`${bg} p-6 rounded-lg w-96 max-w-full mx-4 max-h-[90vh] overflow-y-auto`}>
-            <h3 className="text-xl font-bold mb-4">Upload New Content</h3>
-            <form onSubmit={handleUpload} className="space-y-4">
+        <Modal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          title="Upload New Content"
+          className={`${bg}`}
+        >
+          <form onSubmit={handleUpload} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Title</label>
                 <input
@@ -1257,31 +1529,33 @@ export default function AdminDashboard() {
                   )}
                 </div>
               )}
-            </form>
-            <div className="flex justify-end space-x-2 mt-6">
-              <button
-                onClick={() => setShowUploadModal(false)}
-                className="px-4 py-2 border rounded hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleUpload}
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-              >
-                Upload
-              </button>
-            </div>
+          </form>
+          <div className="flex justify-end space-x-2 mt-6">
+            <button
+              onClick={() => setShowUploadModal(false)}
+              className="px-4 py-2 border rounded hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleUpload}
+              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+            >
+              Upload
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Edit Content Modal */}
       {showEditModal && selectedContent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`${bg} p-6 rounded-lg w-96 max-w-full mx-4 max-h-[90vh] overflow-y-auto`}>
-            <h3 className="text-xl font-bold mb-4">Edit Content</h3>
-            <form onSubmit={handleEdit} className="space-y-4">
+        <Modal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          title="Edit Content"
+          className={`${bg}`}
+        >
+          <form onSubmit={handleEdit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Title</label>
                 <input
@@ -1333,116 +1607,182 @@ export default function AdminDashboard() {
                   <option value="advanced">Advanced</option>
                 </select>
               </div>
-            </form>
-            <div className="flex justify-end space-x-2 mt-6">
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 border rounded hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleEdit}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Save Changes
-              </button>
-            </div>
+          </form>
+          <div className="flex justify-end space-x-2 mt-6">
+            <button
+              onClick={() => setShowEditModal(false)}
+              className="px-4 py-2 border rounded hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleEdit}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Save Changes
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedContent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`${bg} p-6 rounded-lg w-96 max-w-full mx-4`}>
-            <h3 className="text-xl font-bold mb-4">Delete Content</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete "{selectedContent.title}"? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 border rounded hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-              >
-                Delete
-              </button>
-            </div>
+        <Modal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          title="Delete Content"
+          className={`${bg}`}
+        >
+          <p className="text-gray-600 mb-6">
+            Are you sure you want to delete "{selectedContent.title}"? This action cannot be undone.
+          </p>
+          <div className="flex justify-end space-x-2">
+            <button
+              onClick={() => setShowDeleteModal(false)}
+              className="px-4 py-2 border rounded hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDelete}
+              className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+            >
+              Delete
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Reply Modal */}
       {showReplyModal && selectedQuery && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`${bg} p-6 rounded-lg w-96 max-w-full mx-4`}>
-            <h3 className="text-xl font-bold mb-4">Reply to Query</h3>
-            <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-2">Query: {selectedQuery.subject}</p>
-              <p className="text-sm text-gray-500">{selectedQuery.message}</p>
-            </div>
-            <textarea
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              placeholder="Enter your reply..."
-              className="w-full p-2 border rounded h-32"
-              required
-            />
-            <div className="flex justify-end space-x-2 mt-6">
-              <button
-                onClick={() => setShowReplyModal(false)}
-                className="px-4 py-2 border rounded hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleReply}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Send Reply
-              </button>
-            </div>
+        <Modal
+          isOpen={showReplyModal}
+          onClose={() => setShowReplyModal(false)}
+          title="Reply to Query"
+          className={`${bg}`}
+        >
+          <div className="mb-4">
+            <p className="text-sm text-gray-600 mb-2">Query: {selectedQuery.subject}</p>
+            <p className="text-sm text-gray-500">{selectedQuery.message}</p>
           </div>
-        </div>
+          <textarea
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            placeholder="Enter your reply..."
+            className="w-full p-2 border rounded h-32"
+            required
+          />
+          <div className="flex justify-end space-x-2 mt-6">
+            <button
+              onClick={() => setShowReplyModal(false)}
+              className="px-4 py-2 border rounded hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleReply}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Send Reply
+            </button>
+          </div>
+        </Modal>
       )}
 
       {/* Report Issue Modal */}
       {showReportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`${bg} p-6 rounded-lg w-96 max-w-full mx-4`}>
-            <h3 className="text-xl font-bold mb-4">Report Issue to Super Admin</h3>
-            <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-2">Section: {assignedSection}</p>
-            </div>
-            <textarea
-              value={reportNote}
-              onChange={(e) => setReportNote(e.target.value)}
-              placeholder="Describe the issue..."
-              className="w-full p-2 border rounded h-32"
-              required
-            />
-            <div className="flex justify-end space-x-2 mt-6">
-              <button
-                onClick={() => setShowReportModal(false)}
-                className="px-4 py-2 border rounded hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleReportIssue}
-                className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
-              >
-                Report Issue
-              </button>
-            </div>
+        <Modal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          title="Report Issue to Super Admin"
+          className={`${bg}`}
+        >
+          <div className="mb-4">
+            <p className="text-sm text-gray-600 mb-2">Section: {assignedSection}</p>
           </div>
-        </div>
+          <textarea
+            value={reportNote}
+            onChange={(e) => setReportNote(e.target.value)}
+            placeholder="Describe the issue..."
+            className="w-full p-2 border rounded h-32"
+            required
+          />
+          <div className="flex justify-end space-x-2 mt-6">
+            <button
+              onClick={() => setShowReportModal(false)}
+              className="px-4 py-2 border rounded hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleReportIssue}
+              className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
+            >
+              Report Issue
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Add Admin Modal (Super Admin only) */}
+      {showAddAdminModal && currentUser?.role === 'super_admin' && (
+        <Modal
+          isOpen={showAddAdminModal}
+          onClose={() => setShowAddAdminModal(false)}
+          title="Add New Admin"
+          className={`${bg}`}
+        >
+          <form onSubmit={handleCreateAdmin} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={addAdminForm.name}
+                  onChange={handleAddAdminFormChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={addAdminForm.email}
+                  onChange={handleAddAdminFormChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Temporary Password</label>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  name="password"
+                  value={addAdminForm.password}
+                  onChange={handleAddAdminFormChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+          </form>
+          <div className="flex justify-end space-x-2 mt-6">
+            <button
+              onClick={() => setShowAddAdminModal(false)}
+              className="px-4 py-2 border rounded hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreateAdmin}
+              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+            >
+              Create Admin
+            </button>
+          </div>
+        </Modal>
       )}
 
       {/* Enhanced Scroll to Top Button */}

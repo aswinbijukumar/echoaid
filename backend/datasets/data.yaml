@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 43
+names: ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'Hello', 'I', 'IloveYou', 'J', 'K', 'L', 'M', 'N', 'No', 'O', 'P', 'Please', 'Q', 'R', 'S', 'T', 'Thanks', 'U', 'V', 'W', 'X', 'Y', 'Yes', 'Z', 'c', 'undefined']
+
+roboflow:
+  workspace: my-projects-xfzm5
+  project: isl-yolov5-xnw4l
+  version: 2
+  license: CC BY 4.0
+  url: https://app.roboflow.com/my-projects-xfzm5/isl-yolov5-xnw4l/2

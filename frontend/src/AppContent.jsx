@@ -13,10 +13,11 @@ import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
 import Dictionary from './pages/Dictionary';
-import Forum from './pages/Forum';
 import Quiz from './pages/Quiz';
 import AccessibilitySettings from './pages/AccessibilitySettings';
 import GoogleAuthSuccess from './pages/GoogleAuthSuccess';
+import Practice from './pages/Practice';
+import AdminQuizPage from './pages/AdminQuizPage';
 
 function AppContent() {
   return (
@@ -47,8 +48,17 @@ function AppContent() {
           } />
           <Route path="/profile" element={<Profile />} />
           <Route path="/dictionary" element={<Dictionary />} />
-          <Route path="/forum" element={<Forum />} />
           <Route path="/quiz" element={<Quiz />} />
+          <Route path="/admin/quiz" element={
+            <RoleBasedRoute allowedRoles={['admin', 'super_admin']}>
+              <AdminQuizPage />
+            </RoleBasedRoute>
+          } />
+          <Route path="/practice" element={
+            <RoleBasedRoute>
+              <Practice />
+            </RoleBasedRoute>
+          } />
           <Route path="/accessibility" element={<AccessibilitySettings />} />
           <Route path="/auth/google/success" element={<GoogleAuthSuccess />} />
         </Routes>

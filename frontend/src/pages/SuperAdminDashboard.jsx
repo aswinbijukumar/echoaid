@@ -13,11 +13,9 @@ import {
   EyeIcon,
   PlusIcon,
   ArrowUpIcon,
-  FireIcon,
   AcademicCapIcon,
   BookOpenIcon,
   ChatBubbleLeftRightIcon,
-  PuzzlePieceIcon,
   UserCircleIcon,
   EllipsisHorizontalIcon,
   DocumentTextIcon,
@@ -36,24 +34,25 @@ import {
   ChartPieIcon,
   BellIcon,
   WrenchScrewdriverIcon,
-  CloudIcon
+  CloudIcon,
+  UserGroupIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
+import Modal from '../components/Modal';
+import TopBarUserAvatar from '../components/TopBarUserAvatar';
 
 export default function SuperAdminDashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [users, setUsers] = useState([]);
+  const [admins, setAdmins] = useState([]);
   const [contentQueue, setContentQueue] = useState([]);
-  const [systemSettings, setSystemSettings] = useState({});
   const [securityLogs, setSecurityLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [editUserForm, setEditUserForm] = useState({ name: '', role: 'user', isActive: true });
-  const [showContentModal, setShowContentModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -61,7 +60,7 @@ export default function SuperAdminDashboard() {
     name: '',
     email: '',
     password: '',
-    role: 'user'
+    role: 'admin'
   });
   
   const { darkMode } = useTheme();
@@ -120,8 +119,23 @@ export default function SuperAdminDashboard() {
         }
       } catch (error) {
         console.error('Error fetching users:', error);
-      } finally {
-        setLoading(false);
+      }
+    };
+
+    const fetchAdmins = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/admin/admins', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setAdmins(data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching admins:', error);
       }
     };
 
@@ -178,8 +192,10 @@ export default function SuperAdminDashboard() {
     if (token) {
       fetchDashboardData();
       fetchUsers();
+      fetchAdmins();
       fetchContentQueue();
       fetchSecurityLogs();
+      setLoading(false);
     }
   }, [token]);
 
@@ -213,6 +229,12 @@ export default function SuperAdminDashboard() {
   };
 
   const handleUserDelete = async (userId) => {
+    // Prevent deletion of current user
+    if (userId === user?._id) {
+      alert('You cannot delete your own account');
+      return;
+    }
+
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
         const response = await fetch(`http://localhost:5000/api/admin/users/${userId}`, {
@@ -224,11 +246,14 @@ export default function SuperAdminDashboard() {
 
         if (response.ok) {
           setUsers(users.filter(user => user._id !== userId));
+          alert('User deleted successfully');
         } else {
-          console.error('Failed to delete user');
+          const errorData = await response.json();
+          alert(errorData.message || 'Failed to delete user');
         }
       } catch (error) {
         console.error('Error deleting user:', error);
+        alert('An error occurred while deleting the user');
       }
     }
   };
@@ -236,26 +261,33 @@ export default function SuperAdminDashboard() {
   const handleAddUser = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5000/api/admin/users', {
+      // Super admin creates admins only
+      const response = await fetch('http://localhost:5000/api/admin/admins', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(addUserForm)
+        body: JSON.stringify({ ...addUserForm, role: 'admin' })
       });
 
       if (response.ok) {
         const data = await response.json();
-        setUsers([...users, data.data]);
+        // When a new admin is created, refresh admins list
+        setAdmins([...admins, data.data]);
         setShowAddUserModal(false);
-        setAddUserForm({ name: '', email: '', password: '', role: 'user' });
+        setAddUserForm({ name: '', email: '', password: '', role: 'admin' });
       } else {
         console.error('Failed to create user');
       }
     } catch (error) {
       console.error('Error creating user:', error);
     }
+  };
+
+  const openAddAdmin = () => {
+    setAddUserForm({ name: '', email: '', password: '', role: 'admin' });
+    setShowAddUserModal(true); // reuse the same modal UI for admin creation
   };
 
   const handleAddUserFormChange = (e) => {
@@ -327,7 +359,7 @@ export default function SuperAdminDashboard() {
   return (
     <div className={`min-h-screen ${bg} ${text}`}>
       {/* Top Status Bar */}
-      <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64`}>
+      <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64 sticky top-0 z-30`}>
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
             <ShieldCheckIcon className="w-6 h-6 text-red-500" />
@@ -335,14 +367,7 @@ export default function SuperAdminDashboard() {
           </div>
           
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <FireIcon className="w-5 h-5 text-orange-400" />
-              <span className="font-semibold">System Active</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <UserCircleIcon className="w-8 h-8 text-gray-300" />
-              <span className="font-semibold">{user?.name || 'Super Admin'}</span>
-            </div>
+            <TopBarUserAvatar size={8} />
           </div>
         </div>
       </div>
@@ -362,8 +387,8 @@ export default function SuperAdminDashboard() {
                   <div className="flex items-center space-x-3">
                     <ShieldCheckIcon className="w-6 h-6" />
                     <div>
-                      <h1 className="text-sm font-medium">SUPER ADMIN CONTROL PANEL</h1>
-                      <h2 className="text-xl font-bold">System Management & Analytics</h2>
+                      <h1 className="text-sm font-medium">Super Admin</h1>
+                      <h2 className="text-xl font-bold">Admin Console</h2>
                     </div>
                   </div>
                 </div>
@@ -372,10 +397,8 @@ export default function SuperAdminDashboard() {
                 <div className={`flex space-x-1 mb-6 ${darkMode ? 'bg-[#1F2937]' : 'bg-gray-100'} rounded-lg p-1`}>
                   {[
                     { id: 'overview', label: 'Overview', icon: ChartBarIcon },
-                    { id: 'users', label: 'User Management', icon: UsersIcon },
-                    { id: 'content', label: 'Content Oversight', icon: DocumentTextIcon },
-                    { id: 'settings', label: 'System Settings', icon: Cog6ToothIcon },
-                    { id: 'security', label: 'Security & Backup', icon: ShieldExclamationIcon }
+                    { id: 'system', label: 'System Settings', icon: Cog6ToothIcon },
+                    { id: 'security', label: 'Security & Logs', icon: ShieldExclamationIcon }
                   ].map((tab) => (
                     <button
                       key={tab.id}
@@ -446,22 +469,53 @@ export default function SuperAdminDashboard() {
                         <h3 className="text-xl font-bold mb-4">Quick Actions</h3>
                         <div className="space-y-3">
                           <button 
-                            onClick={() => setActiveTab('users')}
-                            className="w-full text-left p-3 hover:bg-gray-50 rounded-lg border transition-colors"
+                            onClick={() => navigate('/admin?tab=users')}
+                            className={`w-full text-left p-3 rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'admins' ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
+                            tabIndex={0}
+                            aria-pressed={activeTab === 'admins'}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                navigate('/admin?tab=users');
+                              }
+                            }}
                           >
                             <UserPlusIcon className="w-5 h-5 inline mr-2" />
-                            Manage Users
+                            Manage Users & Admins
                           </button>
-                          <button 
-                            onClick={() => setActiveTab('content')}
-                            className="w-full text-left p-3 hover:bg-gray-50 rounded-lg border transition-colors"
+                          <button
+                            onClick={openAddAdmin}
+                            className={`w-full text-left p-3 rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
                           >
-                            <CloudArrowUpIcon className="w-5 h-5 inline mr-2" />
-                            Content Queue
+                            <UserPlusIcon className="w-5 h-5 inline mr-2" />
+                            Add Admin
                           </button>
                           <button 
-                            onClick={() => setActiveTab('settings')}
-                            className="w-full text-left p-3 hover:bg-gray-50 rounded-lg border transition-colors"
+                            onClick={() => navigate('/admin?tab=users')}
+                            className={`w-full text-left p-3 rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'users' ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-900/20' : darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
+                            tabIndex={0}
+                            aria-pressed={activeTab === 'users'}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                navigate('/admin?tab=users');
+                              }
+                            }}
+                          >
+                            <UserGroupIcon className="w-5 h-5 inline mr-2" />
+                            Open User Management
+                          </button>
+                          <button 
+                            onClick={() => setActiveTab('system')}
+                            className={`w-full text-left p-3 rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'system' ? 'ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-900/20' : darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
+                            tabIndex={0}
+                            aria-pressed={activeTab === 'system'}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setActiveTab('system');
+                              }
+                            }}
                           >
                             <CogIcon className="w-5 h-5 inline mr-2" />
                             System Settings
@@ -494,10 +548,10 @@ export default function SuperAdminDashboard() {
                   </>
                 )}
 
-                {/* User Management Tab */}
-                {activeTab === 'users' && (
-                  <div className={`p-6 rounded-lg border ${border} mb-8`}>
-                    <div className="flex items-center justify-between mb-6">
+                {/* Combined User Management Tab */}
+                {activeTab === 'user_mgmt' && (
+                  <div className="space-y-6 mb-8">
+                    <div className="flex items-center justify-between">
                       <h3 className="text-xl font-bold">User Management</h3>
                       <button 
                         onClick={() => setShowAddUserModal(true)}
@@ -508,68 +562,172 @@ export default function SuperAdminDashboard() {
                       </button>
                     </div>
 
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className={`border-b ${border}`}>
-                            <th className="text-left py-3 px-4">User</th>
-                            <th className="text-left py-3 px-4">Role</th>
-                            <th className="text-left py-3 px-4">Status</th>
-                            <th className="text-left py-3 px-4">Last Login</th>
-                            <th className="text-left py-3 px-4">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {users.map((user) => (
-                            <tr key={user._id} className={`border-b ${border} hover:bg-gray-50 ${darkMode ? 'hover:bg-gray-800' : ''}`}>
-                              <td className="py-3 px-4">
-                                <div className="flex items-center space-x-3">
-                                  <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                                    <span className="text-sm font-semibold">
-                                      {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Admins Column */}
+                      <div className={`p-6 rounded-lg border ${border}`}>
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-lg font-semibold">Admins</h4>
+                          <span className="text-sm text-gray-500">{admins.length} total</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className={`border-b ${border}`}>
+                                <th className="text-left py-3 px-4">Admin</th>
+                                <th className="text-left py-3 px-4">Admin Code</th>
+                                <th className="text-left py-3 px-4">Role</th>
+                                <th className="text-left py-3 px-4">Status</th>
+                                <th className="text-left py-3 px-4">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {admins.map((adminItem) => (
+                                <tr key={adminItem._id} className={`border-b ${border} hover:bg-gray-50 ${darkMode ? 'hover:bg-gray-800' : ''}`}>
+                                  <td className="py-3 px-4">
+                                    <div className="flex items-center space-x-3">
+                                      <div className="w-8 h-8 bg-blue-300 rounded-full flex items-center justify-center">
+                                        <span className="text-sm font-semibold">
+                                          {adminItem.name ? adminItem.name.charAt(0).toUpperCase() : 'A'}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <p className="font-semibold">{adminItem.name || 'Unknown'}</p>
+                                        <p className="text-sm text-gray-500">{adminItem.email}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-4 text-sm text-gray-600">{adminItem.userCode || '—'}</td>
+                                  <td className="py-3 px-4">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-semibold text-white ${getRoleColor(adminItem.role)}`}>
+                                      {adminItem.role.replace('_', ' ').toUpperCase()}
                                     </span>
-                                  </div>
-                                  <div>
-                                    <p className="font-semibold">{user.name || 'Unknown'}</p>
-                                    <p className="text-sm text-gray-500">{user.email}</p>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4">
-                                <span className={`px-2 py-1 rounded-full text-xs font-semibold text-white ${getRoleColor(user.role)}`}>
-                                  {user.role.replace('_', ' ').toUpperCase()}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4">
-                                {getStatusIcon(user.isActive)}
-                              </td>
-                              <td className="py-3 px-4 text-sm text-gray-500">
-                                {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'}
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className="flex items-center space-x-2">
-                                  <button
-                                    onClick={() => {
-                                      setSelectedUser(user);
-                                      setEditUserForm({ name: user.name || '', role: user.role, isActive: user.isActive });
-                                      setShowUserModal(true);
-                                    }}
-                                    className="p-1 hover:bg-gray-200 rounded"
-                                  >
-                                    <PencilIcon className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleUserDelete(user._id)}
-                                    className="p-1 hover:bg-red-100 rounded text-red-500"
-                                  >
-                                    <TrashIcon className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                                  </td>
+                                  <td className="py-3 px-4">{getStatusIcon(adminItem.isActive)}</td>
+                                  <td className="py-3 px-4">
+                                    {(() => {
+                                      const isSelf = user && user._id === adminItem._id;
+                                      const isTargetSuper = adminItem.role === 'super_admin';
+                                      const canDelete = !isSelf && !isTargetSuper;
+                                      const handleDeleteAdmin = async () => {
+                                        if (!canDelete) return;
+                                        if (!confirm(`Soft delete admin ${adminItem.name || adminItem.email}?`)) return;
+                                        try {
+                                          const res = await fetch(`http://localhost:5000/api/admin/admins/${adminItem._id}`, {
+                                            method: 'DELETE',
+                                            headers: {
+                                              'Authorization': `Bearer ${token}`,
+                                              'If-Updated-At': adminItem.updatedAt || ''
+                                            }
+                                          });
+                                          const data = await res.json().catch(() => ({}));
+                                          if (!res.ok) {
+                                            alert(data.message || 'Failed to delete admin');
+                                            return;
+                                          }
+                                          setAdmins(prev => prev.filter(a => a._id !== adminItem._id));
+                                        } catch (e) {
+                                          console.error('Delete admin failed', e);
+                                          alert('Delete failed');
+                                        }
+                                      };
+                                      return (
+                                        <button
+                                          onClick={handleDeleteAdmin}
+                                          disabled={!canDelete}
+                                          className={`inline-flex items-center px-3 py-1 rounded text-sm ${canDelete ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+                                          title={canDelete ? 'Soft delete admin' : 'Action not allowed'}
+                                        >
+                                          <TrashIcon className="w-4 h-4 mr-1" /> Delete
+                                        </button>
+                                      );
+                                    })()}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Users Column */}
+                      <div className={`p-6 rounded-lg border ${border}`}>
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-lg font-semibold">Users</h4>
+                          <span className="text-sm text-gray-500">{users.length} total</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className={`border-b ${border}`}>
+                                <th className="text-left py-3 px-4">User</th>
+                                <th className="text-left py-3 px-4">User Code</th>
+                                <th className="text-left py-3 px-4">Role</th>
+                                <th className="text-left py-3 px-4">Status</th>
+                                <th className="text-left py-3 px-4">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {users.map((userItem) => (
+                                <tr key={userItem._id} className={`border-b ${border} hover:bg-gray-50 ${darkMode ? 'hover:bg-gray-800' : ''}`}>
+                                  <td className="py-3 px-4">
+                                    <div className="flex items-center space-x-3">
+                                      <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+                                        <span className="text-sm font-semibold">
+                                          {userItem.name ? userItem.name.charAt(0).toUpperCase() : 'U'}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <p className="font-semibold">{userItem.name || 'Unknown'}</p>
+                                        <p className="text-sm text-gray-500">{userItem.email}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-4 text-sm text-gray-600">{userItem.userCode || '—'}</td>
+                                  <td className="py-3 px-4">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-semibold text-white ${getRoleColor(userItem.role)}`}>
+                                      {userItem.role.replace('_', ' ').toUpperCase()}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4">{getStatusIcon(userItem.isActive)}</td>
+                                  <td className="py-3 px-4">
+                                    <div className="flex items-center space-x-2">
+                                      <button
+                                        onClick={() => {
+                                          setSelectedUser(userItem);
+                                          setEditUserForm({ name: userItem.name || '', role: userItem.role, isActive: userItem.isActive });
+                                          setShowUserModal(true);
+                                        }}
+                                        className="p-1 hover:bg-gray-200 rounded"
+                                      >
+                                        <PencilIcon className="w-4 h-4" />
+                                      </button>
+                                      {(() => {
+                                        const isSelf = userItem._id === user?._id;
+                                        const isTargetSuper = userItem.role === 'super_admin';
+                                        const canDelete = !isSelf && !isTargetSuper;
+                                        const onClick = () => handleUserDelete(userItem._id);
+                                        return (
+                                          <button
+                                            onClick={onClick}
+                                            disabled={!canDelete}
+                                            className={`p-1 rounded ${canDelete ? 'hover:bg-red-100 text-red-500' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                                            title={canDelete ? 'Delete user' : 'Action not allowed'}
+                                          >
+                                            <TrashIcon className="w-4 h-4" />
+                                          </button>
+                                        );
+                                      })()}
+                                      {userItem._id === user?._id && (
+                                        <span className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded">Current User</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -810,10 +968,13 @@ export default function SuperAdminDashboard() {
 
       {/* User Edit Modal */}
       {showUserModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`${bg} p-6 rounded-lg w-96 max-w-full mx-4`}>
-            <h3 className="text-xl font-bold mb-4">Edit User</h3>
-            <div className="space-y-4">
+        <Modal
+          isOpen={showUserModal}
+          onClose={() => setShowUserModal(false)}
+          title="Edit User"
+          className={`${bg}`}
+        >
+          <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Name</label>
                 <input
@@ -847,31 +1008,33 @@ export default function SuperAdminDashboard() {
                   <option value="inactive">Inactive</option>
                 </select>
               </div>
-            </div>
-            <div className="flex justify-end space-x-2 mt-6">
-              <button
-                onClick={() => setShowUserModal(false)}
-                className="px-4 py-2 border rounded hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleUserUpdate(selectedUser._id, { role: editUserForm.role, isActive: editUserForm.isActive })}
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-              >
-                Save
-              </button>
-            </div>
           </div>
-        </div>
+          <div className="flex justify-end space-x-2 mt-6">
+            <button
+              onClick={() => setShowUserModal(false)}
+              className="px-4 py-2 border rounded hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => handleUserUpdate(selectedUser._id, { role: editUserForm.role, isActive: editUserForm.isActive })}
+              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+            >
+              Save
+            </button>
+          </div>
+        </Modal>
       )}
 
       {/* Add User Modal */}
       {showAddUserModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`${bg} p-6 rounded-lg w-96 max-w-full mx-4`}>
-            <h3 className="text-xl font-bold mb-4">Add New User</h3>
-            <form onSubmit={handleAddUser} className="space-y-4">
+        <Modal
+          isOpen={showAddUserModal}
+          onClose={() => setShowAddUserModal(false)}
+          title="Add New User"
+          className={`${bg}`}
+        >
+          <form onSubmit={handleAddUser} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Name</label>
                 <input
@@ -905,36 +1068,23 @@ export default function SuperAdminDashboard() {
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Role</label>
-                <select
-                  name="role"
-                  value={addUserForm.role}
-                  onChange={handleAddUserFormChange}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
-                  <option value="super_admin">Super Admin</option>
-                </select>
-              </div>
-            </form>
-            <div className="flex justify-end space-x-2 mt-6">
-              <button
-                onClick={() => setShowAddUserModal(false)}
-                className="px-4 py-2 border rounded hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddUser}
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-              >
-                Add User
-              </button>
-            </div>
+              {/* Role locked to Admin for Super Admin creation */}
+          </form>
+          <div className="flex justify-end space-x-2 mt-6">
+            <button
+              onClick={() => setShowAddUserModal(false)}
+              className="px-4 py-2 border rounded hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAddUser}
+              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+            >
+              Add User
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Enhanced Scroll to Top Button */}

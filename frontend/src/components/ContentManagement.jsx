@@ -11,14 +11,19 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
+import Modal from './Modal';
 
 export default function ContentManagement() {
   const [signs, setSigns] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
   const [selectedSign, setSelectedSign] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [filters, setFilters] = useState({
     category: '',
     search: ''
@@ -41,7 +46,7 @@ export default function ContentManagement() {
 
   const [createForm, setCreateForm] = useState({
     word: '',
-    category: 'alphabet',
+    category: '',
     difficulty: 'Beginner',
     description: '',
     isActive: true
@@ -52,6 +57,23 @@ export default function ContentManagement() {
     category: 'alphabet',
     difficulty: 'Beginner',
     description: '',
+    isActive: true
+  });
+
+  const [categoryForm, setCategoryForm] = useState({
+    name: '',
+    description: '',
+    icon: 'AcademicCapIcon',
+    color: 'bg-blue-500',
+    order: 0
+  });
+
+  const [editCategoryForm, setEditCategoryForm] = useState({
+    name: '',
+    description: '',
+    icon: 'AcademicCapIcon',
+    color: 'bg-blue-500',
+    order: 0,
     isActive: true
   });
 
@@ -78,8 +100,16 @@ export default function ContentManagement() {
 
   useEffect(() => {
     fetchSigns();
+    fetchCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Set default category when categories are loaded
+  useEffect(() => {
+    if (categories.length > 0 && !createForm.category) {
+      setCreateForm(prev => ({ ...prev, category: categories[0].slug }));
+    }
+  }, [categories, createForm.category]);
 
   const fetchSigns = async () => {
     try {
@@ -99,6 +129,20 @@ export default function ContentManagement() {
       setSigns([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/content/categories');
+
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      setCategories([]);
     }
   };
 
@@ -155,7 +199,7 @@ export default function ContentManagement() {
       setShowCreateModal(false);
       setCreateForm({
         word: '',
-        category: 'alphabet',
+        category: categories.length > 0 ? categories[0].slug : '',
         difficulty: 'Beginner',
         description: '',
         isActive: true
@@ -227,7 +271,7 @@ export default function ContentManagement() {
         setSelectedSign(null);
         setEditForm({
           word: '',
-          category: 'alphabet',
+          category: categories.length > 0 ? categories[0].slug : '',
           difficulty: 'Beginner',
           description: '',
           isActive: true
@@ -257,6 +301,162 @@ export default function ContentManagement() {
     });
     setEditFiles({ image: null, video: null });
     setShowEditModal(true);
+  };
+
+  // Test authentication
+  const testAuth = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/admin/content/test-auth', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      console.log('Auth test result:', data);
+      alert(`Auth test: ${data.success ? 'SUCCESS' : 'FAILED'}\nUser: ${data.user?.email}\nRole: ${data.user?.role}`);
+    } catch (error) {
+      console.error('Auth test error:', error);
+      alert('Auth test failed: ' + error.message);
+    }
+  };
+
+  // Category Management Functions
+  const handleCreateCategory = async (e) => {
+    e.preventDefault();
+    
+    if (!categoryForm.name.trim()) {
+      setError('Please enter a category name');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    console.log('Creating category:', categoryForm);
+    console.log('Token:', token ? 'Present' : 'Missing');
+
+    try {
+      const response = await fetch('http://localhost:5000/api/admin/content/categories', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(categoryForm)
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Category created successfully:', data);
+        setCategories([...categories, data.data]);
+        setShowCategoryModal(false);
+        setCategoryForm({
+          name: '',
+          description: '',
+          icon: 'AcademicCapIcon',
+          color: 'bg-blue-500',
+          order: 0
+        });
+        setSuccess('Category created successfully!');
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        const errorData = await response.json();
+        console.error('Category creation failed:', errorData);
+        setError(errorData.message || 'Failed to create category');
+        setTimeout(() => setError(''), 3000);
+      }
+    } catch (error) {
+      console.error('Error creating category:', error);
+      setError('Error creating category');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const handleUpdateCategory = async (e) => {
+    e.preventDefault();
+    
+    if (!editCategoryForm.name.trim()) {
+      setError('Please enter a category name');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/admin/content/categories/${selectedCategory._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(editCategoryForm)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(categories.map(cat => cat._id === selectedCategory._id ? data.data : cat));
+        setShowEditCategoryModal(false);
+        setSelectedCategory(null);
+        setEditCategoryForm({
+          name: '',
+          description: '',
+          icon: 'AcademicCapIcon',
+          color: 'bg-blue-500',
+          order: 0,
+          isActive: true
+        });
+        setSuccess('Category updated successfully!');
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Failed to update category');
+        setTimeout(() => setError(''), 3000);
+      }
+    } catch (error) {
+      console.error('Error updating category:', error);
+      setError('Error updating category');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const handleDeleteCategory = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/admin/content/categories/${selectedCategory._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setCategories(categories.filter(cat => cat._id !== selectedCategory._id));
+        setSelectedCategory(null);
+        setSuccess('Category deleted successfully!');
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Failed to delete category');
+        setTimeout(() => setError(''), 3000);
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      setError('Error deleting category');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const openEditCategoryModal = (category) => {
+    setSelectedCategory(category);
+    setEditCategoryForm({
+      name: category.name,
+      description: category.description,
+      icon: category.icon,
+      color: category.color,
+      order: category.order,
+      isActive: category.isActive
+    });
+    setShowEditCategoryModal(true);
   };
 
   const handleFileChange = (fileType, file, isEdit = false) => {
@@ -308,9 +508,22 @@ export default function ContentManagement() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className={`text-2xl font-bold ${textPrimary}`}>Content Management</h2>
-            <p className={`${textSecondary} mt-1`}>Manage sign language dictionary entries</p>
+            <p className={`${textSecondary} mt-1`}>Manage sign language dictionary entries and categories</p>
           </div>
           <div className="flex space-x-3">
+            <button
+              onClick={testAuth}
+              className="inline-flex items-center px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors shadow-sm"
+            >
+              Test Auth
+            </button>
+            <button
+              onClick={() => setShowCategoryModal(true)}
+              className="inline-flex items-center px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors shadow-sm"
+            >
+              <PlusIcon className="w-5 h-5 mr-2" />
+              Add Category
+            </button>
             <button
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-sm"
@@ -326,6 +539,53 @@ export default function ContentManagement() {
               Export
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Category Management Section */}
+      <div className={`${cardBg} p-6 rounded-lg border ${borderClr}`}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className={`text-xl font-bold ${textPrimary}`}>Categories</h3>
+          <span className={`text-sm ${textSecondary}`}>{categories.length} categories</span>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {categories.map((category) => (
+            <div key={category._id} className={`p-4 rounded-lg border ${borderClr} ${subtleBg}`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-3 h-3 rounded-full ${category.color}`}></div>
+                  <h4 className={`font-semibold ${textPrimary}`}>{category.name}</h4>
+                </div>
+                <div className="flex space-x-1">
+                  <button
+                    onClick={() => openEditCategoryModal(category)}
+                    className="p-1 hover:bg-gray-200 rounded text-blue-500"
+                    title="Edit category"
+                  >
+                    <PencilIcon className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedCategory(category);
+                      handleDeleteCategory();
+                    }}
+                    className="p-1 hover:bg-gray-200 rounded text-red-500"
+                    title="Delete category"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <p className={`text-sm ${textSecondary} mb-2`}>{category.description}</p>
+              <div className="flex justify-between items-center text-xs">
+                <span className={`px-2 py-1 rounded ${category.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                  {category.isActive ? 'Active' : 'Inactive'}
+                </span>
+                <span className={textSecondary}>{category.signCount || 0} signs</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -366,12 +626,11 @@ export default function ContentManagement() {
               className={`w-full border ${inputBorder} ${inputBg} ${textPrimary} rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500`}
             >
               <option value="">All Categories</option>
-              <option value="alphabet">Alphabet</option>
-              <option value="phrases">Phrases</option>
-              <option value="family">Family</option>
-              <option value="activities">Activities</option>
-              <option value="advanced">Advanced</option>
-              <option value="numbers">Numbers</option>
+              {categories.map(category => (
+                <option key={category._id} value={category.slug}>
+                  {category.name}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -416,11 +675,19 @@ export default function ContentManagement() {
                     <div className="flex items-center max-w-full">
                       <div className="flex-shrink-0 h-12 w-12">
                         {sign.imageUrl || sign.thumbnailUrl || sign.imagePath ? (
-                          <img
-                            className={`h-12 w-12 rounded-lg object-cover border ${borderClr}`}
-                            src={sign.thumbnailUrl ? `http://localhost:5000${sign.thumbnailUrl}` : sign.imageUrl ? `http://localhost:5000${sign.imageUrl}` : `http://localhost:5000${sign.imagePath}`}
-                            alt={sign.word}
-                          />
+                          (() => {
+                            const pickUrl = sign.thumbnailUrl || sign.imageUrl || sign.imagePath;
+                            const src = typeof pickUrl === 'string' && pickUrl.startsWith('http')
+                              ? pickUrl
+                              : `http://localhost:5000${pickUrl || ''}`;
+                            return (
+                              <img
+                                className={`h-12 w-12 rounded-lg object-cover border ${borderClr}`}
+                                src={src}
+                                alt={sign.word}
+                              />
+                            );
+                          })()
                         ) : (
                           <div className={`h-12 w-12 rounded-lg ${subtleBg} flex items-center justify-center border ${borderClr}`}>
                             <CloudArrowUpIcon className={`w-6 h-6 ${textSecondary}`} />
@@ -487,17 +754,7 @@ export default function ContentManagement() {
 
       {/* Create Sign Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className={`${cardBg} rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto border ${borderClr}`}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className={`text-xl font-semibold ${textPrimary}`}>Add New Sign</h3>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className={`${textSecondary} hover:opacity-80`}
-              >
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-            </div>
+        <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Add New Sign" className={`${cardBg} border ${borderClr}`}>
             <form onSubmit={handleCreateSign} className="space-y-4">
               <div>
                 <label className={`block text-sm font-medium ${textSecondary} mb-2`}>Word</label>
@@ -516,12 +773,11 @@ export default function ContentManagement() {
                   onChange={(e) => setCreateForm({...createForm, category: e.target.value})}
                   className={`w-full border ${inputBorder} ${inputBg} ${textPrimary} rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500`}
                 >
-                  <option value="alphabet">Alphabet</option>
-                  <option value="phrases">Phrases</option>
-                  <option value="family">Family</option>
-                  <option value="activities">Activities</option>
-                  <option value="advanced">Advanced</option>
-                  <option value="numbers">Numbers</option>
+                  {categories.map(category => (
+                    <option key={category._id} value={category.slug}>
+                      {category.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -581,26 +837,12 @@ export default function ContentManagement() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Edit Sign Modal */}
       {showEditModal && selectedSign && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className={`${cardBg} rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto border ${borderClr}`}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className={`text-xl font-semibold ${textPrimary}`}>Edit Sign</h3>
-              <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setSelectedSign(null);
-                }}
-                className={`${textSecondary} hover:opacity-80`}
-              >
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-            </div>
+        <Modal isOpen={showEditModal} onClose={() => { setShowEditModal(false); setSelectedSign(null); }} title="Edit Sign" className={`${cardBg} border ${borderClr}`}>
             <form onSubmit={handleEditSign} className="space-y-4">
               <div>
                 <label className={`block text-sm font-medium ${textSecondary} mb-1`}>Word</label>
@@ -619,12 +861,11 @@ export default function ContentManagement() {
                   onChange={(e) => setEditForm({...editForm, category: e.target.value})}
                   className={`w-full border ${inputBorder} ${inputBg} ${textPrimary} rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500`}
                 >
-                  <option value="alphabet">Alphabet</option>
-                  <option value="phrases">Phrases</option>
-                  <option value="family">Family</option>
-                  <option value="activities">Activities</option>
-                  <option value="advanced">Advanced</option>
-                  <option value="numbers">Numbers</option>
+                  {categories.map(category => (
+                    <option key={category._id} value={category.slug}>
+                      {category.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -696,48 +937,185 @@ export default function ContentManagement() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedSign && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className={`${cardBg} rounded-lg p-6 w-full max-w-md border ${borderClr}`}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className={`text-xl font-semibold ${textPrimary}`}>Delete Sign</h3>
+        <Modal isOpen={showDeleteModal} onClose={() => { setShowDeleteModal(false); setSelectedSign(null); }} title="Delete Sign" className={`${cardBg} border ${borderClr}`}>
+          <p className={`${textSecondary} mb-6`}>
+            Are you sure you want to delete "<strong>{selectedSign.word}</strong>"? This action cannot be undone.
+          </p>
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={() => { setShowDeleteModal(false); setSelectedSign(null); }}
+              className={`px-4 py-2 border ${inputBorder} rounded-lg text-sm font-medium ${textSecondary} hover:opacity-80 transition-colors`}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteSign}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Create Category Modal */}
+      {showCategoryModal && (
+        <Modal isOpen={showCategoryModal} onClose={() => setShowCategoryModal(false)} title="Create New Category" className={`${cardBg} border ${borderClr}`}>
+          <form onSubmit={handleCreateCategory} className="space-y-4">
+              <div>
+                <label className={`block text-sm font-medium ${textSecondary} mb-1`}>Category Name</label>
+                <input
+                  type="text"
+                  value={categoryForm.name}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                  className={`w-full border ${inputBorder} ${inputBg} ${textPrimary} rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  placeholder="Enter category name"
+                  required
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium ${textSecondary} mb-1`}>Description</label>
+                <textarea
+                  value={categoryForm.description}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+                  className={`w-full border ${inputBorder} ${inputBg} ${textPrimary} rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  placeholder="Enter category description"
+                  rows={3}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium ${textSecondary} mb-1`}>Color</label>
+                <select
+                  value={categoryForm.color}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, color: e.target.value })}
+                  className={`w-full border ${inputBorder} ${inputBg} ${textPrimary} rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                >
+                  <option value="bg-blue-500">Blue</option>
+                  <option value="bg-green-500">Green</option>
+                  <option value="bg-purple-500">Purple</option>
+                  <option value="bg-pink-500">Pink</option>
+                  <option value="bg-orange-500">Orange</option>
+                  <option value="bg-red-500">Red</option>
+                  <option value="bg-teal-500">Teal</option>
+                  <option value="bg-yellow-500">Yellow</option>
+                </select>
+              </div>
+              <div>
+                <label className={`block text-sm font-medium ${textSecondary} mb-1`}>Order</label>
+                <input
+                  type="number"
+                  value={categoryForm.order}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, order: parseInt(e.target.value) })}
+                  className={`w-full border ${inputBorder} ${inputBg} ${textPrimary} rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  placeholder="Display order"
+                  min="0"
+                />
+              </div>
+            <div className="flex justify-end space-x-3 pt-4">
               <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setSelectedSign(null);
-                }}
-                className={`${textSecondary} hover:opacity-80`}
-              >
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-            </div>
-            <p className={`${textSecondary} mb-6`}>
-              Are you sure you want to delete "<strong>{selectedSign.word}</strong>"? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setSelectedSign(null);
-                }}
-                className={`px-4 py-2 border ${inputBorder} rounded-lg text-sm font-medium ${textSecondary} hover:opacity-80 transition-colors`}
+                type="button"
+                onClick={() => setShowCategoryModal(false)}
+                className={`px-4 py-2 border ${inputBorder} rounded-md text-sm font-medium ${textSecondary} hover:opacity-80`}
               >
                 Cancel
               </button>
               <button
-                onClick={handleDeleteSign}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
+                type="submit"
+                className="px-4 py-2 bg-purple-500 text-white rounded-md text-sm font-medium hover:bg-purple-600"
               >
-                Delete
+                Create Category
               </button>
             </div>
-          </div>
-        </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Edit Category Modal */}
+      {showEditCategoryModal && (
+        <Modal isOpen={showEditCategoryModal} onClose={() => setShowEditCategoryModal(false)} title="Edit Category" className={`${cardBg} border ${borderClr}`}>
+          <form onSubmit={handleUpdateCategory} className="space-y-4">
+              <div>
+                <label className={`block text-sm font-medium ${textSecondary} mb-1`}>Category Name</label>
+                <input
+                  type="text"
+                  value={editCategoryForm.name}
+                  onChange={(e) => setEditCategoryForm({ ...editCategoryForm, name: e.target.value })}
+                  className={`w-full border ${inputBorder} ${inputBg} ${textPrimary} rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  placeholder="Enter category name"
+                  required
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium ${textSecondary} mb-1`}>Description</label>
+                <textarea
+                  value={editCategoryForm.description}
+                  onChange={(e) => setEditCategoryForm({ ...editCategoryForm, description: e.target.value })}
+                  className={`w-full border ${inputBorder} ${inputBg} ${textPrimary} rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  placeholder="Enter category description"
+                  rows={3}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium ${textSecondary} mb-1`}>Color</label>
+                <select
+                  value={editCategoryForm.color}
+                  onChange={(e) => setEditCategoryForm({ ...editCategoryForm, color: e.target.value })}
+                  className={`w-full border ${inputBorder} ${inputBg} ${textPrimary} rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                >
+                  <option value="bg-blue-500">Blue</option>
+                  <option value="bg-green-500">Green</option>
+                  <option value="bg-purple-500">Purple</option>
+                  <option value="bg-pink-500">Pink</option>
+                  <option value="bg-orange-500">Orange</option>
+                  <option value="bg-red-500">Red</option>
+                  <option value="bg-teal-500">Teal</option>
+                  <option value="bg-yellow-500">Yellow</option>
+                </select>
+              </div>
+              <div>
+                <label className={`block text-sm font-medium ${textSecondary} mb-1`}>Order</label>
+                <input
+                  type="number"
+                  value={editCategoryForm.order}
+                  onChange={(e) => setEditCategoryForm({ ...editCategoryForm, order: parseInt(e.target.value) })}
+                  className={`w-full border ${inputBorder} ${inputBg} ${textPrimary} rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  placeholder="Display order"
+                  min="0"
+                />
+              </div>
+              <div>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={editCategoryForm.isActive}
+                    onChange={(e) => setEditCategoryForm({ ...editCategoryForm, isActive: e.target.checked })}
+                    className="rounded"
+                  />
+                  <span className={`text-sm ${textSecondary}`}>Active</span>
+                </label>
+              </div>
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowEditCategoryModal(false)}
+                className={`px-4 py-2 border ${inputBorder} rounded-md text-sm font-medium ${textSecondary} hover:opacity-80`}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-purple-500 text-white rounded-md text-sm font-medium hover:bg-purple-600"
+              >
+                Update Category
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

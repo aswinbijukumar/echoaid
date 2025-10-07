@@ -16,7 +16,17 @@ const createSuperAdmin = async () => {
     
     if (existingSuperAdmin) {
       console.log('Super admin already exists');
+      console.log(`Email: ${existingSuperAdmin.email}`);
+      console.log(`Active: ${existingSuperAdmin.isActive}`);
+      console.log(`Last Login: ${existingSuperAdmin.lastLogin || 'Never'}`);
       process.exit(0);
+    }
+
+    // Check if any super admins exist at all
+    const superAdminCount = await User.countDocuments({ role: 'super_admin' });
+    if (superAdminCount === 0) {
+      console.log('⚠️  No super admins found in the system!');
+      console.log('Creating initial super admin...');
     }
 
     // Create super admin user
@@ -37,9 +47,10 @@ const createSuperAdmin = async () => {
     });
 
     await superAdmin.save();
-    console.log('Super admin created successfully');
-    console.log('Email: superadmin@echoaid.com');
-    console.log('Password: SuperAdmin123!');
+    console.log('✅ Super admin created successfully');
+    console.log('📧 Email: superadmin@echoaid.com');
+    console.log('🔑 Password: SuperAdmin123!');
+    console.log('\n⚠️  IMPORTANT: Change this password after first login!');
 
     // Create an admin user as well
     const admin = new User({

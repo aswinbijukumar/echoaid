@@ -7,22 +7,16 @@ export default function RoleBasedRoute({ children, allowedRoles }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log('RoleBasedRoute - User:', user);
-    console.log('RoleBasedRoute - Loading:', loading);
-    console.log('RoleBasedRoute - Current pathname:', window.location.pathname);
-    console.log('RoleBasedRoute - Allowed roles:', allowedRoles);
     
     if (!loading) {
       if (!user) {
         // User not authenticated, redirect to login
-        console.log('RoleBasedRoute - No user, redirecting to login');
         navigate('/login');
         return;
       }
 
       if (allowedRoles && !allowedRoles.includes(user.role)) {
         // User doesn't have required role, redirect based on their role
-        console.log('RoleBasedRoute - User role not allowed, redirecting');
         switch (user.role) {
           case 'super_admin':
             navigate('/super-admin');
@@ -40,19 +34,15 @@ export default function RoleBasedRoute({ children, allowedRoles }) {
 
       // For /dashboard route, redirect based on user role
       if (window.location.pathname === '/dashboard') {
-        console.log('RoleBasedRoute - User role:', user.role);
         switch (user.role) {
           case 'super_admin':
-            console.log('RoleBasedRoute - Redirecting super_admin to /super-admin');
             navigate('/super-admin');
             break;
           case 'admin':
-            console.log('RoleBasedRoute - Redirecting admin to /admin');
             navigate('/admin');
             break;
           case 'user':
           default:
-            console.log('RoleBasedRoute - User stays on /dashboard');
             // Regular users stay on /dashboard
             break;
         }

@@ -1,11 +1,16 @@
 import express from 'express';
 import {
-  getAllUsers,
+  getAllAdmins,
+  getAdminById,
+  updateAdmin,
+  deleteAdmin,
+  createAdmin,
+  getManagedUsers,
   getUserById,
   updateUser,
   deleteUser,
-  getAdminDashboard,
   createUser,
+  getAdminDashboard,
   getUserStats
 } from '../controllers/adminController.js';
 import { protect, superAdminOnly, adminAndSuperAdmin, canManageUsers, canViewAnalytics } from '../middleware/roleAuth.js';
@@ -19,11 +24,18 @@ router.use(protect);
 router.get('/dashboard', adminAndSuperAdmin, canViewAnalytics, getAdminDashboard);
 router.get('/stats', adminAndSuperAdmin, canViewAnalytics, getUserStats);
 
-// User management routes (Super Admin only)
-router.get('/users', superAdminOnly, canManageUsers, getAllUsers);
-router.post('/users', superAdminOnly, canManageUsers, createUser);
-router.get('/users/:id', superAdminOnly, canManageUsers, getUserById);
-router.put('/users/:id', superAdminOnly, canManageUsers, updateUser);
-router.delete('/users/:id', superAdminOnly, canManageUsers, deleteUser);
+// Admin management routes (Super Admin only)
+router.get('/admins', superAdminOnly, canManageUsers, getAllAdmins);
+router.post('/admins', superAdminOnly, canManageUsers, createAdmin);
+router.get('/admins/:id', superAdminOnly, canManageUsers, getAdminById);
+router.put('/admins/:id', superAdminOnly, canManageUsers, updateAdmin);
+router.delete('/admins/:id', superAdminOnly, canManageUsers, deleteAdmin);
+
+// User management routes (Admin and Super Admin)
+router.get('/users', adminAndSuperAdmin, canManageUsers, getManagedUsers);
+router.post('/users', adminAndSuperAdmin, canManageUsers, createUser);
+router.get('/users/:id', adminAndSuperAdmin, canManageUsers, getUserById);
+router.put('/users/:id', adminAndSuperAdmin, canManageUsers, updateUser);
+router.delete('/users/:id', adminAndSuperAdmin, canManageUsers, deleteUser);
 
 export default router; 

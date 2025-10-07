@@ -3,6 +3,14 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
 const userSchema = new mongoose.Schema({
+  // Human-friendly unique identifier for admin UI
+  userCode: {
+    type: String,
+    unique: true,
+    index: true,
+    sparse: true,
+    trim: true
+  },
   name: {
     type: String,
     trim: true,
@@ -89,11 +97,149 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  deletedAt: {
+    type: Date,
+    default: null
+  },
   assignedSections: [{
     type: String
-  }]
+  }],
+  managedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  // New: multi-admin access list
+  managers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  signProgress: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
+  learningStats: {
+    streak: {
+      type: Number,
+      default: 0
+    },
+    longestStreak: {
+      type: Number,
+      default: 0
+    },
+    totalXP: {
+      type: Number,
+      default: 0
+    },
+    weeklyXP: {
+      type: Number,
+      default: 0
+    },
+    monthlyXP: {
+      type: Number,
+      default: 0
+    },
+    level: {
+      type: Number,
+      default: 1
+    },
+    xpToNextLevel: {
+      type: Number,
+      default: 100
+    },
+    signsLearned: {
+      type: Number,
+      default: 0
+    },
+    averageAccuracy: {
+      type: Number,
+      default: 0
+    },
+    lastPracticeDate: {
+      type: Date,
+      default: null
+    },
+    // Quiz-specific stats
+    quizzesCompleted: {
+      type: Number,
+      default: 0
+    },
+    perfectQuizzes: {
+      type: Number,
+      default: 0
+    },
+    averageQuizScore: {
+      type: Number,
+      default: 0
+    },
+    categoryProgress: {
+      alphabet: { type: Number, default: 0 },
+      phrases: { type: Number, default: 0 },
+      family: { type: Number, default: 0 },
+      activities: { type: Number, default: 0 },
+      advanced: { type: Number, default: 0 }
+    },
+    // Gamification features
+    badges: [{
+      type: String
+    }],
+    achievements: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'UserAchievement'
+    }],
+    dailyGoal: {
+      type: Number,
+      default: 100
+    },
+    weeklyGoal: {
+      type: Number,
+      default: 500
+    },
+    monthlyGoal: {
+      type: Number,
+      default: 2000
+    },
+    // Performance tracking
+    recentQuizzes: [{
+      quizId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz' },
+      score: { type: Number },
+      completedAt: { type: Date },
+      category: { type: String }
+    }],
+    weakAreas: [{
+      type: String
+    }],
+    strongAreas: [{
+      type: String
+    }]
+  }
 }, {
   timestamps: true
+});
+
+// Ensure a unique, readable userCode exists
+userSchema.pre('save', async function(next) {
+  if (this.userCode) return next();
+  try {
+    // Example: EA-<8 base36 chars>
+    let attempts = 0;
+    while (attempts < 5) {
+      const rand = crypto.randomBytes(6).toString('hex');
+      const candidate = `EA-${parseInt(rand, 16).toString(36).toUpperCase().slice(0, 8)}`;
+      const exists = await this.constructor.findOne({ userCode: candidate }).lean();
+      if (!exists) {
+        this.userCode = candidate;
+        break;
+      }
+      attempts += 1;
+    }
+    if (!this.userCode) {
+      this.userCode = `EA-${Date.now().toString(36).toUpperCase()}`;
+    }
+    next();
+  } catch (e) {
+    next(e);
+  }
 });
 
 // Encrypt password before saving
@@ -101,8 +247,16 @@ userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
     next();
   }
+  
+  // Skip hashing if password is already hashed (starts with $2a$ or $2b$)
+  if (this.password.startsWith('$2a$') || this.password.startsWith('$2b$')) {
+    next();
+    return;
+  }
+  
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
+  next();
 });
 
 // Match user entered password to hashed password in database
@@ -133,30 +287,33 @@ userSchema.pre('save', function(next) {
     switch (this.role) {
       case 'super_admin':
         this.permissions = {
-          manageUsers: true,
-          manageContent: true,
-          manageSystem: true,
-          viewAnalytics: true,
-          moderateForum: true
+          manageUsers: true,      // Can manage admins
+          manageContent: true,    // Can manage all content
+          manageSystem: true,     // Can manage system settings
+          viewAnalytics: true,    // Can view all analytics
+          moderateForum: true     // Can moderate forum
         };
+        this.managedBy = null; // Super admins are not managed by anyone
         break;
       case 'admin':
         this.permissions = {
-          manageUsers: false,
-          manageContent: true,
-          manageSystem: false,
-          viewAnalytics: true,
-          moderateForum: true
+          manageUsers: true,      // Can manage users assigned to them
+          manageContent: true,    // Can manage content in their sections
+          manageSystem: false,    // Cannot manage system settings
+          viewAnalytics: true,    // Can view analytics for their users
+          moderateForum: true     // Can moderate forum
         };
+        this.managedBy = null; // Admins are managed by super admins (set explicitly)
         break;
       case 'user':
         this.permissions = {
-          manageUsers: false,
-          manageContent: false,
-          manageSystem: false,
-          viewAnalytics: false,
-          moderateForum: false
+          manageUsers: false,     // Cannot manage other users
+          manageContent: false,   // Cannot manage content
+          manageSystem: false,    // Cannot manage system
+          viewAnalytics: false,   // Cannot view analytics
+          moderateForum: false    // Cannot moderate forum
         };
+        // managedBy will be set when user is created by an admin
         break;
     }
   }

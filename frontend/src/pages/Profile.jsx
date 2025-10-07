@@ -7,8 +7,6 @@ import {
   HeartIcon,
   TrophyIcon,
   ShieldCheckIcon,
-  GiftIcon,
-  ShoppingBagIcon,
   AcademicCapIcon,
   BookOpenIcon,
   ChatBubbleLeftRightIcon,
@@ -16,23 +14,20 @@ import {
   Cog6ToothIcon,
   EllipsisHorizontalIcon,
   HandRaisedIcon,
-  MagnifyingGlassIcon,
-  EnvelopeIcon,
   PencilIcon,
   PlusIcon,
   StarIcon,
   CalendarIcon,
-  UsersIcon,
-  ArrowRightIcon,
   PhotoIcon,
   XMarkIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
+import { useUserStats } from '../hooks/useUserStats';
+import TopBarUserAvatar from '../components/TopBarUserAvatar';
 
 export default function Profile() {
-  const [activeTab, setActiveTab] = useState('following');
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
@@ -41,7 +36,7 @@ export default function Profile() {
   const { darkMode } = useTheme();
   const { user, logout, setUser } = useAuth();
   const navigate = useNavigate();
-
+  const { stats: userStats } = useUserStats();
 
 
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
@@ -52,27 +47,11 @@ export default function Profile() {
   const statusBarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
 
   // Mock user data - in real app, this would come from user context/API
-  const userStats = {
-    streak: 7,
-    totalXP: 1250,
-    lives: 5,
-    gems: 500,
-    following: 12,
-    followers: 8,
-    joinedDate: 'January 2024',
-    currentLeague: 'Gold League',
-    top3Finishes: 3,
-    lessonsCompleted: 45,
-    signsLearned: 120,
-    quizScore: 85
-  };
-
   const achievements = [
     { id: 1, title: "First Steps", description: "Complete your first lesson", icon: "🎯", unlocked: true },
     { id: 2, title: "Week Warrior", description: "Maintain a 7-day streak", icon: "🔥", unlocked: true },
     { id: 3, title: "Sign Master", description: "Learn 100 signs", icon: "📚", unlocked: true },
     { id: 4, title: "Quiz Champion", description: "Score 90% on any quiz", icon: "🏆", unlocked: false },
-    { id: 5, title: "Community Helper", description: "Help 10 other learners", icon: "🤝", unlocked: false },
     { id: 6, title: "Perfect Week", description: "Complete all daily goals for 7 days", icon: "⭐", unlocked: false }
   ];
 
@@ -211,8 +190,8 @@ export default function Profile() {
   return (
     <div className={`min-h-screen ${bg} ${text}`}>
       {/* Top Status Bar */}
-      <div className={`${statusBarBg} border-b ${border} px-4 py-3`}>
-        <div className="flex items-center justify-between max-w-6xl mx-auto">
+      <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64 sticky top-0 z-30`}>
+        <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
             {/* Empty space on the left */}
           </div>
@@ -224,15 +203,14 @@ export default function Profile() {
             </div>
             <div className="flex items-center space-x-2">
               <SparklesIcon className="w-5 h-5 text-blue-400" />
-              <span className="font-semibold">{userStats.totalXP}</span>
+              <span className="font-semibold">{userStats.totalXP} XP</span>
             </div>
             <div className="flex items-center space-x-2">
-              <HeartIcon className="w-5 h-5 text-red-400" />
-              <span className="font-semibold">{userStats.lives}</span>
+              <StarIcon className="w-5 h-5 text-yellow-400" />
+              <span className="font-semibold">Lv {userStats.level}</span>
+              <span className="text-sm text-gray-400">({userStats.xpToNextLevel} to next)</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <span className="font-semibold">{user?.name || 'User'}</span>
-            </div>
+            <TopBarUserAvatar />
           </div>
         </div>
       </div>
@@ -474,70 +452,8 @@ export default function Profile() {
                   </div>
                 </div>
 
-                {/* Following/Followers Tabs */}
-                <div className={`p-4 rounded-lg border ${border}`}>
-                  <div className="flex space-x-4 mb-4">
-                    <button 
-                      onClick={() => setActiveTab('following')}
-                      className={`pb-2 ${activeTab === 'following' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-400'}`}
-                    >
-                      FOLLOWING
-                    </button>
-                    <button 
-                      onClick={() => setActiveTab('followers')}
-                      className={`pb-2 ${activeTab === 'followers' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-400'}`}
-                    >
-                      FOLLOWERS
-                    </button>
-                  </div>
-                  
-                  {activeTab === 'following' && (
-                    <div className="text-center py-8">
-                      <UsersIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-400 text-sm">No following yet</p>
-                    </div>
-                  )}
-                  
-                  {activeTab === 'followers' && (
-                    <div className="text-center py-8">
-                      <UsersIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-400 text-sm">No followers yet</p>
-                    </div>
-                  )}
-                </div>
 
-                {/* Social Connection Prompt */}
-                <div className={`p-4 rounded-lg border ${border}`}>
-                  <div className="text-center py-6">
-                    <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-blue-500 rounded-full mx-auto mb-4 flex items-center justify-center">
-                      <HandRaisedIcon className="w-10 h-10 text-white" />
-                    </div>
-                    <p className="text-gray-300 text-sm mb-4">
-                      Learning sign language is more fun and effective when you connect with others.
-                    </p>
-                  </div>
-                </div>
 
-                {/* Add Friends Section */}
-                <div className={`p-4 rounded-lg border ${border}`}>
-                  <h3 className="font-semibold mb-3">Add friends</h3>
-                  <div className="space-y-2">
-                    <button className="flex items-center justify-between w-full p-3 hover:bg-gray-700 rounded-lg transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />
-                        <span className="text-sm">Find friends</span>
-                      </div>
-                      <ArrowRightIcon className="w-4 h-4 text-gray-400" />
-                    </button>
-                    <button className="flex items-center justify-between w-full p-3 hover:bg-gray-700 rounded-lg transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <EnvelopeIcon className="w-5 h-5 text-green-400" />
-                        <span className="text-sm">Invite friends</span>
-                      </div>
-                      <ArrowRightIcon className="w-4 h-4 text-gray-400" />
-                    </button>
-                  </div>
-                </div>
 
 
               </div>

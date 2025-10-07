@@ -13,32 +13,75 @@ import {
   FireIcon,
   HeartIcon,
   SparklesIcon,
-  EllipsisHorizontalIcon,
-  ShieldCheckIcon,
-  GiftIcon,
-  ShoppingBagIcon
+  StarIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContext';
 import { useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
+import { useUserStats } from '../hooks/useUserStats';
+import TopBarUserAvatar from '../components/TopBarUserAvatar';
 
 export default function Dashboard() {
-  const [currentStreak] = useState(0);
-  const [totalXP] = useState(1250);
-  const [lives] = useState(5);
+  const { stats: userStats } = useUserStats();
   const [currentSection] = useState(1);
   const [currentUnit] = useState(1);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [recentSigns, setRecentSigns] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   const { darkMode } = useTheme();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
 
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
   const text = darkMode ? 'text-white' : 'text-[#23272F]';
   const border = darkMode ? 'border-gray-600' : 'border-gray-300';
   const statusBarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
+  const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
+
+  // API base URL
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+  // Fetch categories and recent signs
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch categories
+        const categoriesResponse = await fetch(`${API_BASE_URL}/api/content/categories`);
+        const categoriesData = await categoriesResponse.json();
+        
+        if (categoriesData.success && categoriesData.data) {
+          // Transform database categories to match expected format
+          const transformedCategories = categoriesData.data.map(cat => ({
+            id: cat.slug,
+            name: cat.name,
+            count: cat.signCount || 0,
+            color: cat.color,
+            description: cat.description
+          }));
+          setCategories(transformedCategories);
+        }
+
+        // Fetch recent signs
+        const signsResponse = await fetch(`${API_BASE_URL}/api/dictionary/db/signs?limit=6`);
+        const signsData = await signsResponse.json();
+        
+        if (signsData.signs && signsData.signs.length > 0) {
+          setRecentSigns(signsData.signs);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [API_BASE_URL]);
 
   // Scroll detection
   useEffect(() => {
@@ -50,6 +93,16 @@ export default function Dashboard() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Category icons mapping
+  const categoryIcons = {
+    alphabet: { icon: AcademicCapIcon, color: 'bg-blue-500' },
+    numbers: { icon: AcademicCapIcon, color: 'bg-teal-500' },
+    phrases: { icon: ChatBubbleLeftRightIcon, color: 'bg-purple-500' },
+    family: { icon: UserCircleIcon, color: 'bg-pink-500' },
+    activities: { icon: BookOpenIcon, color: 'bg-orange-500' },
+    advanced: { icon: PuzzlePieceIcon, color: 'bg-red-500' }
+  };
 
   // Sign Language Learning Modules
   const learningModules = [
@@ -109,11 +162,6 @@ export default function Dashboard() {
     }
   ];
 
-  const dailyQuests = [
-    { id: 1, title: "Complete 3 lessons", progress: 2, target: 3, xp: 50 },
-    { id: 2, title: "Practice for 15 minutes", progress: 8, target: 15, xp: 30 },
-    { id: 3, title: "Learn 5 new signs", progress: 3, target: 5, xp: 25 }
-  ];
 
   const handleLogout = () => {
     logout();
@@ -121,10 +169,10 @@ export default function Dashboard() {
   };
 
   return (
-    <div className={`min-h-screen ${bg} ${text}`}>
+    <div className={`min-h-screen ${bg} ${text} overflow-x-hidden`}>
       {/* Top Status Bar */}
-      <div className={`${statusBarBg} border-b ${border} px-4 py-3`}>
-        <div className="flex items-center justify-between max-w-6xl mx-auto">
+      <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64 sticky top-0 z-30`}>
+        <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
             {/* Empty space on the left */}
           </div>
@@ -132,20 +180,18 @@ export default function Dashboard() {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <FireIcon className="w-5 h-5 text-orange-400" />
-              <span className="font-semibold">{currentStreak}</span>
+              <span className="font-semibold">{userStats.streak}</span>
             </div>
             <div className="flex items-center space-x-2">
               <SparklesIcon className="w-5 h-5 text-blue-400" />
-              <span className="font-semibold">{totalXP}</span>
+              <span className="font-semibold">{userStats.totalXP} XP</span>
             </div>
             <div className="flex items-center space-x-2">
-              <HeartIcon className="w-5 h-5 text-red-400" />
-              <span className="font-semibold">{lives}</span>
+              <StarIcon className="w-5 h-5 text-yellow-400" />
+              <span className="font-semibold">Lv {userStats.level}</span>
+              <span className="text-sm text-gray-400">({userStats.xpToNextLevel} to next)</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <UserCircleIcon className="w-8 h-8 text-gray-300" />
-              <span className="font-semibold">{user?.name || 'User'}</span>
-            </div>
+            <TopBarUserAvatar size={8} />
           </div>
         </div>
       </div>
@@ -155,9 +201,9 @@ export default function Dashboard() {
         <Sidebar handleLogout={handleLogout} />
 
         {/* Main Content Area with Left Margin */}
-        <div className={`flex-1 ml-64 ${bg}`}>
-          <div className="max-w-6xl mx-auto">
-            <div className="flex">
+        <div className={`flex-1 ml-64 ${bg} overflow-hidden`}>
+          <div className="max-w-6xl mx-auto min-h-0">
+            <div className="flex min-h-0">
               {/* Main Content */}
               <div className="flex-1 p-6">
                 {/* Section Header */}
@@ -247,29 +293,93 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Daily Quests */}
-                <div className={`p-6 rounded-lg border ${border}`}>
+                {/* Sign Language Categories */}
+                <div className={`p-6 rounded-lg border ${border} mb-6`}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-bold">Daily Quests</h3>
-                    <Link to="/quests" className="text-blue-400 hover:text-blue-300 text-sm">
+                    <h3 className="text-xl font-bold">Sign Language Categories</h3>
+                    <Link to="/dictionary" className="text-blue-400 hover:text-blue-300 text-sm">
                       VIEW ALL
                     </Link>
                   </div>
-                  <div className="space-y-3">
-                    {dailyQuests.map((quest) => (
-                      <div key={quest.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <SparklesIcon className="w-5 h-5 text-yellow-400" />
-                          <span className="text-sm">{quest.title}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs text-gray-400">{quest.progress}/{quest.target}</span>
-                          <span className="text-xs text-blue-400">+{quest.xp} XP</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  
+                  {loading ? (
+                    <div className="flex justify-center items-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                      {categories.map((category) => {
+                        const iconData = categoryIcons[category.id] || { icon: HandRaisedIcon, color: 'bg-gray-500' };
+                        const categoryColor = category.color || iconData.color;
+                        return (
+                          <Link
+                            key={category.id}
+                            to={`/dictionary?category=${category.id}`}
+                            className={`p-4 rounded-lg border transition-all hover:shadow-lg ${
+                              `${cardBg} ${border} hover:${darkMode ? 'bg-gray-700' : 'bg-gray-200'} ${darkMode ? 'text-white' : 'text-[#23272F]'}`
+                            }`}
+                          >
+                            <div className="text-center">
+                              <div className={`${categoryColor} p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center`}>
+                                <iconData.icon className="w-6 h-6 text-white" />
+                              </div>
+                              <h4 className="font-semibold text-sm mb-1">{category.name}</h4>
+                              <p className="text-xs text-gray-500 mb-2">{category.description}</p>
+                              <span className="text-xs text-gray-400">{category.count} signs</span>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
+
+                {/* Recent Signs */}
+                <div className={`p-6 rounded-lg border ${border} mb-6`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-bold">Recent Signs</h3>
+                    <Link to="/dictionary" className="text-blue-400 hover:text-blue-300 text-sm">
+                      VIEW ALL
+                    </Link>
+                  </div>
+                  
+                  {loading ? (
+                    <div className="flex justify-center items-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+                    </div>
+                  ) : recentSigns.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                      {recentSigns.map((sign) => {
+                        const iconData = categoryIcons[sign.category] || { icon: HandRaisedIcon, color: 'bg-gray-500' };
+                        const categoryColor = categories.find(cat => cat.id === sign.category)?.color || iconData.color;
+                        return (
+                          <Link
+                            key={sign.id}
+                            to={`/dictionary?category=${sign.category}`}
+                            className={`p-4 rounded-lg border transition-all hover:shadow-lg ${
+                              `${cardBg} ${border} hover:${darkMode ? 'bg-gray-700' : 'bg-gray-200'} ${darkMode ? 'text-white' : 'text-[#23272F]'}`
+                            }`}
+                          >
+                            <div className="text-center">
+                              <div className={`${categoryColor} p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center`}>
+                                <iconData.icon className="w-6 h-6 text-white" />
+                              </div>
+                              <h4 className="font-semibold text-sm mb-1">{sign.word}</h4>
+                              <p className="text-xs text-gray-500 mb-2">{sign.description}</p>
+                              <span className="text-xs text-gray-400 capitalize">{sign.category}</span>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <HandRaisedIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500">No signs available yet</p>
+                    </div>
+                  )}
+                </div>
+
 
                 {/* Minimal Footer */}
                 <div className="mt-12 mb-8">
@@ -321,75 +431,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Right Sidebar - Promotions */}
-              <div className="w-80 p-4 space-y-4">
-                {/* Premium Promotion */}
-                <div className={`p-4 rounded-lg border ${border}`}>
-                  <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-3 rounded-lg mb-3">
-                    <h3 className="font-bold text-lg">PRO PREMIUM</h3>
-                  </div>
-                  <h4 className="font-semibold mb-2">Unlock Advanced Features</h4>
-                  <p className="text-gray-400 text-sm mb-3">
-                    Get unlimited practice, advanced lessons, and personalized learning paths!
-                  </p>
-                  <button className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors font-semibold">
-                    TRY 7 DAYS FREE
-                  </button>
-                </div>
-
-                {/* Community Stats */}
-                <div className={`p-4 rounded-lg border ${border}`}>
-                  <h4 className="font-semibold mb-3">Community Stats</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Total Learners</span>
-                      <span className="text-green-400">1,247</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Active Today</span>
-                      <span className="text-blue-400">89</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Your Rank</span>
-                      <span className="text-purple-400">#42</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quick Actions */}
-                <div className={`p-4 rounded-lg border ${border}`}>
-                  <h4 className="font-semibold mb-3">Quick Actions</h4>
-                  <div className="space-y-2">
-                    <Link to="/dictionary" className="block w-full text-left p-2 hover:bg-gray-700 rounded transition-colors">
-                      📚 Search Signs
-                    </Link>
-                    <Link to="/forum" className="block w-full text-left p-2 hover:bg-gray-700 rounded transition-colors">
-                      💬 Join Discussion
-                    </Link>
-                    <Link to="/quiz" className="block w-full text-left p-2 hover:bg-gray-700 rounded transition-colors">
-                      🧩 Take Quiz
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Newsletter Signup */}
-                <div className={`p-4 rounded-lg border ${border}`}>
-                  <h4 className="font-semibold mb-3">Stay Updated</h4>
-                  <p className="text-gray-400 text-sm mb-3">
-                    Get the latest learning tips and community updates
-                  </p>
-                  <div className="space-y-2">
-                    <input
-                      type="email"
-                      placeholder="Enter your email"
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                    <button className="w-full bg-green-500 text-white py-2 rounded text-sm hover:bg-green-600 transition-colors">
-                      Subscribe
-                    </button>
-                  </div>
-                </div>
-              </div>
+              {/* Right Sidebar removed to maximize main content space */}
             </div>
           </div>
         </div>

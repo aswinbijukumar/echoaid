@@ -14,7 +14,7 @@ export function AuthProvider({ children }) {
     const checkAuth = async () => {
       if (token) {
         try {
-          console.log('Checking auth with token:', token.substring(0, 20) + '...'); // Debug log
+          console.log('Checking authentication with token:', token.substring(0, 20) + '...');
           const response = await fetch(`${API_BASE_URL}/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
@@ -23,12 +23,10 @@ export function AuthProvider({ children }) {
           
           if (response.ok) {
             const data = await response.json();
-            console.log('User data fetched:', data.user); // Debug log
-            console.log('User role:', data.user?.role); // Debug role
-            console.log('User permissions:', data.user?.permissions); // Debug permissions
+            console.log('Authentication successful:', data.user);
             setUser(data.user);
           } else {
-            console.log('Auth check failed, removing token'); // Debug log
+            console.log('Authentication failed:', response.status, response.statusText);
             // Token is invalid, remove it
             localStorage.removeItem('token');
             setToken(null);
@@ -46,30 +44,36 @@ export function AuthProvider({ children }) {
   }, [token]);
 
   const login = async (credentials) => {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(credentials)
-    });
+    try {
+      console.log('Attempting login for:', credentials.email);
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(credentials)
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      // Check if user needs email verification
-      if (data.needsVerification && data.userId) {
-        throw new Error('EMAIL_VERIFICATION_REQUIRED');
+      if (!response.ok) {
+        console.log('Login failed:', response.status, data);
+        // Check if user needs email verification
+        if (data.needsVerification && data.userId) {
+          throw new Error('EMAIL_VERIFICATION_REQUIRED');
+        }
+        throw new Error(data.message || 'Login failed');
       }
-      throw new Error(data.message || 'Login failed');
-    }
 
-    console.log('Login response user data:', data.user); // Debug log
-    console.log('Login response user role:', data.user?.role); // Debug role
-    setUser(data.user);
-    setToken(data.token);
-    localStorage.setItem('token', data.token);
-    return data;
+      console.log('Login successful:', data.user);
+      setUser(data.user);
+      setToken(data.token);
+      localStorage.setItem('token', data.token);
+      return data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   };
 
   const signup = async (userData) => {

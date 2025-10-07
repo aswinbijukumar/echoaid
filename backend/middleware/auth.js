@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import { AppError } from '../utils/errorHandler.js';
 
 // Protect routes
 export const protect = async (req, res, next) => {
@@ -15,23 +16,23 @@ export const protect = async (req, res, next) => {
 
   // Make sure token exists
   if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Not authorized to access this route'
-    });
+    return next(new AppError('Not authorized to access this route', 401));
   }
 
   try {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    req.user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.id);
+    
+    if (!user) {
+      return next(new AppError('User not found', 401));
+    }
+    
+    req.user = user;
     next();
   } catch (err) {
-    return res.status(401).json({
-      success: false,
-      message: 'Not authorized to access this route'
-    });
+    return next(new AppError('Not authorized to access this route', 401));
   }
 };
 
@@ -39,11 +40,10 @@ export const protect = async (req, res, next) => {
 export const authorize = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: `User role ${req.user.role} is not authorized to access this route`
-      });
+      return next(
+        new AppError(`User role ${req.user.role} is not authorized to access this route`, 403)
+      );
     }
     next();
   };
-}; 
+};

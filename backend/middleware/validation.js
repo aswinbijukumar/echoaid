@@ -1,4 +1,5 @@
-import { body, validationResult } from 'express-validator';
+import { body, validationResult, param, query } from 'express-validator';
+import { AppError } from '../utils/errorHandler.js';
 
 // Validation for registration
 export const validateRegistration = [
@@ -64,18 +65,42 @@ export const validateForgotPassword = [
     .withMessage('Please provide a valid email address'),
 ];
 
+// Validation for dictionary sign search
+export const validateSignSearch = [
+  query('category')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid category ID format'),
+  
+  query('search')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Search term must be between 1 and 100 characters'),
+  
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('Limit must be between 1 and 100'),
+];
+
+// Validation for ID parameter
+export const validateIdParam = [
+  param('id')
+    .isMongoId()
+    .withMessage('Invalid ID format'),
+];
+
 // Middleware to check validation results
 export const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Validation failed',
-      errors: errors.array().map(error => ({
-        field: error.path,
-        message: error.msg
-      }))
-    });
+    const formattedErrors = errors.array().map(error => ({
+      field: error.path,
+      message: error.msg
+    }));
+    
+    return next(new AppError('Validation failed', 400, formattedErrors));
   }
   next();
-}; 
+};
