@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import sharp from 'sharp';
 import { fileURLToPath } from 'url';
-import Sign from '../microservices/dictionary/models/Sign.js';
+import Sign from '../models/Sign.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,6 +36,7 @@ router.get('/db/signs', async (req, res) => {
       description: sign.description,
       imageUrl: sign.imageUrl || sign.imagePath,
       thumbnailUrl: sign.thumbnailUrl || sign.imageUrl || sign.imagePath,
+      videoUrl: sign.videoPath || null,
       isActive: sign.isActive,
       createdAt: sign.createdAt
     }));

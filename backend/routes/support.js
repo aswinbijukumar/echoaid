@@ -38,39 +38,7 @@ let supportTickets = [
   }
 ];
 
-// Mock data for forum posts
-let forumPosts = [
-  {
-    id: 1,
-    title: 'Best practices for learning ISL',
-    content: 'I\'ve been learning ISL for 3 months now and wanted to share some tips that helped me...',
-    author: 'learner@example.com',
-    status: 'pending',
-    replies: 5,
-    createdAt: new Date('2024-01-30'),
-    category: 'discussion'
-  },
-  {
-    id: 2,
-    title: 'Question about finger spelling',
-    content: 'I\'m confused about the proper way to finger spell certain words. Can anyone help?',
-    author: 'beginner@example.com',
-    status: 'approved',
-    replies: 3,
-    createdAt: new Date('2024-01-29'),
-    category: 'question'
-  },
-  {
-    id: 3,
-    title: 'Inappropriate content',
-    content: 'This post contains inappropriate language and should be removed.',
-    author: 'spammer@example.com',
-    status: 'flagged',
-    replies: 0,
-    createdAt: new Date('2024-01-30'),
-    category: 'spam'
-  }
-];
+// Forum feature removed
 
 // Mock data for user progress
 let userProgress = [
@@ -141,55 +109,7 @@ router.put('/tickets/:id/reply', protect, adminAndSuperAdmin, (req, res) => {
   }
 });
 
-// GET /api/support/forum/posts - Get forum posts
-router.get('/forum/posts', protect, adminAndSuperAdmin, (req, res) => {
-  res.json({
-    success: true,
-    data: forumPosts
-  });
-});
-
-// PUT /api/support/forum/posts/:id/:action - Moderate forum posts
-router.put('/forum/posts/:id/:action', protect, adminAndSuperAdmin, (req, res) => {
-  try {
-    const { id, action } = req.params;
-
-    const postIndex = forumPosts.findIndex(post => post.id === parseInt(id));
-    if (postIndex === -1) {
-      return res.status(404).json({
-        success: false,
-        message: 'Post not found'
-      });
-    }
-
-    switch (action) {
-      case 'approve':
-        forumPosts[postIndex].status = 'approved';
-        break;
-      case 'reject':
-        forumPosts.splice(postIndex, 1);
-        break;
-      case 'flag':
-        forumPosts[postIndex].status = 'flagged';
-        break;
-      default:
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid action'
-        });
-    }
-
-    res.json({
-      success: true,
-      message: `Post ${action}ed successfully`
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
+// Forum endpoints removed
 
 // GET /api/support/analytics - Get analytics data
 router.get('/analytics', protect, adminAndSuperAdmin, (req, res) => {

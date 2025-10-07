@@ -1,11 +1,45 @@
-import Sign from '../microservices/dictionary/models/Sign.js';
+import Sign from '../models/Sign.js';
+import Category from '../models/Category.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
+import { v2 as cloudinary } from 'cloudinary';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Lazy configuration helper so env is available even if this module is loaded before dotenv.config
+function ensureCloudinaryConfigured() {
+  const cfg = cloudinary.config();
+  if (cfg && cfg.api_key) {
+    return;
+  }
+  if (process.env.CLOUDINARY_URL) {
+    try {
+      // Explicitly parse CLOUDINARY_URL to populate api_key/secret
+      const url = process.env.CLOUDINARY_URL.replace('cloudinary://', '');
+      const [creds, cloud] = url.split('@');
+      const [api_key, api_secret] = creds.split(':');
+      const cloud_name = cloud?.split('/')[0];
+      if (api_key && api_secret && cloud_name) {
+        cloudinary.config({ cloud_name, api_key, api_secret, secure: true });
+        return;
+      }
+    } catch {}
+    // Fallback to letting SDK read env
+    cloudinary.config({ secure: true });
+    return;
+  }
+  if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+      secure: true
+    });
+  }
+}
 
 // Simple in-memory content queue (mock). In a real app, use DB collection.
 let contentQueue = [
@@ -58,14 +92,15 @@ export const updateQueueItem = async (req, res) => {
 // @route   GET /api/admin/content/signs
 // @access  Private (Admin, Super Admin)
 export const getAllSigns = async (req, res) => {
+  
   try {
     const { page = 1, limit = 10, category, difficulty, search, isActive } = req.query;
     
     // Build filter object
     const filter = {};
     if (category) filter.category = category;
-    if (difficulty) filter.difficulty = difficulty;
-    if (typeof isActive === 'boolean') filter.isActive = isActive;
+    if (difficulty) filter.difficulty = difficulty; 
+    if (isActive !== undefined) filter.isActive = isActive === 'true' || isActive === true;
     if (search) {
       filter.$or = [
         { word: { $regex: search, $options: 'i' } },
@@ -153,6 +188,23 @@ export const createSign = async (req, res) => {
       isActive
     } = req.body;
     
+    // Basic validations
+    if (!word || !word.trim()) {
+      return res.status(400).json({ success: false, message: 'Word is required' });
+    }
+    if (!category || !category.trim()) {
+      return res.status(400).json({ success: false, message: 'Category (slug) is required' });
+    }
+    if (!description || !description.trim()) {
+      return res.status(400).json({ success: false, message: 'Description is required' });
+    }
+
+    // Ensure category slug exists and is active
+    const existingCategory = await Category.findOne({ slug: category, isActive: true });
+    if (!existingCategory) {
+      return res.status(400).json({ success: false, message: 'Invalid or inactive category slug' });
+    }
+    
     // Handle file uploads
     let imagePath = null;
     let thumbnailPath = null;
@@ -160,67 +212,76 @@ export const createSign = async (req, res) => {
     
     if (req.files) {
       if (req.files.image) {
-        const imageFile = req.files.image;
-        const imageName = `${Date.now()}-${imageFile.name}`;
-        const imageDir = path.join(__dirname, '..', 'assets', 'signs', category);
-        
-        // Ensure directory exists
-        if (!fs.existsSync(imageDir)) {
-          fs.mkdirSync(imageDir, { recursive: true });
+        ensureCloudinaryConfigured();
+        try {
+          const imageFile = req.files.image;
+          if (!cloudinary.config().api_key && !process.env.CLOUDINARY_URL) {
+            return res.status(500).json({ success: false, message: 'Cloudinary is not configured' });
+          }
+          const filePath = imageFile.tempFilePath || imageFile.path || imageFile.filepath || (imageFile.data ? `data:${imageFile.mimetype};base64,${imageFile.data.toString('base64')}` : null);
+          if (!filePath) {
+            return res.status(400).json({ success: false, message: 'Temporary image file path not found' });
+          }
+          // Upload original image
+          const uploaded = await cloudinary.uploader.upload(filePath, {
+            folder: `echoaid/signs/${category}`,
+            resource_type: 'auto'
+          });
+          imagePath = uploaded.secure_url;
+          // Generate a transformed thumbnail URL (200x200)
+          thumbnailPath = cloudinary.url(uploaded.public_id, { width: 200, height: 200, crop: 'fit', quality: 'auto', secure: true, format: 'jpg' });
+        } catch (e) {
+          return res.status(500).json({ success: false, message: 'Image upload failed', error: e.message });
         }
-        
-        imagePath = path.join(imageDir, imageName);
-        await imageFile.mv(imagePath);
-        
-        // Convert to relative path for frontend
-        imagePath = `/assets/signs/${category}/${imageName}`;
-        
-        // Create thumbnail
-        const thumbnailName = `thumb-${imageName}`;
-        const thumbnailDir = path.join(__dirname, '..', 'assets', 'optimized', category);
-        
-        if (!fs.existsSync(thumbnailDir)) {
-          fs.mkdirSync(thumbnailDir, { recursive: true });
-        }
-        
-        thumbnailPath = path.join(thumbnailDir, thumbnailName);
-        
-        // Generate thumbnail using sharp
-        await sharp(path.join(__dirname, '..', 'assets', 'signs', category, imageName))
-          .resize(200, 200, { fit: 'inside', withoutEnlargement: true })
-          .jpeg({ quality: 80 })
-          .toFile(thumbnailPath);
-        
-        // Convert to relative path for frontend
-        thumbnailPath = `/assets/optimized/${category}/${thumbnailName}`;
       }
       
       if (req.files.video) {
-        const videoFile = req.files.video;
-        const videoName = `${Date.now()}-${videoFile.name}`;
-        const videoDir = path.join(__dirname, '..', 'assets', 'videos', category);
-        
-        if (!fs.existsSync(videoDir)) {
-          fs.mkdirSync(videoDir, { recursive: true });
+        ensureCloudinaryConfigured();
+        try {
+          const videoFile = req.files.video;
+          if (!cloudinary.config().api_key && !process.env.CLOUDINARY_URL) {
+            return res.status(500).json({ success: false, message: 'Cloudinary is not configured' });
+          }
+          const filePath = videoFile.tempFilePath || videoFile.path || videoFile.filepath || (videoFile.data ? `data:${videoFile.mimetype};base64,${videoFile.data.toString('base64')}` : null);
+          if (!filePath) {
+            return res.status(400).json({ success: false, message: 'Temporary video file path not found' });
+          }
+          const uploadedVideo = await cloudinary.uploader.upload(filePath, {
+            folder: `echoaid/videos/${category}`,
+            resource_type: 'auto'
+          });
+          videoPath = uploadedVideo.secure_url;
+        } catch (e) {
+          return res.status(500).json({ success: false, message: 'Video upload failed', error: e.message });
         }
-        
-        videoPath = path.join(videoDir, videoName);
-        await videoFile.mv(videoPath);
-        
-        // Convert to relative path for frontend
-        videoPath = `/assets/videos/${category}/${videoName}`;
       }
     }
     
+    if (!imagePath && !req.body.imagePath) {
+      return res.status(400).json({ success: false, message: 'Image is required' });
+    }
+
+    // Normalize tags (support both CSV string and array)
+    let normalizedTags = [];
+    if (Array.isArray(tags)) {
+      normalizedTags = tags.map(t => String(t).trim()).filter(Boolean);
+    } else if (typeof tags === 'string') {
+      normalizedTags = tags.split(',').map(t => t.trim()).filter(Boolean);
+    }
+
+    // Ensure thumbnail fallback to image if not provided
+    const effectiveImagePath = imagePath || req.body.imagePath;
+    const effectiveThumbnailPath = (thumbnailPath || req.body.thumbnailPath || effectiveImagePath);
+
     const sign = await Sign.create({
       word,
       category,
-      difficulty,
+      difficulty: difficulty || 'Beginner',
       description,
-      imagePath: imagePath || req.body.imagePath,
-      thumbnailPath: thumbnailPath || req.body.thumbnailPath,
+      imagePath: effectiveImagePath,
+      thumbnailPath: effectiveThumbnailPath,
       videoPath: videoPath || req.body.videoPath,
-      tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
+      tags: normalizedTags,
       usage,
       signLanguageType,
       handDominance,
@@ -228,7 +289,7 @@ export const createSign = async (req, res) => {
       facialExpression,
       bodyPosition,
       movement,
-      relatedSigns: relatedSigns ? relatedSigns.split(',').map(id => id.trim()) : [],
+      relatedSigns: Array.isArray(relatedSigns) ? relatedSigns : (relatedSigns ? relatedSigns.split(',').map(id => id.trim()) : []),
       createdBy: req.user._id
     });
     
@@ -279,71 +340,49 @@ export const updateSign = async (req, res) => {
       isActive
     } = req.body;
     
-    // Handle file uploads
+    // Handle file uploads (upload new files to Cloudinary)
     if (req.files) {
       if (req.files.image) {
-        const imageFile = req.files.image;
-        const imageName = `${Date.now()}-${imageFile.name}`;
-        const imageDir = path.join(__dirname, '..', 'assets', 'signs', category || sign.category);
-        
-        if (!fs.existsSync(imageDir)) {
-          fs.mkdirSync(imageDir, { recursive: true });
+        ensureCloudinaryConfigured();
+        try {
+          const imageFile = req.files.image;
+          if (!cloudinary.config().api_key && !process.env.CLOUDINARY_URL) {
+            return res.status(500).json({ success: false, message: 'Cloudinary is not configured' });
+          }
+          const filePath = imageFile.tempFilePath || imageFile.path || imageFile.filepath || (imageFile.data ? `data:${imageFile.mimetype};base64,${imageFile.data.toString('base64')}` : null);
+          if (!filePath) {
+            return res.status(400).json({ success: false, message: 'Temporary image file path not found' });
+          }
+          const uploaded = await cloudinary.uploader.upload(filePath, {
+            folder: `echoaid/signs/${category || sign.category}`,
+            resource_type: 'image'
+          });
+          sign.imagePath = uploaded.secure_url;
+          sign.thumbnailPath = cloudinary.url(uploaded.public_id, { width: 200, height: 200, crop: 'fit', quality: 'auto', secure: true, format: 'jpg' });
+        } catch (e) {
+          return res.status(500).json({ success: false, message: 'Image upload failed', error: e.message });
         }
-        
-        const newImagePath = path.join(imageDir, imageName);
-        await imageFile.mv(newImagePath);
-        
-        // Delete old image if it exists
-        if (sign.imagePath && fs.existsSync(path.join(__dirname, '..', sign.imagePath))) {
-          fs.unlinkSync(path.join(__dirname, '..', sign.imagePath));
-        }
-        
-        // Convert to relative path for frontend
-        sign.imagePath = `/assets/signs/${category || sign.category}/${imageName}`;
-        
-        // Create new thumbnail
-        const thumbnailName = `thumb-${imageName}`;
-        const thumbnailDir = path.join(__dirname, '..', 'assets', 'optimized', category || sign.category);
-        
-        if (!fs.existsSync(thumbnailDir)) {
-          fs.mkdirSync(thumbnailDir, { recursive: true });
-        }
-        
-        const newThumbnailPath = path.join(thumbnailDir, thumbnailName);
-        
-        await sharp(newImagePath)
-          .resize(200, 200, { fit: 'inside', withoutEnlargement: true })
-          .jpeg({ quality: 80 })
-          .toFile(newThumbnailPath);
-        
-        // Delete old thumbnail if it exists
-        if (sign.thumbnailPath && fs.existsSync(path.join(__dirname, '..', sign.thumbnailPath))) {
-          fs.unlinkSync(path.join(__dirname, '..', sign.thumbnailPath));
-        }
-        
-        // Convert to relative path for frontend
-        sign.thumbnailPath = `/assets/optimized/${category || sign.category}/${thumbnailName}`;
       }
       
       if (req.files.video) {
-        const videoFile = req.files.video;
-        const videoName = `${Date.now()}-${videoFile.name}`;
-        const videoDir = path.join(__dirname, '..', 'assets', 'videos', category || sign.category);
-        
-        if (!fs.existsSync(videoDir)) {
-          fs.mkdirSync(videoDir, { recursive: true });
+        ensureCloudinaryConfigured();
+        try {
+          const videoFile = req.files.video;
+          if (!cloudinary.config().api_key && !process.env.CLOUDINARY_URL) {
+            return res.status(500).json({ success: false, message: 'Cloudinary is not configured' });
+          }
+          const filePath = videoFile.tempFilePath || videoFile.path || videoFile.filepath || (videoFile.data ? `data:${videoFile.mimetype};base64,${videoFile.data.toString('base64')}` : null);
+          if (!filePath) {
+            return res.status(400).json({ success: false, message: 'Temporary video file path not found' });
+          }
+          const uploadedVideo = await cloudinary.uploader.upload(filePath, {
+            folder: `echoaid/videos/${category || sign.category}`,
+            resource_type: 'video'
+          });
+          sign.videoPath = uploadedVideo.secure_url;
+        } catch (e) {
+          return res.status(500).json({ success: false, message: 'Video upload failed', error: e.message });
         }
-        
-        const newVideoPath = path.join(videoDir, videoName);
-        await videoFile.mv(newVideoPath);
-        
-        // Delete old video if it exists
-        if (sign.videoPath && fs.existsSync(path.join(__dirname, '..', sign.videoPath))) {
-          fs.unlinkSync(path.join(__dirname, '..', sign.videoPath));
-        }
-        
-        // Convert to relative path for frontend
-        sign.videoPath = `/assets/videos/${category || sign.category}/${videoName}`;
       }
     }
     
@@ -396,18 +435,21 @@ export const deleteSign = async (req, res) => {
       });
     }
     
-    // Delete associated files
-    if (sign.imagePath && fs.existsSync(path.join(__dirname, '..', sign.imagePath))) {
-      fs.unlinkSync(path.join(__dirname, '..', sign.imagePath));
-    }
-    
-    if (sign.thumbnailPath && fs.existsSync(path.join(__dirname, '..', sign.thumbnailPath))) {
-      fs.unlinkSync(path.join(__dirname, '..', sign.thumbnailPath));
-    }
-    
-    if (sign.videoPath && fs.existsSync(path.join(__dirname, '..', sign.videoPath))) {
-      fs.unlinkSync(path.join(__dirname, '..', sign.videoPath));
-    }
+    // Best-effort delete for local files (legacy)
+    try {
+      if (sign.imagePath && !sign.imagePath.startsWith('http')) {
+        const p = path.join(__dirname, '..', sign.imagePath);
+        if (fs.existsSync(p)) fs.unlinkSync(p);
+      }
+      if (sign.thumbnailPath && !sign.thumbnailPath.startsWith('http')) {
+        const p = path.join(__dirname, '..', sign.thumbnailPath);
+        if (fs.existsSync(p)) fs.unlinkSync(p);
+      }
+      if (sign.videoPath && !sign.videoPath.startsWith('http')) {
+        const p = path.join(__dirname, '..', sign.videoPath);
+        if (fs.existsSync(p)) fs.unlinkSync(p);
+      }
+    } catch {}
     
     await Sign.findByIdAndDelete(req.params.id);
     
@@ -620,6 +662,222 @@ export const exportSigns = async (req, res) => {
         data: signs
       });
     }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+// Category Management Functions
+
+// Get all categories
+export const getAllCategories = async (req, res) => {
+  try {
+    const categories = await Category.find({ isActive: true })
+      .sort({ order: 1, name: 1 })
+      .populate('createdBy', 'name email')
+      .populate('lastModifiedBy', 'name email');
+
+    // Update sign counts for each category
+    for (let category of categories) {
+      await category.updateSignCount();
+    }
+
+    res.status(200).json({
+      success: true,
+      data: categories
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+// Get category by ID
+export const getCategoryById = async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id)
+      .populate('createdBy', 'name email')
+      .populate('lastModifiedBy', 'name email');
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    await category.updateSignCount();
+
+    res.status(200).json({
+      success: true,
+      data: category
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+// Create new category
+export const createCategory = async (req, res) => {
+  try {
+    console.log('createCategory called by user:', req.user?.email, 'role:', req.user?.role);
+    const { name, description, icon, color } = req.body || {};
+    let { order } = req.body || {};
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Category name is required' });
+    }
+
+    // Normalize slug and order
+    const normalizedSlug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    order = Number.isFinite(Number(order)) ? Number(order) : 0;
+
+    // Check conflicts by name or slug
+    const existingCategory = await Category.findOne({
+      $or: [
+        { name: { $regex: new RegExp(`^${name}$`, 'i') } },
+        { slug: { $regex: new RegExp(`^${normalizedSlug}$`, 'i') } }
+      ]
+    });
+
+    if (existingCategory) {
+      return res.status(400).json({ success: false, message: 'Category with this name already exists' });
+    }
+
+    const category = await Category.create({
+      name: name.trim(),
+      slug: normalizedSlug,
+      description: description || '',
+      icon: icon || 'AcademicCapIcon',
+      color: color || 'bg-blue-500',
+      order,
+      createdBy: req.user._id
+    });
+
+    return res.status(201).json({ success: true, data: category });
+  } catch (error) {
+    // Duplicate key friendly message
+    if (error?.code === 11000) {
+      return res.status(400).json({ success: false, message: 'Category with this name already exists' });
+    }
+    console.error('createCategory error:', error);
+    return res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
+// Update category
+export const updateCategory = async (req, res) => {
+  try {
+    const { name, description, icon, color, isActive } = req.body || {};
+    let { order } = req.body || {};
+
+    const category = await Category.findById(req.params.id);
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    // Check if new name conflicts with existing categories
+    if (name && name !== category.name) {
+      const existingCategory = await Category.findOne({ 
+        _id: { $ne: req.params.id },
+        $or: [
+          { name: { $regex: new RegExp(`^${name}$`, 'i') } },
+          { slug: { $regex: new RegExp(`^${name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}$`, 'i') } }
+        ]
+      });
+
+      if (existingCategory) {
+        return res.status(400).json({
+          success: false,
+          message: 'Category with this name already exists'
+        });
+      }
+    }
+
+    // Normalize values
+    const updateDoc = {
+      ...(name && { name: name.trim(), slug: name
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '') }),
+      ...(description !== undefined && { description }),
+      ...(icon && { icon }),
+      ...(color && { color }),
+      ...(order !== undefined && { order: Number.isFinite(Number(order)) ? Number(order) : category.order }),
+      ...(isActive !== undefined && { isActive }),
+      lastModifiedBy: req.user._id
+    };
+
+    const updatedCategory = await Category.findByIdAndUpdate(
+      req.params.id,
+      updateDoc,
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      data: updatedCategory
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(400).json({ success: false, message: 'Category with this name already exists' });
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+// Delete category
+export const deleteCategory = async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id);
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    // Check if category has signs
+    const signCount = await Sign.countDocuments({ category: category.slug });
+    if (signCount > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete category. It contains ${signCount} signs. Please move or delete the signs first.`
+      });
+    }
+
+    await Category.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Category deleted successfully'
+    });
   } catch (error) {
     res.status(500).json({
       success: false,

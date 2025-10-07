@@ -13,21 +13,18 @@ import {
   EllipsisHorizontalIcon,
   HandRaisedIcon,
   ShieldCheckIcon,
-  GiftIcon,
-  ShoppingBagIcon
+  StarIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContext';
 import { ThemeContext } from '../context/ThemeContext.js';
 import Sidebar from '../components/Sidebar';
+import TopBarUserAvatar from '../components/TopBarUserAvatar';
 
 export default function AccessibilitySettings() {
-  const [currentStreak] = useState(7);
-  const [totalXP] = useState(1250);
-  const [lives] = useState(5);
   
   const { darkMode } = useTheme();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const { themeMode, setTheme } = useContext(ThemeContext);
   const navigate = useNavigate();
 
@@ -48,27 +45,13 @@ export default function AccessibilitySettings() {
   return (
     <div className={`min-h-screen ${bg} ${text}`}>
       {/* Top Status Bar */}
-      <div className={`${statusBarBg} border-b ${border} px-4 py-3`}>
+      <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64`}>
         <div className="flex items-center justify-between max-w-6xl mx-auto">
-          <div className="flex items-center space-x-4"></div>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <FireIcon className="w-5 h-5 text-orange-400" />
-              <span className="font-semibold">{currentStreak}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <SparklesIcon className="w-5 h-5 text-blue-400" />
-              <span className="font-semibold">{totalXP}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <HeartIcon className="w-5 h-5 text-red-400" />
-              <span className="font-semibold">{lives}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <UserCircleIcon className="w-8 h-8 text-gray-300" />
-              <span className="font-semibold">{user?.name || 'User'}</span>
-            </div>
+          <div className="flex items-center space-x-3">
+            <Cog6ToothIcon className="w-6 h-6 text-green-500" />
+            <span className="font-semibold">ACCESSIBILITY SETTINGS</span>
           </div>
+          <TopBarUserAvatar size={8} />
         </div>
       </div>
 

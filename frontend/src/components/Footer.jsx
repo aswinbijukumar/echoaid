@@ -21,14 +21,7 @@ function Footer() {
             <li><Link to="/blog" className="hover:underline">Blog</Link></li>
           </ul>
         </div>
-        <div>
-          <h4 className="font-bold text-lg mb-2">Community</h4>
-          <ul className="space-y-1">
-            <li><Link to="/forum" className="hover:underline">Forum</Link></li>
-            <li><Link to="/events" className="hover:underline">Events</Link></li>
-            <li><Link to="/support" className="hover:underline">Support</Link></li>
-          </ul>
-        </div>
+        
         <div>
           <h4 className="font-bold text-lg mb-2">Social</h4>
           <ul className="space-y-1">

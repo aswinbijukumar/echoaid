@@ -13,6 +13,7 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContext';
+import Modal from './Modal';
 
 export default function SignsManagement() {
   const [signs, setSigns] = useState([]);
@@ -543,10 +544,8 @@ export default function SignsManagement() {
 
       {/* Create Sign Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-medium mb-4">Add New Sign</h3>
-            <form onSubmit={handleCreateSign} className="space-y-4">
+        <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Add New Sign" className="bg-white rounded-lg" widthClass="w-full max-w-2xl mx-4">
+          <form onSubmit={handleCreateSign} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Word</label>
@@ -738,17 +737,14 @@ export default function SignsManagement() {
                   Create Sign
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
+          </form>
+        </Modal>
       )}
 
       {/* Edit Sign Modal */}
       {showEditModal && selectedSign && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-medium mb-4">Edit Sign: {selectedSign.word}</h3>
-            <form onSubmit={handleUpdateSign} className="space-y-4">
+        <Modal isOpen={showEditModal} onClose={() => { setShowEditModal(false); setSelectedSign(null); resetEditForm(); }} title={`Edit Sign: ${selectedSign.word}`} className="bg-white rounded-lg" widthClass="w-full max-w-2xl mx-4">
+          <form onSubmit={handleUpdateSign} className="space-y-4">
               {/* Same form fields as create, but with editForm values */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -808,41 +804,35 @@ export default function SignsManagement() {
                   Update Sign
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
+          </form>
+        </Modal>
       )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedSign && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex items-center mb-4">
-              <ExclamationTriangleIcon className="w-6 h-6 text-red-500 mr-2" />
-              <h3 className="text-lg font-medium">Delete Sign</h3>
-            </div>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete "{selectedSign.word}"? This action cannot be undone and will also remove associated files.
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setSelectedSign(null);
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteSign}
-                className="px-4 py-2 bg-red-500 text-white rounded-md text-sm font-medium hover:bg-red-600"
-              >
-                Delete
-              </button>
-            </div>
+        <Modal isOpen={showDeleteModal} onClose={() => { setShowDeleteModal(false); setSelectedSign(null); }} title="Delete Sign" className="bg-white rounded-lg" widthClass="w-full max-w-md mx-4">
+          <div className="flex items-center mb-4">
+            <ExclamationTriangleIcon className="w-6 h-6 text-red-500 mr-2" />
+            <h3 className="text-lg font-medium">Delete Sign</h3>
           </div>
-        </div>
+          <p className="text-gray-600 mb-6">
+            Are you sure you want to delete "{selectedSign.word}"? This action cannot be undone and will also remove associated files.
+          </p>
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={() => { setShowDeleteModal(false); setSelectedSign(null); }}
+              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteSign}
+              className="px-4 py-2 bg-red-500 text-white rounded-md text-sm font-medium hover:bg-red-600"
+            >
+              Delete
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );

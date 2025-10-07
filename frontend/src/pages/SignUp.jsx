@@ -60,7 +60,6 @@ export default function SignUp() {
     }
 
     try {
-      console.log('Submitting signup:', formData); // Debug log
       
       const response = await fetch('http://localhost:5000/api/auth/register', {
         method: 'POST',
@@ -71,7 +70,6 @@ export default function SignUp() {
       });
 
       const data = await response.json();
-      console.log('Signup response:', data); // Debug log
 
       if (!response.ok) {
         // Handle validation errors from server
@@ -98,7 +96,7 @@ export default function SignUp() {
         replace: true 
       });
     } catch (err) {
-      console.error('Signup error:', err); // Debug log
+      console.error('Signup error:', err);
       setError(err.message || 'Signup failed. Please try again.');
     } finally {
       setIsLoading(false);

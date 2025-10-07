@@ -16,15 +16,18 @@ import {
   PlayIcon,
   EllipsisHorizontalIcon,
   ShieldCheckIcon,
-  GiftIcon,
-  ShoppingBagIcon,
   PhotoIcon,
   XMarkIcon,
-  EyeIcon
+  EyeIcon,
+  StarIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
+import PracticeSession from '../components/PracticeSession';
+import { useUserStats } from '../hooks/useUserStats';
+import TopBarUserAvatar from '../components/TopBarUserAvatar';
+import Modal from '../components/Modal';
 
 export default function Dictionary() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,30 +40,17 @@ export default function Dictionary() {
   const [contentRef, setContentRef] = useState(null);
   const [selectedSign, setSelectedSign] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [practicingSign, setPracticingSign] = useState(null);
+  const [showPractice, setShowPractice] = useState(false);
   
   const { darkMode } = useTheme();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
+  const { stats: userStats } = useUserStats();
 
   const handleLogout = () => {
     logout();
     navigate('/');
-  };
-
-  // Mock user data - in real app, this would come from user context/API
-  const userStats = {
-    streak: 7,
-    totalXP: 1250,
-    lives: 5,
-    gems: 500,
-    following: 12,
-    followers: 8,
-    joinedDate: 'January 2024',
-    currentLeague: 'Gold League',
-    top3Finishes: 3,
-    lessonsCompleted: 45,
-    signsLearned: 120,
-    quizScore: 85
   };
 
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
@@ -78,24 +68,19 @@ export default function Dictionary() {
       try {
         setLoading(true);
         
-        // Fetch categories (filesystem-based is fine for list)
-        const categoriesResponse = await fetch(`${API_BASE_URL}/api/dictionary/categories`);
+        // Fetch categories from public alias
+        const categoriesResponse = await fetch(`${API_BASE_URL}/api/content/categories`);
         const categoriesData = await categoriesResponse.json();
         
-        let fetchedCategories = categoriesData.categories || [];
-        
-        // Ensure Numbers category appears if DB has any numbers
-        try {
-          const numbersResp = await fetch(`${API_BASE_URL}/api/dictionary/db/signs?category=numbers&limit=500`);
-          const numbersData = await numbersResp.json();
-          if (numbersData.signs && numbersData.signs.length > 0 && !fetchedCategories.find(c => c.id === 'numbers')) {
-            fetchedCategories = [
-              ...fetchedCategories,
-              { id: 'numbers', name: 'Numbers', count: numbersData.signs.length }
-            ];
-          }
-        } catch {
-          // Ignore secondary fallback error
+        let fetchedCategories = [];
+        if (categoriesData.success && categoriesData.data) {
+          // Transform database categories to match expected format
+          fetchedCategories = categoriesData.data.map(cat => ({
+            id: cat.slug,
+            name: cat.name,
+            count: cat.signCount || 0,
+            color: cat.color
+          }));
         }
         
         setCategories(fetchedCategories);
@@ -134,28 +119,43 @@ export default function Dictionary() {
 
   // Fetch signs for selected category
   useEffect(() => {
-    if (selectedCategory === 'all') return;
-    
     const fetchCategorySigns = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${API_BASE_URL}/api/dictionary/db/signs?category=${encodeURIComponent(selectedCategory)}&limit=500`);
-        const data = await response.json();
         
-        if (data.signs && data.signs.length > 0) {
-          setSigns(data.signs);
+        if (selectedCategory === 'all') {
+          // Fetch all signs from database
+          const response = await fetch(`${API_BASE_URL}/api/dictionary/db/signs?limit=500`);
+          const data = await response.json();
+          
+          if (data.signs && data.signs.length > 0) {
+            setSigns(data.signs);
+          } else {
+            // Fallback to filesystem alphabet
+            const fsResp = await fetch(`${API_BASE_URL}/api/dictionary/signs/alphabet`);
+            const fsData = await fsResp.json();
+            setSigns(fsData.signs || []);
+          }
         } else {
-          // Fallback to filesystem for that category
-          const fsResp = await fetch(`${API_BASE_URL}/api/dictionary/signs/${encodeURIComponent(selectedCategory)}`);
-          const fsData = await fsResp.json();
-          setSigns(fsData.signs || []);
+          // Fetch signs for specific category
+          const response = await fetch(`${API_BASE_URL}/api/dictionary/db/signs?category=${encodeURIComponent(selectedCategory)}&limit=500`);
+          const data = await response.json();
+          
+          if (data.signs && data.signs.length > 0) {
+            setSigns(data.signs);
+          } else {
+            // Fallback to filesystem for that category
+            const fsResp = await fetch(`${API_BASE_URL}/api/dictionary/signs/${encodeURIComponent(selectedCategory)}`);
+            const fsData = await fsResp.json();
+            setSigns(fsData.signs || []);
+          }
         }
       } catch (err) {
         console.error('Error fetching category signs:', err);
         setError('Failed to load signs for this category.');
         // Fallback attempt
         try {
-          const fsResp = await fetch(`${API_BASE_URL}/api/dictionary/signs/${encodeURIComponent(selectedCategory)}`);
+          const fsResp = await fetch(`${API_BASE_URL}/api/dictionary/signs/${encodeURIComponent(selectedCategory === 'all' ? 'alphabet' : selectedCategory)}`);
           const fsData = await fsResp.json();
           setSigns(fsData.signs || []);
         } catch {
@@ -168,44 +168,6 @@ export default function Dictionary() {
 
     fetchCategorySigns();
   }, [selectedCategory, API_BASE_URL]);
-
-  // Search signs
-  useEffect(() => {
-    if (!searchTerm.trim()) return;
-    
-    const searchSigns = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`${API_BASE_URL}/api/dictionary/db/signs?q=${encodeURIComponent(searchTerm)}&limit=500`);
-        const data = await response.json();
-        
-        if (data.signs && data.signs.length > 0) {
-          setSigns(data.signs);
-        } else {
-          // Fallback to filesystem search
-          const fsResp = await fetch(`${API_BASE_URL}/api/dictionary/search?q=${encodeURIComponent(searchTerm)}`);
-          const fsData = await fsResp.json();
-          setSigns(fsData.signs || []);
-        }
-      } catch (err) {
-        console.error('Error searching signs:', err);
-        setError('Failed to search signs.');
-        // Fallback attempt
-        try {
-          const fsResp = await fetch(`${API_BASE_URL}/api/dictionary/search?q=${encodeURIComponent(searchTerm)}`);
-          const fsData = await fsResp.json();
-          setSigns(fsData.signs || []);
-        } catch {
-          // Ignore secondary fallback error
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const timeoutId = setTimeout(searchSigns, 400);
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, API_BASE_URL]);
 
   // Scroll detection for content area
   useEffect(() => {
@@ -240,15 +202,63 @@ export default function Dictionary() {
     setSelectedSign(null);
   };
 
+  const openPractice = (sign) => {
+    setPracticingSign(sign);
+    setShowPractice(true);
+  };
+
+  const closePractice = () => {
+    setShowPractice(false);
+    setPracticingSign(null);
+  };
+
+  const handlePracticeComplete = async (sessionData) => {
+    try {
+      // Basic progress payload mirroring Practice page logic
+      const progress = {
+        practiceCount: sessionData.attempts?.length || 0,
+        accuracy: sessionData.averageScore || 0,
+        bestScore: sessionData.bestScore || 0,
+        lastPractice: new Date()
+      };
+ 
+      const token = localStorage.getItem('token');
+      if (token && (practicingSign?._id || practicingSign?.id)) {
+        await fetch(`${API_BASE_URL}/api/practice/progress`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            signId: practicingSign._id || practicingSign.id,
+            progress
+          })
+        });
+      }
+    } catch (error) {
+      // Non-blocking: log and still close overlay
+      console.error('Failed to save practice progress', error);
+    }
+    closePractice();
+    // Quick success toast
+    const notif = document.createElement('div');
+    notif.className = 'fixed top-4 right-4 px-4 py-2 rounded shadow-lg z-50 bg-green-100 text-green-800 border border-green-300';
+    notif.textContent = 'Practice session saved';
+    document.body.appendChild(notif);
+    setTimeout(() => notif.remove(), 2000);
+  };
+
   // Handle escape key to close preview
   useEffect(() => {
     const handleEscape = (e) => {
-      if (e.key === 'Escape' && showPreview) {
-        closePreview();
+      if (e.key === 'Escape') {
+        if (showPreview) closePreview();
+        if (showPractice) closePractice();
       }
     };
 
-    if (showPreview) {
+    if (showPreview || showPractice) {
       document.addEventListener('keydown', handleEscape);
       document.body.style.overflow = 'hidden'; // Prevent background scrolling
     }
@@ -257,7 +267,7 @@ export default function Dictionary() {
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = 'unset';
     };
-  }, [showPreview]);
+  }, [showPreview, showPractice]);
 
   // Sign Language Categories with icons
   const categoryIcons = {
@@ -271,12 +281,31 @@ export default function Dictionary() {
   };
 
 
+  // Filter signs based on search term and category
+  const filteredSigns = signs.filter(sign => {
+    // Filter by search term
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = sign.word.toLowerCase().includes(searchLower) ||
+                           sign.description.toLowerCase().includes(searchLower);
+      if (!matchesSearch) return false;
+    }
+    
+    // Filter by category (if not 'all')
+    if (selectedCategory !== 'all') {
+      return sign.category === selectedCategory;
+    }
+    
+    return true;
+  });
+
+
 
   return (
-    <div className={`min-h-screen ${bg} ${text}`}>
+    <div className={`min-h-screen ${bg} ${text} overflow-x-hidden`}>
       {/* Top Status Bar */}
-      <div className={`${statusBarBg} border-b ${border} px-4 py-3`}>
-        <div className="flex items-center justify-between max-w-6xl mx-auto">
+      <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64 sticky top-0 z-30`}>
+        <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
             {/* Empty space on the left */}
           </div>
@@ -288,16 +317,14 @@ export default function Dictionary() {
             </div>
             <div className="flex items-center space-x-2">
               <SparklesIcon className="w-5 h-5 text-blue-400" />
-              <span className="font-semibold">{userStats.totalXP}</span>
+              <span className="font-semibold">{userStats.totalXP} XP</span>
             </div>
             <div className="flex items-center space-x-2">
-              <HeartIcon className="w-5 h-5 text-red-400" />
-              <span className="font-semibold">{userStats.lives}</span>
+              <StarIcon className="w-5 h-5 text-yellow-400" />
+              <span className="font-semibold">Lv {userStats.level}</span>
+              <span className="text-sm text-gray-400">({userStats.xpToNextLevel} to next)</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <UserCircleIcon className="w-8 h-8 text-gray-300" />
-              <span className="font-semibold">{user?.name || 'User'}</span>
-            </div>
+            <TopBarUserAvatar size={8} />
           </div>
         </div>
       </div>
@@ -307,14 +334,13 @@ export default function Dictionary() {
         <Sidebar handleLogout={handleLogout} />
 
         {/* Main Content Area with Left Margin */}
-        <div className={`flex-1 ml-64 ${bg} flex flex-col h-screen`}>
-          <div className="max-w-6xl mx-auto flex-1 flex flex-col">
-            <div className="flex flex-1">
+        <div className={`flex-1 ml-64 ${bg} flex flex-col h-screen overflow-hidden`}>
+          <div className="max-w-6xl mx-auto flex-1 flex flex-col min-h-0">
+            <div className="flex flex-1 min-h-0">
               {/* Main Content - Scrollable */}
               <div 
                 ref={setContentRef}
-                className="flex-1 p-6 overflow-y-auto"
-                style={{ maxHeight: 'calc(100vh - 80px)' }}
+                className={`flex-1 p-6 overflow-y-auto min-h-0 ${bg}`}
               >
                 {/* Header */}
                 <div className="mb-6">
@@ -370,13 +396,14 @@ export default function Dictionary() {
                     {/* Dynamic Categories from API */}
                     {categories.map((category) => {
                       const iconData = categoryIcons[category.id] || categoryIcons.all;
+                      const categoryColor = category.color || iconData.color;
                       return (
                         <button
                           key={category.id}
                           onClick={() => setSelectedCategory(category.id)}
                           className={`p-3 rounded-lg border transition-all ${
                             selectedCategory === category.id
-                              ? `${iconData.color} text-white border-transparent`
+                              ? `${categoryColor} text-white border-transparent`
                               : `${cardBg} ${border} hover:${darkMode ? 'bg-gray-700' : 'bg-gray-200'} ${darkMode ? 'text-white' : 'text-[#23272F]'}`
                           }`}
                         >
@@ -399,7 +426,7 @@ export default function Dictionary() {
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-4">
                     <h2 className={`text-xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
-                      {loading ? 'Loading...' : `${signs.length} Signs Found`}
+                      {loading ? 'Loading...' : `${filteredSigns.length} Signs Found`}
                     </h2>
                     <span className="text-gray-400 text-sm">
                       {selectedCategory !== 'all' && categories.find(c => c.id === selectedCategory)?.name}
@@ -437,7 +464,7 @@ export default function Dictionary() {
                   {/* Signs Grid */}
                   {!loading && !error && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {signs.map((sign) => (
+                      {filteredSigns.map((sign) => (
                         <div
                           key={sign.id}
                           className={`${cardBg} p-4 rounded-lg border ${border} hover:shadow-lg transition-all cursor-pointer group`}
@@ -445,15 +472,21 @@ export default function Dictionary() {
                         >
                           {/* Sign Image */}
                           <div className="mb-3 relative">
-                            <img
-                              src={`${API_BASE_URL}${sign.thumbnailUrl}`}
-                              alt={`Sign for ${sign.word}`}
-                              className="w-full h-32 object-contain rounded-lg bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 group-hover:scale-105 transition-all duration-200 shadow-sm"
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                e.target.nextSibling.style.display = 'flex';
-                              }}
-                            />
+                            {(() => {
+                              const pickThumb = sign.thumbnailUrl || sign.imageUrl || sign.imagePath;
+                              const imageSource = typeof pickThumb === 'string' && pickThumb.startsWith('http') ? pickThumb : `${API_BASE_URL}${pickThumb || ''}`;
+                              return (
+                                <img
+                                  src={imageSource}
+                                  alt={`Sign for ${sign.word}`}
+                                  className="w-full h-32 object-contain rounded-lg bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 group-hover:scale-105 transition-all duration-200 shadow-sm"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              );
+                            })()}
                             <div className="w-full h-32 bg-white dark:bg-gray-100 rounded-lg flex items-center justify-center hidden border border-gray-200 dark:border-gray-300">
                               <PhotoIcon className="w-8 h-8 text-gray-400" />
                             </div>
@@ -488,6 +521,12 @@ export default function Dictionary() {
                                 <PlayIcon className="w-4 h-4" />
                                 <span className="text-sm">Watch</span>
                               </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); openPractice(sign); }}
+                                className="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition-colors"
+                              >
+                                Practice
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -496,7 +535,7 @@ export default function Dictionary() {
                   )}
 
                   {/* Empty State */}
-                  {!loading && !error && signs.length === 0 && (
+                  {!loading && !error && filteredSigns.length === 0 && (
                     <div className="text-center py-12">
                       <HandRaisedIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                       <h3 className="text-xl font-semibold mb-2 text-gray-900">No signs found</h3>
@@ -564,7 +603,7 @@ export default function Dictionary() {
               </div>
 
               {/* Right Sidebar - Quick Stats */}
-              <div className="w-80 p-4 space-y-4">
+              <div className="w-80 p-4 space-y-4 flex-shrink-0 overflow-y-auto" style={{ height: 'calc(100vh - 80px)' }}>
                 {/* Search Stats */}
                 <div className={`p-4 rounded-lg border ${border}`}>
                   <h3 className={`font-bold mb-2 ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>Search Stats</h3>
@@ -661,8 +700,7 @@ export default function Dictionary() {
 
       {/* Sign Preview Modal */}
       {showPreview && selectedSign && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className={`${cardBg} rounded-xl shadow-2xl max-w-3xl w-full max-h-[95vh] overflow-y-auto border border-gray-200 dark:border-gray-600`}>
+        <Modal isOpen={showPreview} onClose={closePreview} className={`${cardBg} rounded-xl shadow-2xl border border-gray-200 dark:border-gray-600`} widthClass="max-w-3xl w-full mx-4">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-600">
               <div>
@@ -685,15 +723,21 @@ export default function Dictionary() {
             <div className="p-6">
               {/* Large Sign Image */}
               <div className="mb-6">
-                <img
-                  src={`${API_BASE_URL}${selectedSign.imageUrl}`}
-                  alt={`Sign for ${selectedSign.word}`}
-                  className="w-full h-80 object-contain rounded-xl bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 shadow-lg"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'flex';
-                  }}
-                />
+                {(() => {
+                  const pickUrl = selectedSign.imageUrl || selectedSign.imagePath;
+                  const src = typeof pickUrl === 'string' && pickUrl.startsWith('http') ? pickUrl : `${API_BASE_URL}${pickUrl || ''}`;
+                  return (
+                    <img
+                      src={src}
+                      alt={`Sign for ${selectedSign.word}`}
+                      className="w-full h-80 object-contain rounded-xl bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 shadow-lg"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  );
+                })()}
                 <div className="w-full h-80 bg-white dark:bg-gray-100 rounded-xl flex items-center justify-center border border-gray-200 dark:border-gray-300 hidden">
                   <PhotoIcon className="w-16 h-16 text-gray-400" />
                 </div>
@@ -723,20 +767,36 @@ export default function Dictionary() {
                   </div>
                 </div>
 
-                {/* Future Video Section */}
+                {/* Video Section */}
                 <div className="border-t border-gray-200 dark:border-gray-600 pt-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className={`font-semibold text-xl ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
                       🎥 Video Tutorial
                     </h3>
-                    <span className="text-sm text-gray-500">Coming Soon</span>
                   </div>
-                  <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border-2 border-dashed border-blue-300 dark:border-blue-600">
-                    <div className="flex items-center justify-center space-x-3 text-gray-500 dark:text-gray-400">
-                      <PlayIcon className="w-6 h-6" />
-                      <span className="text-lg">Video tutorial will be available here</span>
+                  {selectedSign.videoPath || selectedSign.videoUrl ? (
+                    <div className="rounded-xl overflow-hidden border border-blue-300 dark:border-blue-600 bg-black">
+                      {(() => {
+                        const pickVideo = selectedSign.videoUrl || selectedSign.videoPath;
+                        const videoSource = typeof pickVideo === 'string' && pickVideo.startsWith('http') ? pickVideo : `${API_BASE_URL}${pickVideo || ''}`;
+                        return (
+                          <video
+                            key={pickVideo}
+                            src={videoSource}
+                            controls
+                            className="w-full h-64"
+                          />
+                        );
+                      })()}
                     </div>
-                  </div>
+                  ) : (
+                    <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border-2 border-dashed border-blue-300 dark:border-blue-600">
+                      <div className="flex items-center justify-center space-x-3 text-gray-500 dark:text-gray-400">
+                        <PlayIcon className="w-6 h-6" />
+                        <span className="text-lg">Video tutorial will be available here</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -753,14 +813,62 @@ export default function Dictionary() {
                 className="px-8 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
                 onClick={(e) => {
                   e.stopPropagation();
-                  // Future: Add to favorites or practice list
+                  const notif = document.createElement('div');
+                  notif.className = 'fixed top-4 right-4 px-4 py-2 rounded shadow-lg z-50';
+                  (async () => {
+                    try {
+                      const token = localStorage.getItem('token');
+                      const res = await fetch(`${API_BASE_URL}/api/practice/later`, {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': `Bearer ${token}`,
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ signId: selectedSign.id })
+                      });
+                      const data = await res.json();
+                      if (res.ok) {
+                        notif.textContent = 'Saved to Practice Later';
+                        notif.className += ' bg-green-100 text-green-800 border border-green-300';
+                      } else {
+                        notif.textContent = data.message || 'Failed to save';
+                        notif.className += ' bg-red-100 text-red-800 border border-red-300';
+                      }
+                    } catch {
+                      notif.textContent = 'Network error';
+                      notif.className += ' bg-red-100 text-red-800 border border-red-300';
+                    } finally {
+                      document.body.appendChild(notif);
+                      setTimeout(() => notif.remove(), 2500);
+                    }
+                  })();
                 }}
               >
                 Practice Later
               </button>
+              <button
+                className="px-8 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openPractice(selectedSign);
+                }}
+              >
+                Practice Now
+              </button>
             </div>
-          </div>
-        </div>
+        </Modal>
+      )}
+
+      {/* Practice Overlay */}
+      {showPractice && practicingSign && (
+        <Modal isOpen={showPractice} onClose={closePractice} className={`bg-transparent`} widthClass="w-full max-w-5xl mx-4">
+          <PracticeSession
+            sign={practicingSign}
+            onComplete={handlePracticeComplete}
+            onExit={closePractice}
+            userProgress={{}}
+          />
+        </Modal>
       )}
     </div>
   );

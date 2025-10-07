@@ -12,7 +12,7 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 // Generate JWT Token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '2h' // Changed from 24h to 2h for better security
+    expiresIn: process.env.JWT_EXPIRE || '24h'
   });
 };
 
@@ -39,15 +39,11 @@ export const register = async (req, res) => {
       .update(otp)
       .digest('hex');
 
-    // Hash the password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
     // Store temporary user data in memory (in production, use Redis or similar)
     const tempUserData = {
       name,
       email,
-      password: hashedPassword, // Store hashed password
+      password: password, // Store plain password, will be hashed by model
       otp: hashedOTP,
       expireAt: Date.now() + 10 * 60 * 1000 // 10 minutes
     };
@@ -364,8 +360,15 @@ export const googleAuthInitiate = async (req, res) => {
       `${BACKEND_URL}/api/auth/google/callback`
     );
 
+    // Safe debug: confirm the client and redirect URI (do not log secret)
+    console.log('[Google OAuth] Initiate using clientId:', process.env.GOOGLE_CLIENT_ID);
+    console.log('[Google OAuth] Redirect URI:', `${BACKEND_URL}/api/auth/google/callback`);
+
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
+      prompt: 'consent',
+      include_granted_scopes: true,
+      redirect_uri: `${BACKEND_URL}/api/auth/google/callback`,
       scope: [
         'https://www.googleapis.com/auth/userinfo.profile',
         'https://www.googleapis.com/auth/userinfo.email'
@@ -396,21 +399,43 @@ export const googleAuthCallback = async (req, res) => {
       `${BACKEND_URL}/api/auth/google/callback`
     );
 
-    const { tokens } = await oauth2Client.getToken(code);
+    // Safe debug: confirm envs match configured credentials
+    console.log('[Google OAuth] Callback using clientId:', process.env.GOOGLE_CLIENT_ID);
+    console.log('[Google OAuth] Redirect URI:', `${BACKEND_URL}/api/auth/google/callback`);
+
+    // Exchange code for tokens (explicitly pass redirect_uri for reliability)
+    const { tokens } = await oauth2Client.getToken({
+      code,
+      redirect_uri: `${BACKEND_URL}/api/auth/google/callback`
+    });
     oauth2Client.setCredentials(tokens);
 
-    // Get user info using the access token
-    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: {
-        'Authorization': `Bearer ${tokens.access_token}`
-      }
-    });
-
-    if (!userInfoResponse.ok) {
-      throw new Error('Failed to get user info from Google');
+    // Ensure we have an access token; try to refresh if missing
+    let accessToken = tokens?.access_token;
+    if (!accessToken) {
+      const at = await oauth2Client.getAccessToken();
+      accessToken = typeof at === 'string' ? at : at?.token;
+    }
+    if (!accessToken) {
+      throw new Error('Failed to obtain Google access token');
     }
 
-    const userData = await userInfoResponse.json();
+    // Get user info using Google API client (avoids relying on global fetch)
+    const oauth2 = google.oauth2({ auth: oauth2Client, version: 'v2' });
+    let userData;
+    try {
+      const { data } = await oauth2.userinfo.get();
+      userData = data;
+    } catch (e) {
+      // Fallback to direct fetch with explicit Authorization header
+      const resp = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (!resp.ok) {
+        throw e;
+      }
+      userData = await resp.json();
+    }
     const { email, name, picture, id: googleId } = userData;
     
     // Check if user exists

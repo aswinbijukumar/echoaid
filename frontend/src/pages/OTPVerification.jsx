@@ -84,7 +84,6 @@ export default function OTPVerification() {
     }
 
     try {
-      console.log('Submitting OTP:', { tempUserId, otp: otpString }); // Debug log
       
       const response = await fetch('http://localhost:5000/api/auth/verify-email', {
         method: 'POST',
@@ -98,7 +97,6 @@ export default function OTPVerification() {
       });
 
       const data = await response.json();
-      console.log('Verification response:', data); // Debug log
 
       if (!response.ok) {
         throw new Error(data.message || 'Verification failed');
@@ -116,7 +114,7 @@ export default function OTPVerification() {
         navigate('/dashboard');
       }, 1500);
     } catch (error) {
-      console.error('Verification error:', error); // Debug log
+      console.error('Verification error:', error);
       setError(error.message);
     } finally {
       setIsLoading(false);
