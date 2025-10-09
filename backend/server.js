@@ -12,6 +12,7 @@ import supportRoutes from './routes/support.js';
 import practiceRoutes from './routes/practice.js';
 import quizRoutes from './routes/quiz.js';
 import adminQuizRoutes from './routes/adminQuiz.js';
+import aiRoutes from './routes/ai.js';
 import { getAllCategories, getCategoryById } from './controllers/contentController.js';
 import { errorHandler } from './utils/errorHandler.js';
 
@@ -53,6 +54,7 @@ app.use('/api/support', supportRoutes);
 app.use('/api/practice', practiceRoutes);
 app.use('/api/quiz', quizRoutes);
 app.use('/api/admin/quiz', adminQuizRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Public aliases for categories so user Dictionary can access them without auth
 app.get('/api/content/categories', getAllCategories);
