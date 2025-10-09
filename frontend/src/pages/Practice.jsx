@@ -45,7 +45,6 @@ export default function Practice() {
   });
   const [isActive, setIsActive] = useState(false);
   const [showProgression, setShowProgression] = useState(false);
-  const [showChatbot, setShowChatbot] = useState(false);
   // Data state
   const [signs, setSigns] = useState([]);
   const [notification, setNotification] = useState(null);
@@ -215,7 +214,7 @@ export default function Practice() {
           lastPractice: new Date()
         };
 
-        await fetch(`${API_BASE_URL}/api/practice/progress`, {
+        await fetch(`${API_BASE_URL}/practice/progress`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -309,7 +308,7 @@ export default function Practice() {
   const stats = getSessionStats();
   const bg = darkMode ? 'bg-[#0F1216]' : 'bg-gray-50';
   const border = darkMode ? 'border-gray-700' : 'border-gray-200';
-  const cardBg = darkMode ? 'bg-[#1A1F2B]' : 'bg-white';
+  const cardBg = 'bg-transparent';
 
   if (isLoading) {
     return (
@@ -362,18 +361,18 @@ export default function Practice() {
   // Main Practice page content (overlay content as main page)
   return (
     <div className={`${bg} min-h-screen p-6`}>
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl xl:max-w-[1400px] mx-auto">
         {/* Notifications */}
         {notification && (
           <div className={`mb-4 p-4 rounded-xl border ${
-            notification.type === 'success' 
-              ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300'
+            notification.type === 'success'
+              ? 'border-green-500/40 text-green-400'
               : notification.type === 'error'
-              ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300'
+              ? 'border-red-500/40 text-red-400'
               : notification.type === 'warning'
-              ? 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-300'
-              : 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300'
-          }`}>
+              ? 'border-yellow-500/40 text-yellow-400'
+              : 'border-blue-500/40 text-blue-400'
+          } bg-transparent` }>
             <div className="flex items-center justify-between">
               <span className="font-medium">{notification.message}</span>
               <button
@@ -392,11 +391,11 @@ export default function Practice() {
             <div>
               <div className="flex items-center gap-3">
                 <div className="text-2xl">🤟</div>
-                <h1 className="text-2xl md:text-3xl font-bold">
+                <h1 className={`text-2xl md:text-3xl font-bold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
                   {selectedSign ? `Practice: ${selectedSign.word}` : 'Practice Sign Language'}
                 </h1>
               </div>
-              <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mt-1`}>
+              <p className={`${darkMode ? 'text-gray-200' : 'text-gray-700'} mt-1`}>
                 {selectedSign 
                   ? `Practice the sign "${selectedSign.word}" with webcam or upload. Recognition is running automatically!`
                   : 'Practice any sign with webcam or upload. Recognition system is ready!'
@@ -414,13 +413,6 @@ export default function Practice() {
                 className="px-4 py-2 rounded-xl border border-transparent bg-blue-500 text-white hover:bg-blue-600 transition-colors font-medium"
               >
                 {showProgression ? 'Hide Progress' : 'Show Progress'}
-              </button>
-              <button
-                onClick={() => setShowChatbot(!showChatbot)}
-                className="px-4 py-2 rounded-xl border border-transparent bg-purple-500 text-white hover:bg-purple-600 transition-colors"
-                title="Open Learning Assistant"
-              >
-                <ChatBubbleLeftRightIcon className="w-5 h-5" />
               </button>
               <Link
                 to="/dictionary"
@@ -504,11 +496,11 @@ export default function Practice() {
               <div className={`${cardBg} border ${border} rounded-2xl p-4 lg:p-6 shadow-sm`}>
                 <h3 className="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200">Sign Details</h3>
                 <div className="space-y-3 text-sm">
-                  <div className="flex justify-between items-center py-2 px-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex justify-between items-center py-2 px-3 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg">
                     <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} font-medium`}>Word</span>
                     <span className="font-bold text-green-600 dark:text-green-400 text-lg">{selectedSign.word}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 px-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex justify-between items-center py-2 px-3 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg">
                     <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} font-medium`}>Category</span>
                     <span className="font-semibold capitalize text-blue-600 dark:text-blue-400">{selectedSign.category}</span>
                   </div>
@@ -523,7 +515,7 @@ export default function Practice() {
                   Assistant
                 </h3>
                 {sessionData.attempts.length === 0 ? (
-                  <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} text-sm bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800`}>
+                  <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} text-sm p-3 rounded-lg border border-blue-500/40 bg-transparent`}>
                     Start a capture to receive targeted tips.
                   </p>
                 ) : (
@@ -536,10 +528,10 @@ export default function Practice() {
                       if (last.landmarks?.orientation === 'needs_adjustment') tips.push('Rotate wrist to match the reference orientation.');
                       if (last.landmarks?.movement === 'needs_adjustment') tips.push('Smooth out the movement pattern of the sign.');
                       return tips.length ? tips.map((t, i) => (
-                        <div key={i} className={`${darkMode ? 'bg-yellow-900/20 border-yellow-800' : 'bg-yellow-50 border-yellow-200'} p-3 rounded-lg border`}>
+                        <div key={i} className={`p-3 rounded-lg border ${darkMode ? 'border-yellow-500/40 text-yellow-400' : 'border-yellow-400 text-yellow-700'} bg-transparent`}>
                           <span className="text-yellow-600 dark:text-yellow-400">💡</span> <span className="ml-2">{t}</span>
                         </div>
-                      )) : <div className={`${darkMode ? 'bg-green-900/20 border-green-800' : 'bg-green-50 border-green-200'} p-3 rounded-lg border`}>
+                      )) : <div className={`p-3 rounded-lg border ${darkMode ? 'border-green-500/40 text-green-300' : 'border-green-400 text-green-700'} bg-transparent`}>
                         <span className="text-green-600 dark:text-green-400">✅</span> <span className="ml-2">Looking good! Try for a higher score.</span>
                       </div>;
                     })()}
@@ -554,19 +546,19 @@ export default function Practice() {
                   Session Stats
                 </h3>
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-800">
+                  <div className="p-4 rounded-xl border border-green-200 dark:border-green-800 bg-transparent">
                     <div className="text-xs font-medium text-green-600 dark:text-green-400 mb-1">Best</div>
                     <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.bestScore}%</div>
                   </div>
-                  <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800">
+                  <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-transparent">
                     <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">Average</div>
                     <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.averageScore}%</div>
                   </div>
-                  <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border border-purple-200 dark:border-purple-800">
+                  <div className="p-4 rounded-xl border border-purple-200 dark:border-purple-800 bg-transparent">
                     <div className="text-xs font-medium text-purple-600 dark:text-purple-400 mb-1">Attempts</div>
                     <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.totalAttempts}</div>
                   </div>
-                  <div className="p-4 rounded-xl bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border border-orange-200 dark:border-orange-800">
+                  <div className="p-4 rounded-xl border border-orange-200 dark:border-orange-800 bg-transparent">
                     <div className="text-xs font-medium text-orange-600 dark:text-orange-400 mb-1">Time</div>
                     <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.totalTime}m</div>
                   </div>
@@ -582,7 +574,7 @@ export default function Practice() {
                   </h3>
                   <div className="space-y-3">
                     {sessionData.attempts.slice(-5).reverse().map(attempt => (
-                      <div key={attempt.id} className={`${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'} p-4 rounded-xl border`}>
+                      <div key={attempt.id} className={`p-4 rounded-xl border ${darkMode ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-700'} bg-transparent`}>
                         <div className="flex items-center justify-between mb-2">
                           <span className={`text-lg font-bold ${
                             attempt.confidence >= 80 ? 'text-green-600 dark:text-green-400' :
@@ -611,11 +603,6 @@ export default function Practice() {
                     console.log('Progress updated:', progress);
                   }}
                 />
-              )}
-
-              {/* Chatbot */}
-              {showChatbot && (
-                <SignLearningChatbot />
               )}
             </div>
           </div>

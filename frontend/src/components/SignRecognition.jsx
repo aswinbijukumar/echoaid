@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { detectImageFromDataUrl } from '../utils/recognitionClient';
 import { useTheme } from '../hooks/useTheme';
-import SignLearningChatbot from './SignLearningChatbot';
-import SignVideoTutorial from './SignVideoTutorial';
+import FloatingChatbot from './FloatingChatbot';
 import { 
   ChatBubbleLeftRightIcon, 
   PlayIcon, 
@@ -33,8 +32,7 @@ export default function SignRecognition({
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [handDetected, setHandDetected] = useState(false);
   const [handBoundingBox, setHandBoundingBox] = useState(null);
-  const [showChatbot, setShowChatbot] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(false);
+  // Floating chatbot now replaces inline toggle
   const wsRef = useRef(null);
   const wsReadyRef = useRef(false);
   const handsRef = useRef(null);
@@ -644,7 +642,7 @@ export default function SignRecognition({
   }, [selectedCameraId]);
 
   // Initialize webcam (no MediaPipe)
-  const initializeWebcam = useCallback(async () => {
+  const initializeWebcam = useCallback(async (overrideDeviceId) => {
     try {
       setError('');
       setIsWebcamActive(false);
@@ -669,7 +667,7 @@ export default function SignRecognition({
         video: {
           width: { ideal: 640, min: 320 },
           height: { ideal: 480, min: 240 },
-          ...(selectedCameraId ? { deviceId: { exact: selectedCameraId } } : { facingMode: 'user' })
+          ...((overrideDeviceId || selectedCameraId) ? { deviceId: { exact: overrideDeviceId || selectedCameraId } } : { facingMode: 'user' })
         },
         audio: false
       };
@@ -843,7 +841,7 @@ export default function SignRecognition({
       return true;
     } catch (e) {
       console.error('[recognition] Backend recognize failed', e);
-      setError(`Recognition request failed: ${e.message}`);
+      setError(`Recognition request failed: ${e?.message || 'unknown error'}`);
       return false;
     } finally {
       setIsProcessing(false);
@@ -862,7 +860,7 @@ export default function SignRecognition({
     setIsVideoReady(false);
   }, []);
 
-  // Capture frame from webcam with optional cropping
+  // Capture frame from webcam with optional cropping; returns null if frame is too dark/blank
   const captureFrame = useCallback((cropArea = null) => {
     if (!videoRef.current || !canvasRef.current) return null;
     
@@ -883,6 +881,28 @@ export default function SignRecognition({
       ctx.drawImage(video, x, y, width, height, 0, 0, width, height);
     }
     
+    // Heuristic: skip if the frame is mostly dark (e.g., camera off or covered)
+    try {
+      const sample = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = sample.data;
+      let sum = 0;
+      // stride to speed up (sample every 16th pixel)
+      const stride = 16 * 4;
+      for (let i = 0; i < data.length; i += stride) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        // luminance approximation
+        sum += 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      }
+      const sampledPixels = Math.ceil(data.length / stride);
+      const avg = sampledPixels > 0 ? sum / sampledPixels : 0;
+      if (avg < 2) {
+        // extremely dark frame; treat as blank
+        return null;
+      }
+    } catch {
+      // If inspection fails, proceed without dark-frame rejection
+    }
+
     return canvas.toDataURL('image/jpeg', 0.8);
   }, []);
 
@@ -1013,20 +1033,26 @@ export default function SignRecognition({
   const handleWebcamCapture = useCallback(() => {
     // Check if video is ready and has valid dimensions
     const video = videoRef.current;
-    if (!video || video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
+    if (!isWebcamActive || !video || !video.srcObject || video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
       console.log('[realtime] Video not ready yet, skipping capture');
       return;
     }
     
     // Process frame for hand detection first
     processVideoFrame();
-    
+ 
     const detectionArea = getDetectionArea();
     if (!detectionArea) {
       console.log('[realtime] No detection area available');
       return;
     }
-    
+
+    // Require a hand to be detected to proceed with recognition
+    if (!handDetected) {
+      // Avoid spamming errors if camera is on but no hand is present
+      return;
+    }
+
     console.log('[realtime] Capturing frame from detection area:', detectionArea);
     
     // Capture only the detection area (hand or fallback)
@@ -1051,10 +1077,11 @@ export default function SignRecognition({
         });
       }
     } else {
-      console.log('[realtime] Failed to capture frame');
-      setError('Failed to capture frame from webcam');
+      // Likely a blank/dark frame or video not ready; skip without surfacing an error
+      console.log('[realtime] Blank/dark frame, skipping');
+      return;
     }
-  }, [getDetectionArea, captureFrame, sendFrameRealtime, recognizeViaBackend, processImage, setError, processVideoFrame]);
+  }, [isWebcamActive, getDetectionArea, captureFrame, sendFrameRealtime, recognizeViaBackend, processImage, setError, processVideoFrame, handDetected]);
 
   // Auto-capture for webcam mode (hands-free, 1 fps)
   useEffect(() => {
@@ -1126,7 +1153,17 @@ export default function SignRecognition({
       initializeWebcam();
       openWebSocket();
     }
-    
+ 
+    const onVisibility = () => {
+      if (document.hidden) {
+        // Pause capture when tab hidden
+        setIsProcessing(true);
+      } else {
+        setIsProcessing(false);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
     return () => {
       stopWebcam();
       const ws = wsRef.current;
@@ -1137,6 +1174,7 @@ export default function SignRecognition({
           console.warn('WebSocket close error:', error);
         }
       }
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [mode, initializeWebcam, stopWebcam, openWebSocket]);
 
@@ -1155,19 +1193,32 @@ export default function SignRecognition({
             </p>
           </div>
           <div className="flex items-center space-x-3">
+            {availableCameras.length > 1 && (
+              <>
+                <label className="text-sm text-white/80">Camera</label>
+                <select
+                  value={selectedCameraId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSelectedCameraId(id);
+                    stopWebcam();
+                    setTimeout(() => initializeWebcam(id), 0);
+                  }}
+                  className="bg-white/20 text-white rounded-lg px-3 py-2 focus:outline-none"
+                >
+                  {availableCameras.map((c, i) => (
+                    <option key={c.deviceId || i} value={c.deviceId} className="text-black">
+                      {c.label || `Camera ${i + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
             <button
-              onClick={() => setShowChatbot(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"
+              onClick={() => enumerateCameras()}
+              className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30"
             >
-              <ChatBubbleLeftRightIcon className="w-5 h-5" />
-              <span>Get Help</span>
-            </button>
-            <button
-              onClick={() => setShowTutorial(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"
-            >
-              <AcademicCapIcon className="w-5 h-5" />
-              <span>Tutorial</span>
+              Refresh
             </button>
           </div>
         </div>
@@ -1238,24 +1289,6 @@ export default function SignRecognition({
               </div>
             )}
           </div>
-
-          {/* Camera Selection */}
-          {availableCameras.length > 1 && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Select Camera:</label>
-              <select
-                value={selectedCameraId}
-                onChange={(e) => setSelectedCameraId(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600"
-              >
-                {availableCameras.map((camera) => (
-                  <option key={camera.deviceId} value={camera.deviceId}>
-                    {camera.label || `Camera ${camera.deviceId.slice(0, 8)}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
 
           {/* Webcam Controls */}
           <div className="flex justify-center space-x-4">
@@ -1626,21 +1659,12 @@ export default function SignRecognition({
         </div>
       )}
 
-      {/* Sign Learning Chatbot */}
-      <SignLearningChatbot 
-        detectedSign={recognitionResult}
-        isOpen={showChatbot}
-        onClose={() => setShowChatbot(false)}
-        signDictionary={signDictionary}
-      />
+  {/* Floating Sign Learning Chatbot */}
+  <FloatingChatbot
+    detectedSign={recognitionResult}
+    signDictionary={signDictionary}
+  />
 
-      {/* Sign Video Tutorial */}
-      <SignVideoTutorial 
-        signLabel={recognitionResult?.label}
-        isOpen={showTutorial}
-        onClose={() => setShowTutorial(false)}
-        signDictionary={signDictionary}
-      />
     </div>
   );
 }
