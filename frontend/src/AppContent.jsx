@@ -48,7 +48,16 @@ function AppContent() {
           } />
           <Route path="/profile" element={<Profile />} />
           <Route path="/dictionary" element={<Dictionary />} />
-          <Route path="/quiz" element={<Quiz />} />
+          <Route path="/quiz" element={
+            <RoleBasedRoute>
+              <Quiz />
+            </RoleBasedRoute>
+          } />
+          <Route path="/quiz/:quizId" element={
+            <RoleBasedRoute>
+              <Quiz />
+            </RoleBasedRoute>
+          } />
           <Route path="/admin/quiz" element={
             <RoleBasedRoute allowedRoles={['admin', 'super_admin']}>
               <AdminQuizPage />

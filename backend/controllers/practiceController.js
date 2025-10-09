@@ -6,72 +6,6 @@ import User from '../models/User.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Enhanced scoring function with ML-like feedback
-function computeSignRecognitionScore(imageData, targetSign) {
-  // Simulate ML processing with more realistic scoring
-  const baseScore = Math.floor(60 + Math.random() * 40); // 60-100
-  
-  // Add some variation based on sign complexity
-  const complexityFactor = targetSign.category === 'advanced' ? 0.9 : 1.0;
-  const finalScore = Math.round(baseScore * complexityFactor);
-  
-  return {
-    score: finalScore,
-    confidence: Math.min(finalScore + Math.random() * 10, 100),
-    feedback: generateDetailedFeedback(finalScore, targetSign),
-    landmarks: generateLandmarkAnalysis(),
-    improvements: generateImprovementSuggestions(finalScore, targetSign)
-  };
-}
-
-function generateDetailedFeedback(score, targetSign) {
-  if (score >= 90) {
-    return `Excellent! Your sign for "${targetSign.word}" is very accurate. Great job!`;
-  } else if (score >= 80) {
-    return `Good job! Your sign for "${targetSign.word}" is mostly correct with minor adjustments needed.`;
-  } else if (score >= 70) {
-    return `Getting there! Your sign for "${targetSign.word}" needs some improvements in form and position.`;
-  } else if (score >= 60) {
-    return `Keep practicing! Your sign for "${targetSign.word}" needs significant improvement.`;
-  } else {
-    return `Don't give up! Your sign for "${targetSign.word}" needs more practice. Focus on the basics.`;
-  }
-}
-
-function generateLandmarkAnalysis() {
-  return {
-    handShape: Math.random() > 0.3 ? 'correct' : 'needs_adjustment',
-    position: Math.random() > 0.4 ? 'correct' : 'needs_adjustment',
-    orientation: Math.random() > 0.5 ? 'correct' : 'needs_adjustment',
-    movement: Math.random() > 0.6 ? 'correct' : 'needs_adjustment',
-    timing: Math.random() > 0.7 ? 'correct' : 'needs_adjustment'
-  };
-}
-
-function generateImprovementSuggestions(score, targetSign) {
-  const suggestions = [];
-  
-  if (score < 80) {
-    suggestions.push('Focus on making your hand shape more precise');
-  }
-  if (score < 70) {
-    suggestions.push('Check your hand position relative to your body');
-  }
-  if (score < 60) {
-    suggestions.push('Work on the movement pattern and flow of the sign');
-  }
-  if (score < 50) {
-    suggestions.push('Practice the basic hand shape first before adding movement');
-  }
-  
-  return suggestions;
-}
-
-// Simple stub scoring function (replace with real model later)
-function computeStubScore() {
-  return Math.floor(60 + Math.random() * 40); // 60-100
-}
-
 export const recognize = async (req, res) => {
   try {
     const { signId } = req.body;
@@ -88,7 +22,7 @@ export const recognize = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Practice image is required' });
     }
 
-    // Build payload and call Python recognition service
+    // Build payload and call Python recognition service (MediaPipe + model.h5)
     const img = req.files.image;
     const hasBuffer = img && img.data && Buffer.isBuffer(img.data);
     const base64 = hasBuffer ? img.data.toString('base64') : null;
@@ -108,14 +42,14 @@ export const recognize = async (req, res) => {
       hasSign: !!sign
     });
     
-    // Prefer direct base64 -> /score
+    // Use the working /score endpoint with proper image format
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 15000); // Increased timeout
       const resp = await fetch(`${pyUrl}/score`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, isISL: true, signId }),
+        body: JSON.stringify({ image: imageDataUrl, isISL: true, signId }),
         signal: controller.signal
       }).finally(() => clearTimeout(timer));
       
@@ -133,7 +67,7 @@ export const recognize = async (req, res) => {
         const retry = await fetch(`${pyUrl}/score`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64, isISL: true, signId })
+          body: JSON.stringify({ image: imageDataUrl, isISL: true, signId })
         });
         if (retry.ok) {
           data = await retry.json();
@@ -180,8 +114,8 @@ export const recognize = async (req, res) => {
       }
     }
 
-    // Normalization + mapping to avoid false positives due to naming
-    // Acceptance thresholds
+    // Normalize labels and decide correctness
+    // Acceptance thresholds (Python returns 0..1 confidence)
     const MIN_CONF = Number(process.env.PRACTICE_MIN_CONF || 0.1); // general acceptance for detection
     const MATCH_CONF = Number(process.env.PRACTICE_MATCH_CONF || 0.05); // if label matches expected, allow lower confidence
     const rawPred = (data.label || '').toString();
@@ -215,34 +149,18 @@ export const recognize = async (req, res) => {
     const isConfident = conf >= MIN_CONF;
     const isCorrect = rawExp ? (labelMatches && conf >= MATCH_CONF) : isConfident;
 
-    // YOLO-specific score calculation
-    let scorePercent = Math.round(conf * 100);
+    // Convert model confidence (0..1) into percent for UI (no floors/boosts)
+    const scorePercent = Math.round(conf * 100);
     
-    // YOLO returns confidence scores directly, so use them as-is
-    // If YOLO detected something but confidence is very low, give minimum score
-    if (scorePercent > 0 && scorePercent < 10) {
-      scorePercent = Math.max(scorePercent, 15); // Minimum 15% for any YOLO detection
-    }
-    
-    // If YOLO detected nothing (no bounding boxes), give very low score
-    if (scorePercent === 0) {
-      scorePercent = Math.floor(Math.random() * 10) + 5; // 5-15% for no YOLO detection
-    }
-    
-    // Boost score if YOLO prediction matches expected sign
-    if (labelMatches && rawExp) {
-      scorePercent = Math.min(scorePercent + 15, 100); // Smaller boost for YOLO
-    }
-    
-    // YOLO confidence thresholds for ISL signs
+    // Threshold bands (purely for downstream UI styling)
     if (scorePercent >= 80) {
-      // High confidence YOLO detection
+      // high confidence
     } else if (scorePercent >= 50) {
-      // Medium confidence YOLO detection  
+      // medium confidence
     } else if (scorePercent >= 25) {
-      // Low confidence YOLO detection
+      // low confidence
     } else {
-      // Very low or no YOLO detection
+      // very low confidence
     }
     
     console.log('Score calculation:', {
@@ -258,7 +176,7 @@ export const recognize = async (req, res) => {
     });
 
     const modelPct = Math.round(conf * 100);
-    const modelType = data.source === 'keras' ? 'Keras' : data.source === 'yolo' ? 'YOLO' : 'Model';
+    const modelType = data.source === 'keras' ? 'Keras' : 'Model';
     const feedback = rawExp
       ? (isCorrect
           ? `Correct: ${modelType} detected ${rawPred || 'sign'} (score ${scorePercent}%, model ${modelPct}%)`
@@ -278,6 +196,7 @@ export const recognize = async (req, res) => {
       landmarks: { 
         modelLabel: data.label || null, 
         bbox: data.bounding_box || null,
+        keypoints: Array.isArray(data.landmarks) ? data.landmarks : null,
         predictions: data.all_predictions || [],
         modelSource: data.source || 'unknown'
       },

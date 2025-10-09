@@ -24,7 +24,6 @@ import {
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
-import PracticeSession from '../components/PracticeSession';
 import { useUserStats } from '../hooks/useUserStats';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import Modal from '../components/Modal';
@@ -40,8 +39,6 @@ export default function Dictionary() {
   const [contentRef, setContentRef] = useState(null);
   const [selectedSign, setSelectedSign] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [practicingSign, setPracticingSign] = useState(null);
-  const [showPractice, setShowPractice] = useState(false);
   
   const { darkMode } = useTheme();
   const { logout } = useAuth();
@@ -203,62 +200,29 @@ export default function Dictionary() {
   };
 
   const openPractice = (sign) => {
-    setPracticingSign(sign);
-    setShowPractice(true);
-  };
-
-  const closePractice = () => {
-    setShowPractice(false);
-    setPracticingSign(null);
-  };
-
-  const handlePracticeComplete = async (sessionData) => {
-    try {
-      // Basic progress payload mirroring Practice page logic
-      const progress = {
-        practiceCount: sessionData.attempts?.length || 0,
-        accuracy: sessionData.averageScore || 0,
-        bestScore: sessionData.bestScore || 0,
-        lastPractice: new Date()
-      };
- 
-      const token = localStorage.getItem('token');
-      if (token && (practicingSign?._id || practicingSign?.id)) {
-        await fetch(`${API_BASE_URL}/api/practice/progress`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            signId: practicingSign._id || practicingSign.id,
-            progress
-          })
-        });
+    console.log('Dictionary - Opening practice for sign:', sign);
+    console.log('Dictionary - Sign ID:', sign._id || sign.id);
+    
+    // Navigate to Practice page with sign data
+    navigate('/practice', {
+      state: {
+        startPractice: true,
+        specificSign: sign._id || sign.id,
+        signData: sign // Send full sign data as fallback
       }
-    } catch (error) {
-      // Non-blocking: log and still close overlay
-      console.error('Failed to save practice progress', error);
-    }
-    closePractice();
-    // Quick success toast
-    const notif = document.createElement('div');
-    notif.className = 'fixed top-4 right-4 px-4 py-2 rounded shadow-lg z-50 bg-green-100 text-green-800 border border-green-300';
-    notif.textContent = 'Practice session saved';
-    document.body.appendChild(notif);
-    setTimeout(() => notif.remove(), 2000);
+    });
   };
+
 
   // Handle escape key to close preview
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
         if (showPreview) closePreview();
-        if (showPractice) closePractice();
       }
     };
 
-    if (showPreview || showPractice) {
+    if (showPreview) {
       document.addEventListener('keydown', handleEscape);
       document.body.style.overflow = 'hidden'; // Prevent background scrolling
     }
@@ -267,7 +231,7 @@ export default function Dictionary() {
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = 'unset';
     };
-  }, [showPreview, showPractice]);
+  }, [showPreview]);
 
   // Sign Language Categories with icons
   const categoryIcons = {
@@ -335,7 +299,7 @@ export default function Dictionary() {
 
         {/* Main Content Area with Left Margin */}
         <div className={`flex-1 ml-64 ${bg} flex flex-col h-screen overflow-hidden`}>
-          <div className="max-w-6xl mx-auto flex-1 flex flex-col min-h-0">
+          <div className="w-full mx-auto flex-1 flex flex-col min-h-0">
             <div className="flex flex-1 min-h-0">
               {/* Main Content - Scrollable */}
               <div 
@@ -463,7 +427,7 @@ export default function Dictionary() {
 
                   {/* Signs Grid */}
                   {!loading && !error && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                       {filteredSigns.map((sign) => (
                         <div
                           key={sign.id}
@@ -602,83 +566,7 @@ export default function Dictionary() {
                 </div>
               </div>
 
-              {/* Right Sidebar - Quick Stats */}
-              <div className="w-80 p-4 space-y-4 flex-shrink-0 overflow-y-auto" style={{ height: 'calc(100vh - 80px)' }}>
-                {/* Search Stats */}
-                <div className={`p-4 rounded-lg border ${border}`}>
-                  <h3 className={`font-bold mb-2 ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>Search Stats</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Total Signs</span>
-                      <span className={`${darkMode ? 'text-white' : 'text-[#23272F]'}`}>1,247</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Categories</span>
-                      <span className="text-blue-400">6</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Recently Viewed</span>
-                      <span className="text-purple-400">12</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Popular Searches */}
-                <div className={`p-4 rounded-lg border ${border}`}>
-                  <h3 className={`font-bold mb-2 ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>Popular Searches</h3>
-                  <div className="space-y-2">
-                    <button className={`block w-full text-left p-2 hover:${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded transition-colors text-sm ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
-                      🔍 Hello
-                    </button>
-                    <button className={`block w-full text-left p-2 hover:${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded transition-colors text-sm ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
-                      🔍 Thank You
-                    </button>
-                    <button className={`block w-full text-left p-2 hover:${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded transition-colors text-sm ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
-                      🔍 I Love You
-                    </button>
-                    <button className={`block w-full p-2 hover:${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded transition-colors text-sm ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
-                      🔍 Help
-                    </button>
-                  </div>
-                </div>
-
-                {/* Learning Tips */}
-                <div className={`p-4 rounded-lg border ${border}`}>
-                  <h3 className={`font-bold mb-2 ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>Learning Tips</h3>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-start space-x-2">
-                      <span className="text-blue-400">💡</span>
-                      <span className={`${darkMode ? 'text-white' : 'text-[#23272F]'}`}>Practice signs in front of a mirror</span>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <span className="text-green-400">💡</span>
-                      <span className={`${darkMode ? 'text-white' : 'text-[#23272F]'}`}>Start with basic hand shapes</span>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <span className="text-purple-400">💡</span>
-                      <span className={`${darkMode ? 'text-white' : 'text-[#23272F]'}`}>Use facial expressions to enhance meaning</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Newsletter Signup */}
-                <div className={`p-4 rounded-lg border ${border}`}>
-                  <h3 className={`font-bold mb-2 ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>Stay Updated</h3>
-                  <p className="text-gray-400 text-sm mb-3">
-                    Get the latest learning tips and community updates
-                  </p>
-                  <div className="space-y-2">
-                    <input
-                      type="email"
-                      placeholder="Enter your email"
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
-                    />
-                    <button className="w-full bg-green-500 text-white py-2 rounded text-sm hover:bg-green-600 transition-colors">
-                      Subscribe
-                    </button>
-                  </div>
-                </div>
-              </div>
+              {/* Right Sidebar removed per request (content auto-expands) */}
             </div>
           </div>
         </div>
@@ -859,17 +747,6 @@ export default function Dictionary() {
         </Modal>
       )}
 
-      {/* Practice Overlay */}
-      {showPractice && practicingSign && (
-        <Modal isOpen={showPractice} onClose={closePractice} className={`bg-transparent`} widthClass="w-full max-w-5xl mx-4">
-          <PracticeSession
-            sign={practicingSign}
-            onComplete={handlePracticeComplete}
-            onExit={closePractice}
-            userProgress={{}}
-          />
-        </Modal>
-      )}
     </div>
   );
 }

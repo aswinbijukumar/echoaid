@@ -14,6 +14,8 @@ export default function Login() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showLoadingPage, setShowLoadingPage] = useState(false);
   const [error, setError] = useState('');
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
   
   const { darkMode } = useTheme();
   const { login } = useAuth();
@@ -40,7 +42,25 @@ export default function Login() {
 
     try {
       // Use AuthContext login method instead of direct fetch
-      await login(formData);
+      const res = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Login failed');
+      if (data.requires2FA) {
+        setRequires2FA(true);
+        return; // wait for code
+      }
+      // Normal login fallback if server returned token directly
+      if (data.token && data.user) {
+        localStorage.setItem('token', data.token);
+        // minimal set; AuthProvider will refresh user later
+      } else {
+        // Use context as original path
+        await login(formData);
+      }
 
       // Show loading page
       setShowLoadingPage(true);
@@ -48,10 +68,31 @@ export default function Login() {
       // Simulate a brief loading time for better UX
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Login success - user is verified
-      navigate('/dashboard');
+      if (!requires2FA) {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const submit2FA = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      const resp = await fetch('http://localhost:5000/api/auth/2fa/verify-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, token: twoFactorCode })
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.message || '2FA verification failed');
+      localStorage.setItem('token', data.token);
+      navigate('/dashboard');
+    } catch (e) {
+      setError(e.message);
     } finally {
       setIsLoading(false);
     }
@@ -193,6 +234,28 @@ export default function Login() {
               {isLoading ? 'Signing In...' : 'SIGN IN'}
             </button>
           </form>
+
+          {requires2FA && (
+            <div className="mt-6 space-y-3">
+              <div className="text-sm text-gray-400">Enter the 6-digit code from your authenticator app</div>
+              <input
+                type="text"
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value)}
+                maxLength={6}
+                className={`w-full px-4 py-3 ${inputBg} ${border} border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00CC00] focus:border-transparent transition-colors`}
+                placeholder="123456"
+              />
+              <button
+                type="button"
+                onClick={submit2FA}
+                disabled={isLoading || twoFactorCode.length < 6}
+                className="w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+              >
+                Verify Code
+              </button>
+            </div>
+          )}
 
           {/* Forgot Password */}
           <div className="text-center mt-4">

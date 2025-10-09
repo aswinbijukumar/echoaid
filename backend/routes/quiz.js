@@ -6,7 +6,8 @@ import {
   startQuiz,
   submitQuiz,
   getUserAttempts,
-  getUserProgress
+  getUserProgress,
+  purchaseStreakFreeze
 } from '../controllers/quizController.js';
 
 const router = express.Router();
@@ -22,5 +23,6 @@ router.post('/start', startQuiz);
 router.post('/submit', submitQuiz);
 router.get('/user/attempts', getUserAttempts);
 router.get('/user/progress', getUserProgress);
+router.post('/purchase-streak-freeze', purchaseStreakFreeze);
 
 export default router;

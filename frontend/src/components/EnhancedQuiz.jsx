@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   ClockIcon, 
   FireIcon, 
@@ -33,25 +33,20 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
   const [latestLearningStats, setLatestLearningStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(false);
+  // Simplify: remove lives system; keep answer feedback only
+  const [showCorrectAnimation, setShowCorrectAnimation] = useState(false);
+  const [showIncorrectAnimation, setShowIncorrectAnimation] = useState(false);
+  const [combo, setCombo] = useState(0);
+  const [maxCombo, setMaxCombo] = useState(0);
+  // Removed hearts warning
   
   const timerRef = useRef(null);
   const startTimeRef = useRef(null);
   const { darkMode } = useTheme();
   const { user } = useAuth();
 
-  useEffect(() => {
-    fetchQuiz();
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [quizId]);
-
-  const fetchQuiz = async () => {
+  const fetchQuiz = useCallback(async () => {
     try {
       const response = await fetch(`http://localhost:5000/api/quiz/${quizId}`, {
         headers: {
@@ -66,12 +61,22 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
       } else {
         setError('Failed to load quiz');
       }
-    } catch (err) {
+    } catch (error) {
+      console.error('Error fetching quiz:', error);
       setError('Network error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [quizId]);
+
+  useEffect(() => {
+    fetchQuiz();
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [quizId, fetchQuiz]);
 
   const startQuiz = async () => {
     try {
@@ -102,12 +107,53 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
         const data = await response.json().catch(() => ({}));
         setError(data.message || `Failed to start quiz (status ${response.status}).`);
       }
-    } catch (err) {
+    } catch (error) {
+      console.error('Error starting quiz:', error);
       setError('Failed to start quiz');
     } finally {
       setIsStarting(false);
     }
   };
+
+  const handleSubmitQuiz = useCallback(async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/quiz/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          quizId,
+          answers,
+          timeSpent: Date.now() - startTimeRef.current
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setResults(data.data);
+        if (data?.data?.learningStats) {
+          setLatestLearningStats(data.data.learningStats);
+        }
+        const newlyUnlocked = data?.data?.newAchievements || [];
+        setUnlockedAchievements(newlyUnlocked);
+        if (newlyUnlocked.length > 0) {
+          setShowAchievementsModal(true);
+        }
+        if (data?.data?.levelUp) {
+          setShowLevelUpModal(true);
+        }
+        setShowResults(true);
+        if (onComplete) {
+          onComplete(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error submitting quiz:', error);
+      setError('Failed to submit quiz');
+    }
+  }, [quizId, answers, onComplete]);
 
   const startTimer = () => {
     timerRef.current = setInterval(() => {
@@ -142,11 +188,26 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
     setShowFeedback(true);
     const question = quiz.questions[questionIndex];
     const selectedOption = question.options.find(opt => opt.text === selectedAnswer);
-    setIsCorrect(selectedOption?.isCorrect || false);
+    const isAnswerCorrect = selectedOption?.isCorrect || false;
+    
+    // Handle hearts system and animations
+    if (isAnswerCorrect) {
+      setShowCorrectAnimation(true);
+      setCombo(prev => {
+        const newCombo = prev + 1;
+        setMaxCombo(prevMax => Math.max(prevMax, newCombo));
+        return newCombo;
+      });
+    } else {
+      setShowIncorrectAnimation(true);
+      setCombo(0);
+    }
     
     // Auto-advance after showing feedback
     setTimeout(() => {
       setShowFeedback(false);
+      setShowCorrectAnimation(false);
+      setShowIncorrectAnimation(false);
       if (questionIndex < quiz.questions.length - 1) {
         handleNext();
       }
@@ -159,50 +220,15 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
     }
   };
 
+  // Removed hearts-based early end
+
   const handlePrevious = () => {
     if (currentQuestion > 0) {
       setCurrentQuestion(currentQuestion - 1);
     }
   };
 
-  const handleSubmitQuiz = async () => {
-    try {
-      const response = await fetch(`http://localhost:5000/api/quiz/submit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          quizId,
-          answers,
-          timeSpent: Date.now() - startTimeRef.current
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setResults(data.data);
-        if (data?.data?.learningStats) {
-          setLatestLearningStats(data.data.learningStats);
-        }
-        const newlyUnlocked = data?.data?.newAchievements || [];
-        setUnlockedAchievements(newlyUnlocked);
-        if (newlyUnlocked.length > 0) {
-          setShowAchievementsModal(true);
-        }
-        if (data?.data?.levelUp) {
-          setShowLevelUpModal(true);
-        }
-        setShowResults(true);
-        if (onComplete) {
-          onComplete(data.data);
-        }
-      }
-    } catch (err) {
-      setError('Failed to submit quiz');
-    }
-  };
+  
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -248,14 +274,24 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
             {/* Daily Goal Ring */}
             {quiz?.learning && (
               <div className="flex items-center justify-center mb-6">
-                <div className="relative w-24 h-24">
-                  <svg className="transform -rotate-90 w-24 h-24">
-                    <circle cx="48" cy="48" r="42" stroke={darkMode ? '#374151' : '#E5E7EB'} strokeWidth="10" fill="transparent" />
-                    <circle cx="48" cy="48" r="42" stroke="#22C55E" strokeWidth="10" fill="transparent" strokeLinecap="round" strokeDasharray={`${Math.min(264, Math.max(0, (quiz.learning.xpToday / (quiz.learning.dailyGoal||100)) * 264))} 264`} />
+                <div className="relative w-32 h-32">
+                  <svg className="transform -rotate-90 w-32 h-32">
+                    <circle cx="64" cy="64" r="56" stroke={darkMode ? '#374151' : '#E5E7EB'} strokeWidth="8" fill="transparent" />
+                    <circle 
+                      cx="64" 
+                      cy="64" 
+                      r="56" 
+                      stroke="#22C55E" 
+                      strokeWidth="8" 
+                      fill="transparent" 
+                      strokeLinecap="round" 
+                      strokeDasharray={`${Math.min(352, Math.max(0, (quiz.learning.xpToday / (quiz.learning.dailyGoal||100)) * 352))} 352`}
+                      className="transition-all duration-1000 ease-in-out"
+                    />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center flex-col">
-                    <span className="text-sm font-semibold">Daily</span>
-                    <span className="text-lg font-black text-green-500">{Math.min(quiz.learning.xpToday, quiz.learning.dailyGoal || 100)}</span>
+                    <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">Daily Goal</span>
+                    <span className="text-2xl font-black text-green-500">{Math.min(quiz.learning.xpToday, quiz.learning.dailyGoal || 100)}</span>
                     <span className="text-xs text-gray-500">/ {quiz.learning.dailyGoal || 100} XP</span>
                   </div>
                 </div>
@@ -292,9 +328,32 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
   if (showResults && results) {
     return (
       <div className="max-w-2xl mx-auto">
+        <style>{`
+@keyframes fall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(300px) rotate(360deg); opacity: 0; }
+}
+        `}</style>
         {/* Level Up Modal */}
         {showLevelUpModal && latestLearningStats && (
-          <Modal isOpen={showLevelUpModal} onClose={() => setShowLevelUpModal(false)} className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-2xl border-2 ${darkMode ? 'border-gray-700' : 'border-green-200'}`} widthClass="w-full max-w-md mx-4">
+          <Modal isOpen={showLevelUpModal} onClose={() => setShowLevelUpModal(false)} className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-2xl border-2 ${darkMode ? 'border-gray-700' : 'border-green-200'} relative overflow-hidden`} widthClass="w-full max-w-md mx-4">
+              {/* Confetti */}
+              <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                {[...Array(40)].map((_, i) => (
+                  <span
+                    key={i}
+                    className="absolute text-2xl select-none"
+                    style={{
+                      left: `${(i * 23) % 100}%`,
+                      top: `-${(i % 5) * 20}px`,
+                      transform: `rotate(${(i * 37) % 360}deg)`,
+                      animation: `fall ${3 + (i % 5) * 0.4}s linear ${(i % 10) * 0.1}s forwards`
+                    }}
+                  >
+                    {['🎉','✨','🎊','⭐','💫'][i % 5]}
+                  </span>
+                ))}
+              </div>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2">
                   <StarIcon className="w-6 h-6 text-yellow-400" />
@@ -338,6 +397,24 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
               {results.passed ? 'Congratulations!' : 'Keep Practicing!'}
             </h2>
             <p className="text-gray-600 mb-6">{results.feedback}</p>
+            
+            {/* Celebration Animation for Perfect Score */}
+            {results.perfect && (
+              <div className="mb-6 text-center">
+                <div className="text-6xl mb-2 animate-bounce">🎉</div>
+                <div className="text-2xl font-bold text-yellow-500 mb-2">PERFECT SCORE!</div>
+                <div className="text-lg text-gray-600">You're on fire! 🔥</div>
+              </div>
+            )}
+            
+            {/* Celebration Animation for Fast Finish */}
+            {results.fast && (
+              <div className="mb-6 text-center">
+                <div className="text-4xl mb-2 animate-pulse">⚡</div>
+                <div className="text-xl font-bold text-blue-500 mb-2">Lightning Fast!</div>
+                <div className="text-sm text-gray-600">Speed demon! 🏃‍♂️</div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4 mb-6">
               <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
@@ -348,6 +425,11 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
                 <p className="font-semibold">XP Earned</p>
                 <p className="text-2xl font-bold text-blue-500">{results.xpEarned}</p>
               </div>
+              <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                <p className="font-semibold">Max Combo</p>
+                <p className="text-2xl font-bold text-yellow-500">{maxCombo}x</p>
+              </div>
+              {/* Removed hearts summary */}
               {(results.perfect || results.fast) && (
                 <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} col-span-2 flex gap-2 justify-center`}>
                   {results.perfect && (
@@ -395,6 +477,40 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
                 ))}
               </div>
             )}
+
+            {/* Power-up Suggestions */}
+            <div className="mb-6">
+              <h3 className="font-semibold mb-3 text-center">Power-up Suggestions</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Removed hearts low tip */}
+                
+                {maxCombo >= 5 && (
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-900 rounded-lg border border-yellow-200 dark:border-yellow-700">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-2xl">🔥</span>
+                      <div>
+                        <div className="font-semibold text-yellow-700 dark:text-yellow-300">Combo Master!</div>
+                        <div className="text-sm text-yellow-600 dark:text-yellow-400">Keep the streak going!</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {results.percentage >= 90 && (
+                  <div className="p-3 bg-green-50 dark:bg-green-900 rounded-lg border border-green-200 dark:border-green-700">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-2xl">⭐</span>
+                      <div>
+                        <div className="font-semibold text-green-700 dark:text-green-300">Excellent Work!</div>
+                        <div className="text-sm text-green-600 dark:text-green-400">Ready for harder challenges!</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Removed userStats reference not available in this component */}
+              </div>
+            </div>
 
             {/* Question Review Section */}
             <div className="mb-6">
@@ -527,10 +643,13 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
   return (
     <div className="max-w-4xl mx-auto">
       <AchievementsModal />
+      
+      {/* Removed hearts warning modal */}
+      
       <div className={`p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg`}>
         {/* Duolingo-style Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-4">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-6 space-y-4 lg:space-y-0">
+          <div className="flex flex-wrap items-center space-x-2 lg:space-x-4">
             {onBack && (
               <button
                 onClick={() => {
@@ -546,22 +665,33 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
                 <span className="hidden sm:inline">Back</span>
               </button>
             )}
-            <div className="flex items-center space-x-2">
-              <FireIcon className="w-5 h-5 text-orange-500" />
-              <span className="font-semibold">{user?.learningStats?.streak || 0}</span>
+            
+            {/* Removed hearts display */}
+            
+            {/* Combo Counter */}
+            {combo > 0 && (
+              <div className="flex items-center space-x-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-2 py-1 lg:px-3 rounded-full">
+                <SparklesIcon className="w-4 h-4" />
+                <span className="font-bold text-xs lg:text-sm">{combo}x Combo!</span>
+              </div>
+            )}
+            
+            <div className="flex items-center space-x-1 lg:space-x-2">
+              <FireIcon className="w-4 h-4 lg:w-5 lg:h-5 text-orange-500" />
+              <span className="font-semibold text-sm lg:text-base">{user?.learningStats?.streak || 0}</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <SparklesIcon className="w-5 h-5 text-blue-500" />
-              <span className="font-semibold">{user?.learningStats?.totalXP || 0} XP</span>
+            <div className="flex items-center space-x-1 lg:space-x-2">
+              <SparklesIcon className="w-4 h-4 lg:w-5 lg:h-5 text-blue-500" />
+              <span className="font-semibold text-sm lg:text-base">{user?.learningStats?.totalXP || 0} XP</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <StarIcon className="w-5 h-5 text-yellow-500" />
-              <span className="font-semibold">Lv {user?.learningStats?.level || 1}</span>
-              <span className="text-sm text-gray-400">({(user?.learningStats?.xpToNextLevel ?? 100)} to next)</span>
+            <div className="flex items-center space-x-1 lg:space-x-2">
+              <StarIcon className="w-4 h-4 lg:w-5 lg:h-5 text-yellow-500" />
+              <span className="font-semibold text-sm lg:text-base">Lv {user?.learningStats?.level || 1}</span>
+              <span className="text-xs lg:text-sm text-gray-400 hidden sm:inline">({(user?.learningStats?.xpToNextLevel ?? 100)} to next)</span>
             </div>
           </div>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 lg:space-x-4">
             <button
               onClick={togglePause}
               className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors"
@@ -597,11 +727,19 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
 
         {/* Question Card - Duolingo Style */}
         <div className="mb-8">
-          <div className={`p-8 rounded-2xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'} border-2 border-transparent`}>
-            <h3 className="text-2xl font-semibold mb-6 text-center">{question.question}</h3>
+          <div className={`p-8 rounded-2xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'} border-2 border-transparent relative overflow-hidden`}>
+            {/* Background Animation for Correct/Incorrect */}
+            {showCorrectAnimation && (
+              <div className="absolute inset-0 bg-green-100 dark:bg-green-900 opacity-50 animate-pulse"></div>
+            )}
+            {showIncorrectAnimation && (
+              <div className="absolute inset-0 bg-red-100 dark:bg-red-900 opacity-50 animate-pulse"></div>
+            )}
+            
+            <h3 className="text-2xl font-semibold mb-6 text-center relative z-10">{question.question}</h3>
             
             {question.mediaUrl && (
-              <div className="mb-6 flex justify-center">
+              <div className="mb-6 flex justify-center relative z-10">
                 <img 
                   src={question.mediaUrl} 
                   alt="Question media" 
@@ -610,7 +748,7 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
               </div>
             )}
 
-            <div className="space-y-4">
+            <div className="space-y-4 relative z-10">
               {question.options.map((option, index) => {
                 const isSelected = answers[currentQuestion]?.selectedAnswer === option.text;
                 const isCorrect = option.isCorrect;
@@ -621,16 +759,16 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
                     key={index}
                     onClick={() => handleAnswerSelect(currentQuestion, option.text)}
                     disabled={shouldShowFeedback}
-                    className={`w-full text-left p-6 rounded-xl border-2 transition-all duration-300 transform hover:scale-[1.02] ${
+                    className={`w-full text-left p-6 rounded-xl border-2 transition-all duration-300 transform hover:scale-[1.02] disabled:cursor-not-allowed ${
                       shouldShowFeedback
                         ? isCorrect
-                          ? 'border-green-500 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                          ? 'border-green-500 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 shadow-lg scale-105'
                           : isSelected
-                          ? 'border-red-500 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                          ? 'border-red-500 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 shadow-lg scale-105'
                           : 'border-gray-300 bg-gray-100 dark:bg-gray-600 text-gray-500'
                         : isSelected
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
-                        : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-800 dark:text-blue-200 shadow-md'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:shadow-md'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -638,16 +776,32 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
                         {String.fromCharCode(65 + index)}) {option.text}
                       </span>
                       {shouldShowFeedback && isCorrect && (
-                        <CheckCircleIcon className="w-6 h-6 text-green-500" />
+                        <div className="flex items-center space-x-2">
+                          <CheckCircleIcon className="w-6 h-6 text-green-500 animate-bounce" />
+                          <span className="text-green-600 font-bold">Correct!</span>
+                        </div>
                       )}
                       {shouldShowFeedback && isSelected && !isCorrect && (
-                        <XCircleIcon className="w-6 h-6 text-red-500" />
+                        <div className="flex items-center space-x-2">
+                          <XCircleIcon className="w-6 h-6 text-red-500 animate-bounce" />
+                          <span className="text-red-600 font-bold">Wrong</span>
+                        </div>
                       )}
                     </div>
                   </button>
                 );
               })}
             </div>
+            
+            {/* Combo Display */}
+            {combo > 0 && (
+              <div className="absolute top-4 right-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-full shadow-lg animate-pulse">
+                <div className="flex items-center space-x-2">
+                  <SparklesIcon className="w-5 h-5" />
+                  <span className="font-bold">{combo}x Combo!</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

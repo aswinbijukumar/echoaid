@@ -55,6 +55,18 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // Notification preferences
+  notifications: {
+    emailNotifications: { type: Boolean, default: true },
+    practiceReminders: { type: Boolean, default: true },
+    pushNotifications: { type: Boolean, default: false }
+  },
+  // Privacy settings
+  privacy: {
+    profilePublic: { type: Boolean, default: false },
+    showAchievements: { type: Boolean, default: true },
+    dataSharing: { type: Boolean, default: false }
+  },
   role: {
     type: String,
     enum: ['user', 'admin', 'super_admin'],
@@ -89,6 +101,9 @@ const userSchema = new mongoose.Schema({
   resetPasswordToken: String,
   resetPasswordExpire: Date,
   refreshToken: String,
+  // 2FA fields
+  twoFactorEnabled: { type: Boolean, default: false },
+  twoFactorSecret: { type: String, default: '' },
   lastLogin: {
     type: Date,
     default: Date.now
@@ -211,7 +226,16 @@ const userSchema = new mongoose.Schema({
     }],
     strongAreas: [{
       type: String
-    }]
+    }],
+    // Streak protection
+    streakFreeze: {
+      type: Number,
+      default: 0
+    },
+    streakFreezeUsed: {
+      type: Number,
+      default: 0
+    }
   }
 }, {
   timestamps: true
