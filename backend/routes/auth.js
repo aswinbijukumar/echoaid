@@ -1,5 +1,5 @@
 import express from 'express';
-import {
+import { 
   register,
   login,
   verifyEmail,
@@ -10,7 +10,13 @@ import {
   resetPassword,
   getMe,
   updateProfilePhoto,
-  removeProfilePhoto
+  removeProfilePhoto,
+  generate2FASecret,
+  enable2FA,
+  disable2FA,
+  verify2FALogin,
+  updatePrivacy,
+  updateNotifications
 } from '../controllers/authController.js';
 import { protect } from '../middleware/auth.js';
 import { 
@@ -42,9 +48,18 @@ router.put('/resetpassword/:resettoken', passwordResetRateLimit, validatePasswor
 
 // Protected routes
 router.get('/me', protect, getMe);
+router.post('/2fa/setup', protect, generate2FASecret);
+router.post('/2fa/enable', protect, enable2FA);
+router.post('/2fa/disable', protect, disable2FA);
+router.post('/2fa/verify-login', verify2FALogin);
 
 // Profile photo management
 router.put('/profile-photo', protect, updateProfilePhoto);
 router.delete('/profile-photo', protect, removeProfilePhoto);
+
+// Privacy settings
+router.put('/privacy', protect, updatePrivacy);
+// Notification preferences
+router.put('/notifications', protect, updateNotifications);
 
 export default router; 

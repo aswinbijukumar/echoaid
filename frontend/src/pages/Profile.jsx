@@ -221,7 +221,7 @@ export default function Profile() {
 
         {/* Main Content Area */}
         <div className={`flex-1 ml-64 ${bg}`}>
-          <div className="max-w-6xl mx-auto">
+          <div className="w-full mx-auto">
             <div className="flex">
               {/* Main Content */}
               <div className="flex-1 p-6">
@@ -314,10 +314,7 @@ export default function Profile() {
                      {!isGoogleUser() && getProfilePhoto() && (
                        <p className="text-purple-400 text-sm">📸 Custom profile photo</p>
                      )}
-                    <div className="flex items-center space-x-4 mt-2">
-                      <span className="text-blue-400">{userStats.following} Following</span>
-                      <span className="text-blue-400">{userStats.followers} Followers</span>
-                    </div>
+                    {/* Community metrics removed: Following/Followers */}
                   </div>
                 </div>
 
@@ -354,31 +351,28 @@ export default function Profile() {
                   </div>
                 </div>
 
-                {/* Achievements Section */}
-                <div className={`p-6 rounded-lg border ${border}`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold">Achievements</h2>
-                    <button className="text-blue-400 hover:text-blue-300 text-sm">
-                      VIEW ALL
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                    {achievements.map((achievement) => (
-                      <div 
-                        key={achievement.id} 
-                        className={`p-4 rounded-lg border ${achievement.unlocked ? 'bg-gray-700 border-green-500' : 'bg-gray-800 border-gray-600 opacity-50'}`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <span className="text-2xl">{achievement.icon}</span>
-                          <div>
-                            <h3 className="font-semibold text-sm">{achievement.title}</h3>
-                            <p className="text-gray-400 text-xs">{achievement.description}</p>
+                {/* Achievements Section (respect privacy) */}
+                {(user?.privacy?.showAchievements ?? true) && (
+                  <div className={`p-6 rounded-lg border ${border}`}>
+                    <h2 className="text-xl font-bold mb-4">Achievements</h2>
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                      {achievements.map((achievement) => (
+                        <div 
+                          key={achievement.id} 
+                          className={`p-4 rounded-lg border ${achievement.unlocked ? 'bg-gray-700 border-green-500' : 'bg-gray-800 border-gray-600 opacity-50'}`}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <span className="text-2xl">{achievement.icon}</span>
+                            <div>
+                              <h3 className="font-semibold text-sm">{achievement.title}</h3>
+                              <p className="text-gray-400 text-xs">{achievement.description}</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                                 </div>
+                )}
 
                  {/* Minimal Footer */}
                  <div className="mt-12 mb-8">
@@ -399,64 +393,20 @@ export default function Profile() {
                            © 2024 EchoAid. All rights reserved.
                          </span>
                        </div>
-                       <div className="flex items-center space-x-6 text-sm">
-                         <Link to="/about" className="text-gray-400 hover:text-green-400 transition-colors">
-                           About
-                         </Link>
-                         <Link to="/blog" className="text-gray-400 hover:text-green-400 transition-colors">
-                           Blog
-                         </Link>
-                         <Link to="/store" className="text-gray-400 hover:text-green-400 transition-colors">
-                           Store
-                         </Link>
-                         <Link to="/efficacy" className="text-gray-400 hover:text-green-400 transition-colors">
-                           Efficacy
-                         </Link>
-                         <Link to="/careers" className="text-gray-400 hover:text-green-400 transition-colors">
-                           Careers
-                         </Link>
-                         <Link to="/investors" className="text-gray-400 hover:text-green-400 transition-colors">
-                           Investors
-                         </Link>
-                         <Link to="/terms" className="text-gray-400 hover:text-green-400 transition-colors">
-                           Terms
-                         </Link>
-                         <Link to="/privacy" className="text-gray-400 hover:text-green-400 transition-colors">
-                           Privacy
-                         </Link>
-                       </div>
+                      <div className="flex items-center space-x-6 text-sm">
+                        <Link to="/terms" className="text-gray-400 hover:text-green-400 transition-colors">
+                          Terms
+                        </Link>
+                        <Link to="/privacy" className="text-gray-400 hover:text-green-400 transition-colors">
+                          Privacy
+                        </Link>
+                      </div>
                      </div>
                    </div>
                  </div>
                </div>
 
-               {/* Right Sidebar */}
-              <div className="w-80 p-4 space-y-4">
-                {/* Top Bar - User Stats/Currency */}
-                <div className={`p-4 rounded-lg border ${border}`}>
-                  <div className="flex items-center justify-between">
-
-                    <div className="flex items-center space-x-2">
-                      <FireIcon className="w-5 h-5 text-orange-400" />
-                      <span className="font-semibold">{userStats.streak}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">{userStats.gems}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <HeartIcon className="w-5 h-5 text-red-400" />
-                      <span className="font-semibold">{userStats.lives}</span>
-                    </div>
-                  </div>
-                </div>
-
-
-
-
-
-              </div>
+               {/* Right Sidebar removed for full-width layout */}
             </div>
           </div>
         </div>

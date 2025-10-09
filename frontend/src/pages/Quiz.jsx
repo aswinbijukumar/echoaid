@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { 
   UserCircleIcon,
   FireIcon,
@@ -20,17 +20,19 @@ import TopBarUserAvatar from '../components/TopBarUserAvatar';
 export default function Quiz() {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedQuiz, setSelectedQuiz] = useState(null);
+  // Use URL param for selected quiz
   const [userStats, setUserStats] = useState({
     streak: 0,
     totalXP: 0,
     level: 1,
     xpToNextLevel: 100,
+    streakFreeze: 0,
   });
   
   const { darkMode } = useTheme();
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const { quizId } = useParams();
   // const [searchParams] = useSearchParams();
 
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
@@ -76,6 +78,7 @@ export default function Quiz() {
           totalXP: ls.totalXP || 0,
           level: ls.level || 1,
           xpToNextLevel: ls.xpToNextLevel ?? Math.max(0, (Math.floor((ls.totalXP||0)/1000)+1)*1000 - (ls.totalXP||0)),
+          streakFreeze: ls.streakFreeze || 0,
         });
       }
     } catch (error) {
@@ -91,11 +94,13 @@ export default function Quiz() {
   const handleQuizComplete = () => {
     // Update user stats after quiz completion
     fetchUserStats();
-    setSelectedQuiz(null);
+    navigate('/quiz');
   };
 
-  // If a quiz is selected, show the EnhancedQuiz component within the dashboard layout
-  if (selectedQuiz) {
+  // Removed streak-freeze purchase to simplify gamification
+
+  // If a quizId is present in the URL, show the EnhancedQuiz component within the dashboard layout
+  if (quizId) {
     return (
       <div className={`h-screen ${bg} ${text} flex flex-col`}>
         {/* Fixed Top Status Bar */}
@@ -119,6 +124,7 @@ export default function Quiz() {
                 <span className="font-semibold">Lv {userStats.level}</span>
                 <span className="text-sm text-gray-400">({userStats.xpToNextLevel} to next)</span>
               </div>
+              {/* Daily Streak only - removed streak freeze purchase */}
               <TopBarUserAvatar size={8} />
             </div>
           </div>
@@ -135,9 +141,9 @@ export default function Quiz() {
           <div className={`flex-1 ml-64 ${bg} overflow-y-auto`}>
             <div className="p-6">
               <EnhancedQuiz 
-                quizId={selectedQuiz._id} 
+                quizId={quizId} 
                 onComplete={handleQuizComplete}
-                onBack={() => setSelectedQuiz(null)}
+                onBack={() => navigate('/quiz')}
               />
             </div>
           </div>
@@ -169,6 +175,7 @@ export default function Quiz() {
               <span className="font-semibold">Lv {userStats.level}</span>
               <span className="text-sm text-gray-400">({userStats.xpToNextLevel} to next)</span>
             </div>
+              {/* Daily Streak - simplified, no purchase */}
             <TopBarUserAvatar size={8} />
           </div>
         </div>
@@ -194,16 +201,57 @@ export default function Quiz() {
                     Test your knowledge and earn XP!
                   </p>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-500">Level {userStats.level}</div>
-                    <div className="text-sm text-gray-500">Level</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-orange-500">{userStats.streak}</div>
-                    <div className="text-sm text-gray-500">Day Streak</div>
+              <div className="flex items-center space-x-6">
+                {/* Level Progress Ring */}
+                <div className="relative w-20 h-20">
+                  <svg className="transform -rotate-90 w-20 h-20">
+                    <circle cx="40" cy="40" r="32" stroke={darkMode ? '#374151' : '#E5E7EB'} strokeWidth="6" fill="transparent" />
+                    <circle 
+                      cx="40" 
+                      cy="40" 
+                      r="32" 
+                      stroke="#3B82F6" 
+                      strokeWidth="6" 
+                      fill="transparent" 
+                      strokeLinecap="round" 
+                      strokeDasharray={`${Math.min(201, Math.max(0, ((userStats.totalXP % 1000) / 1000) * 201))} 201`}
+                      className="transition-all duration-1000 ease-in-out"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center flex-col">
+                    <span className="text-lg font-bold text-blue-500">{userStats.level}</span>
+                    <span className="text-xs text-gray-500">Level</span>
                   </div>
                 </div>
+                
+                {/* Streak Ring */}
+                <div className="relative w-20 h-20">
+                  <svg className="transform -rotate-90 w-20 h-20">
+                    <circle cx="40" cy="40" r="32" stroke={darkMode ? '#374151' : '#E5E7EB'} strokeWidth="6" fill="transparent" />
+                    <circle 
+                      cx="40" 
+                      cy="40" 
+                      r="32" 
+                      stroke="#F97316" 
+                      strokeWidth="6" 
+                      fill="transparent" 
+                      strokeLinecap="round" 
+                      strokeDasharray={`${Math.min(201, Math.max(0, (userStats.streak / 10) * 201))} 201`}
+                      className="transition-all duration-1000 ease-in-out"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center flex-col">
+                    <span className="text-lg font-bold text-orange-500">{userStats.streak}</span>
+                    <span className="text-xs text-gray-500">Streak</span>
+                  </div>
+                </div>
+                
+                {/* XP Display */}
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-500">{userStats.totalXP}</div>
+                  <div className="text-sm text-gray-500">Total XP</div>
+                </div>
+              </div>
               </div>
 
               {loading ? (
@@ -215,51 +263,91 @@ export default function Quiz() {
                   {quizzes.map((quiz) => (
                     <div
                       key={quiz._id}
-                      className={`p-6 rounded-lg border ${border} hover:shadow-lg transition-all cursor-pointer`}
-                      onClick={() => setSelectedQuiz(quiz)}
+                      className={`p-6 rounded-2xl border-2 ${border} hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-105 relative overflow-hidden group`}
+                      onClick={() => navigate(`/quiz/${quiz._id}`)}
                     >
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-2">
-                          <PuzzlePieceIcon className="w-6 h-6 text-blue-500" />
-                          <span className={`text-sm font-medium px-2 py-1 rounded-full ${
-                            quiz.difficulty === 'Beginner' ? 'bg-green-100 text-green-800' :
-                            quiz.difficulty === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {quiz.difficulty}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-1 text-sm text-gray-500">
-                          <ClockIcon className="w-4 h-4" />
-                          <span>{quiz.timeLimit} min</span>
-                        </div>
-                      </div>
+                      {/* Background Gradient */}
+                      <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300 ${
+                        quiz.difficulty === 'Beginner' ? 'bg-gradient-to-br from-green-400 to-green-600' :
+                        quiz.difficulty === 'Intermediate' ? 'bg-gradient-to-br from-yellow-400 to-orange-500' :
+                        'bg-gradient-to-br from-red-400 to-red-600'
+                      }`}></div>
                       
-                      <h3 className={`text-xl font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {quiz.title}
-                      </h3>
-                      
-                      <p className={`text-sm mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                        {quiz.description}
-                      </p>
-                      
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
-                          <span>{quiz.questions?.length || 0} questions</span>
-                          <span className="capitalize">{quiz.category}</span>
+                      <div className="relative z-10">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center space-x-2">
+                            <div className={`p-2 rounded-full ${
+                              quiz.difficulty === 'Beginner' ? 'bg-green-100 dark:bg-green-900' :
+                              quiz.difficulty === 'Intermediate' ? 'bg-yellow-100 dark:bg-yellow-900' :
+                              'bg-red-100 dark:bg-red-900'
+                            }`}>
+                              <PuzzlePieceIcon className={`w-5 h-5 ${
+                                quiz.difficulty === 'Beginner' ? 'text-green-600' :
+                                quiz.difficulty === 'Intermediate' ? 'text-yellow-600' :
+                                'text-red-600'
+                              }`} />
+                            </div>
+                            <span className={`text-sm font-medium px-3 py-1 rounded-full ${
+                              quiz.difficulty === 'Beginner' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                              quiz.difficulty === 'Intermediate' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                              'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                            }`}>
+                              {quiz.difficulty}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-1 text-sm text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">
+                            <ClockIcon className="w-4 h-4" />
+                            <span>{quiz.timeLimit} min</span>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-1 text-yellow-500">
-                          <StarIcon className="w-4 h-4" />
-                          <span className="text-sm font-medium">{quiz.stats?.averageScore || 0}%</span>
+                        
+                        <h3 className={`text-xl font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'} group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors`}>
+                          {quiz.title}
+                        </h3>
+                        
+                        <p className={`text-sm mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-600'} line-clamp-2`}>
+                          {quiz.description}
+                        </p>
+                        
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center space-x-4 text-sm text-gray-500">
+                            <div className="flex items-center space-x-1">
+                              <PuzzlePieceIcon className="w-4 h-4" />
+                              <span>{quiz.questions?.length || 0}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <span className="capitalize">{quiz.category}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-1 text-yellow-500">
+                            <StarIcon className="w-4 h-4" />
+                            <span className="text-sm font-medium">{quiz.stats?.averageScore || 0}%</span>
+                          </div>
                         </div>
-                      </div>
-                      
-                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                        
+                        {/* Progress Bar */}
+                        <div className="mb-4">
+                          <div className="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>Completion Rate</span>
+                            <span>{quiz.stats?.completionRate || 0}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div 
+                              className={`h-2 rounded-full transition-all duration-500 ${
+                                quiz.difficulty === 'Beginner' ? 'bg-gradient-to-r from-green-400 to-green-500' :
+                                quiz.difficulty === 'Intermediate' ? 'bg-gradient-to-r from-yellow-400 to-orange-500' :
+                                'bg-gradient-to-r from-red-400 to-red-500'
+                              }`}
+                              style={{ width: `${quiz.stats?.completionRate || 0}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                        
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-500">
-                            {quiz.stats?.totalAttempts || 0} attempts
-                          </span>
-                          <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                          <div className="flex items-center space-x-2 text-sm text-gray-500">
+                            <span>{quiz.stats?.totalAttempts || 0} attempts</span>
+                          </div>
+                          <button className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 transform hover:scale-105 shadow-lg">
                             Start Quiz
                           </button>
                         </div>

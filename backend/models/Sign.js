@@ -10,7 +10,6 @@ const signSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'Please provide a category'],
-    enum: ['alphabet', 'phrases', 'family', 'activities', 'advanced', 'numbers'],
     default: 'alphabet'
   },
   difficulty: {

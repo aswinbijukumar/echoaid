@@ -1,12 +1,11 @@
 ## EchoAid Architecture Overview
 
-This document maps directories and the recognition flow so contributors can navigate quickly.
+This document maps directories and the application flow so contributors can navigate quickly.
 
 ### Top-level
 - `backend/` — Node.js API (Express) and assets
 - `frontend/` — React + Vite web client
-- `ML_INTEGRATION_GUIDE.md` — High-level integration steps
-- `SIGN_RECOGNITION_SYSTEM.md`, `UNIFIED_LEARNING_SYSTEM.md` — system design docs
+- (Recognition-related guides were removed as the ML service is no longer included)
 
 ### Backend
 - `backend/server.js` — Express app entry
@@ -14,11 +13,7 @@ This document maps directories and the recognition flow so contributors can navi
 - `backend/controllers/`, `routes/`, `middleware/`, `models/` — core API
 - `backend/assets/` — sign images (source and optimized)
 - `backend/scripts/` — admin/db utilities
-- `backend/recognition/` — recognition plans and Python ML service
-  - `python_service/` — FastAPI microservice for scoring landmark vectors
-    - `train.py` — trains a KNN model from `data/landmarks.json`
-    - `app/main.py` — FastAPI app exposing `/health` and `/score`
-    - `requirements.txt` — Python deps
+- (Recognition directory was removed)
 
 ### Frontend
 - `frontend/src/pages/` — app screens
@@ -27,12 +22,10 @@ This document maps directories and the recognition flow so contributors can navi
 - `frontend/src/hooks/` — custom hooks
 - `frontend/src/experiments/` — non-production/experimental components
 
-### Recognition Flow (current)
-1) Browser captures webcam/upload
-2) Frontend extracts landmarks (planned: MediaPipe Tasks)
-3) Frontend sends landmarks → Node backend endpoint (recommended)
-4) Node backend calls Python FastAPI `/score` to get score/label
-5) Backend returns structured result to frontend
+### Application Flow (current)
+1) User interacts with React frontend (dictionary, quizzes, admin tools)
+2) Frontend calls Node.js API for data and actions
+3) Backend serves assets and responds with JSON from MongoDB
 
 ### Conventions
 - Place experimental or mock components under `frontend/src/experiments/`

@@ -1,58 +1,38 @@
-# EchoAid Python Recognition Service
+# EchoAid YOLOv5 Recognition Service
 
-A FastAPI microservice that scores sign landmarks using a lightweight classifier (KNN). The frontend/browser extracts landmarks (e.g., via MediaPipe) and sends flattened vectors to this service.
+This service provides simple endpoints for sign recognition using your YOLOv5 weights.
 
-## Quickstart
+## Endpoints
+- `GET /health` — service and model status
+- `POST /detect` — multipart image file field `file` → JSON detections
 
-```
+## Setup
+1) Create and activate a virtual environment
+```bash
 cd backend/recognition/python_service
 python -m venv .venv
-# Windows PowerShell
-. .venv\Scripts\Activate.ps1
-# macOS/Linux
-# source .venv/bin/activate
+.venv\Scripts\activate  # Windows
+```
+
+2) Install dependencies
+```bash
 pip install -r requirements.txt
+```
 
-# Prepare dataset file (see Dataset Format below)
-python train.py
+3) Place your YOLOv5 weights
+- Put your trained `.pt` file at `backend/recognition/python_service/weights/isl_yolov5s.pt` (or set `MODEL_PATH` env var to another file).
 
-# Run service
+4) Start the service
+```bash
 uvicorn app.main:app --reload --port 8001
 ```
 
-## API
-- GET /health → `{ status: 'ok', modelLoaded: boolean }`
-- POST /score → body `{ landmarks: number[], signId?: string }`
-  - returns `{ success, score, label?, probs? }`
+## Using the YOLOv5 notebook
+- See `backend/yolov5installationfiles/ISL Detection Yolov5.ipynb` to clone YOLOv5, download weights, train/evaluate.
+- Export or copy the best weights to the `weights/` folder above.
 
-## Dataset Format
-Create `data/landmarks.json` with:
-```json
-{
-  "labels": ["hello", "thank-you", "please"],
-  "samples": [
-    [0.1, 0.2, 0.3, 0.4],
-    [0.05, -0.12, 0.8, 0.1]
-  ],
-  "y": [0, 2]
-}
-```
-- `labels[i]` is the class name for integer ID `i`.
-- `samples` contains flattened landmark vectors of equal length.
-- `y` contains the integer label for each sample row.
-
-## Local Landmark Extraction
-You can convert a folder dataset (`dataset_root/<label>/*.jpg`) into `landmarks.json` using:
-
-```
-python extract_landmarks.py /path/to/dataset_root --out data/landmarks.json
-```
-
-- Uses MediaPipe Hands to produce a 126-dim vector per image (left + right hands).
-- Keep class folder names clean; they become `labels` in the output.
-
-## Notes
-- Start simple with KNN. You can swap in SVM, logistic regression, or a small neural model later.
-- Keep features normalized (e.g., scale to 0-1 or z-score), and use consistent ordering.
-- Prefer sending landmarks (privacy) instead of images.
-
+## Environment variables (optional)
+- `MODEL_PATH` — path to `.pt` weights (default: `weights/isl_yolov5s.pt`)
+- `CONF_THRES` — confidence threshold (default: `0.25`)
+- `IOU_THRES` — NMS IoU threshold (default: `0.45`)
+- `DEVICE` — `cpu` or `cuda:0`

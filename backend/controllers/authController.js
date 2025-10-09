@@ -5,6 +5,8 @@ import User from '../models/User.js';
 import sendEmail from '../utils/sendEmail.js';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs'; // Added bcrypt import
+import speakeasy from 'speakeasy';
+import qrcode from 'qrcode';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
@@ -320,13 +322,49 @@ export const login = async (req, res) => {
       });
     }
 
-    // Update last login
+    // If 2FA is enabled, respond with a challenge instead of issuing JWT
+    if (user.twoFactorEnabled) {
+      return res.status(200).json({
+        success: true,
+        requires2FA: true,
+        message: 'Two-factor authentication required'
+      });
+    }
+
+    // Update daily login streak BEFORE changing lastLogin
+    try {
+      // Compute daily login streak based on previous lastLogin
+      const prev = user.lastLogin ? new Date(user.lastLogin) : null;
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      if (!user.learningStats) user.learningStats = {};
+
+      if (!prev) {
+        user.learningStats.streak = Math.max(1, user.learningStats.streak || 0);
+      } else {
+        const prevDay = new Date(prev);
+        prevDay.setHours(0,0,0,0);
+        if (prevDay.getTime() === today.getTime()) {
+          // Already logged in today: keep streak
+        } else if (prevDay.getTime() === yesterday.getTime()) {
+          user.learningStats.streak = (user.learningStats.streak || 0) + 1;
+        } else {
+          user.learningStats.streak = 1;
+        }
+      }
+      user.learningStats.longestStreak = Math.max(user.learningStats.longestStreak || 0, user.learningStats.streak || 0);
+    } catch (e) {
+      console.warn('Daily streak update skipped:', e?.message);
+    }
+
+    // Update last login and issue token
     user.lastLogin = Date.now();
     await user.save();
 
-    // Generate token
     const token = generateToken(user._id);
-
     res.status(200).json({
       success: true,
       token,
@@ -604,6 +642,102 @@ export const resetPassword = async (req, res) => {
   }
 };
 
+// 2FA: Generate secret and QR provisioning URI
+export const generate2FASecret = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const secret = speakeasy.generateSecret({ length: 20, name: `EchoAid (${user.email})` });
+    const otpauth_url = secret.otpauth_url;
+    const qrDataUrl = await qrcode.toDataURL(otpauth_url);
+
+    // Store temp secret in memory keyed by user for confirm step
+    if (!global.temp2FA) global.temp2FA = new Map();
+    global.temp2FA.set(user._id.toString(), { secret: secret.base32, createdAt: Date.now() });
+
+    res.json({ success: true, data: { base32: secret.base32, otpauth_url, qrDataUrl } });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error', error: e.message });
+  }
+};
+
+// 2FA: Enable by verifying code
+export const enable2FA = async (req, res) => {
+  try {
+    const { token } = req.body; // 6-digit from authenticator
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (!global.temp2FA || !global.temp2FA.has(user._id.toString())) {
+      return res.status(400).json({ success: false, message: '2FA setup not initiated' });
+    }
+    const { secret } = global.temp2FA.get(user._id.toString());
+    const verified = speakeasy.totp.verify({ secret, encoding: 'base32', token, window: 1 });
+    if (!verified) return res.status(400).json({ success: false, message: 'Invalid code' });
+
+    user.twoFactorEnabled = true;
+    user.twoFactorSecret = secret;
+    await user.save();
+    global.temp2FA.delete(user._id.toString());
+    res.json({ success: true, message: 'Two-factor authentication enabled' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error', error: e.message });
+  }
+};
+
+// 2FA: Disable
+export const disable2FA = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    user.twoFactorEnabled = false;
+    user.twoFactorSecret = '';
+    await user.save();
+    res.json({ success: true, message: 'Two-factor authentication disabled' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error', error: e.message });
+  }
+};
+
+// 2FA: Verify login code and issue JWT
+export const verify2FALogin = async (req, res) => {
+  try {
+    const { email, token } = req.body;
+    if (!email || !token) {
+      return res.status(400).json({ success: false, message: 'Email and token are required' });
+    }
+    const user = await User.findOne({ email }).select('+password');
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+    if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+      return res.status(400).json({ success: false, message: '2FA is not enabled for this account' });
+    }
+    const ok = speakeasy.totp.verify({ secret: user.twoFactorSecret, encoding: 'base32', token, window: 1 });
+    if (!ok) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired code' });
+    }
+    user.lastLogin = Date.now();
+    await user.save();
+    const jwtToken = generateToken(user._id);
+    return res.status(200).json({
+      success: true,
+      token: jwtToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        isEmailVerified: user.isEmailVerified,
+        role: user.role,
+        permissions: user.permissions
+      }
+    });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Server error', error: e.message });
+  }
+};
+
 // @desc    Get current logged in user
 // @route   GET /api/auth/me
 // @access  Private
@@ -619,7 +753,28 @@ export const getMe = async (req, res) => {
         email: user.email,
         avatar: user.avatar,
         role: user.role,
-        permissions: user.permissions
+        permissions: user.permissions,
+        twoFactorEnabled: user.twoFactorEnabled,
+        privacy: user.privacy || { profilePublic: false, showAchievements: true, dataSharing: false },
+        notifications: user.notifications || { emailNotifications: true, practiceReminders: true, pushNotifications: false },
+        // Expose learning stats so frontend gamification can refresh UI
+        learningStats: {
+          streak: user.learningStats?.streak || 0,
+          longestStreak: user.learningStats?.longestStreak || 0,
+          totalXP: user.learningStats?.totalXP || 0,
+          level: user.learningStats?.level || 1,
+          xpToNextLevel: user.learningStats?.xpToNextLevel ?? Math.max(0, ((Math.floor((user.learningStats?.totalXP || 0) / 1000) + 1) * 1000) - (user.learningStats?.totalXP || 0)),
+          quizzesCompleted: user.learningStats?.quizzesCompleted || 0,
+          perfectQuizzes: user.learningStats?.perfectQuizzes || 0,
+          averageQuizScore: user.learningStats?.averageQuizScore || 0,
+          streakFreeze: user.learningStats?.streakFreeze || 0,
+          dailyGoal: user.learningStats?.dailyGoal || 100,
+          weeklyXP: user.learningStats?.weeklyXP || 0,
+          monthlyXP: user.learningStats?.monthlyXP || 0,
+          badges: user.learningStats?.badges || [],
+          achievements: user.learningStats?.achievements || [],
+          categoryProgress: user.learningStats?.categoryProgress || {},
+        }
       }
     });
   } catch (error) {
@@ -722,3 +877,49 @@ export const removeProfilePhoto = async (req, res) => {
     });
   }
 }; 
+
+// @desc    Update privacy settings
+// @route   PUT /api/auth/privacy
+// @access  Private
+export const updatePrivacy = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { profilePublic, showAchievements, dataSharing } = req.body || {};
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    user.privacy = {
+      profilePublic: typeof profilePublic === 'boolean' ? profilePublic : (user.privacy?.profilePublic ?? false),
+      showAchievements: typeof showAchievements === 'boolean' ? showAchievements : (user.privacy?.showAchievements ?? true),
+      dataSharing: typeof dataSharing === 'boolean' ? dataSharing : (user.privacy?.dataSharing ?? false)
+    };
+    await user.save();
+
+    res.status(200).json({ success: true, data: user.privacy });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error', error: e.message });
+  }
+};
+
+// @desc    Update notification preferences
+// @route   PUT /api/auth/notifications
+// @access  Private
+export const updateNotifications = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { emailNotifications, practiceReminders, pushNotifications } = req.body || {};
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    user.notifications = {
+      emailNotifications: typeof emailNotifications === 'boolean' ? emailNotifications : (user.notifications?.emailNotifications ?? true),
+      practiceReminders: typeof practiceReminders === 'boolean' ? practiceReminders : (user.notifications?.practiceReminders ?? true),
+      pushNotifications: typeof pushNotifications === 'boolean' ? pushNotifications : (user.notifications?.pushNotifications ?? false)
+    };
+    await user.save();
+
+    res.status(200).json({ success: true, data: user.notifications });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error', error: e.message });
+  }
+};

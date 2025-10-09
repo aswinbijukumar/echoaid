@@ -406,18 +406,47 @@ const generateFeedback = (percentage, timeSpent, timeLimit) => {
 };
 
 const calculateStreak = async (userId) => {
+  const user = await User.findById(userId);
+  const currentStreak = user.learningStats?.streak || 0;
+  
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  const recentAttempts = await QuizAttempt.find({
+  // Check if user has completed a quiz today
+  const todayAttempts = await QuizAttempt.find({
     userId,
-    completedAt: { $gte: yesterday }
-  }).sort({ completedAt: -1 });
+    completedAt: { $gte: today }
+  });
 
-  return recentAttempts.length;
+  if (todayAttempts.length > 0) {
+    // User has completed a quiz today, maintain or increase streak
+    return currentStreak;
+  }
+
+  // Check if user completed a quiz yesterday
+  const yesterdayAttempts = await QuizAttempt.find({
+    userId,
+    completedAt: { $gte: yesterday, $lt: today }
+  });
+
+  if (yesterdayAttempts.length > 0) {
+    // User completed yesterday, maintain streak
+    return currentStreak;
+  }
+
+  // Check for streak freeze
+  if (user.learningStats?.streakFreeze > 0) {
+    // Use streak freeze
+    user.learningStats.streakFreeze -= 1;
+    await user.save();
+    return currentStreak;
+  }
+
+  // No streak freeze available, reset streak
+  return 0;
 };
 
 const updateUserStats = async (userId, quizAttempt) => {
@@ -459,12 +488,10 @@ const updateUserStats = async (userId, quizAttempt) => {
   const totalScore = allAttempts.reduce((sum, attempt) => sum + attempt.percentage, 0);
   user.learningStats.averageQuizScore = Math.round(totalScore / allAttempts.length);
 
-  // Update level
+  // Update level and xpToNextLevel consistently
   const newLevel = Math.floor(user.learningStats.totalXP / 1000) + 1;
-  if (newLevel > user.learningStats.level) {
-    user.learningStats.level = newLevel;
-    user.learningStats.xpToNextLevel = (newLevel * 1000) - user.learningStats.totalXP;
-  }
+  user.learningStats.level = Math.max(user.learningStats.level || 1, newLevel);
+  user.learningStats.xpToNextLevel = Math.max(0, (user.learningStats.level * 1000) - user.learningStats.totalXP);
 
   await user.save();
 };
@@ -550,4 +577,43 @@ const updateQuizStats = async (quizId, percentage) => {
   quiz.stats.completionRate = Math.round((completedAttempts / allAttempts.length) * 100);
   
   await quiz.save();
+};
+
+// Purchase streak freeze
+export const purchaseStreakFreeze = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const xpCost = 100; // Cost in XP for one streak freeze
+    
+    if (user.learningStats.totalXP < xpCost) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Insufficient XP. Need 100 XP to purchase streak freeze.' 
+      });
+    }
+
+    // Deduct XP and add streak freeze
+    user.learningStats.totalXP -= xpCost;
+    user.learningStats.streakFreeze += 1;
+    
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Streak freeze purchased successfully!',
+      data: {
+        streakFreeze: user.learningStats.streakFreeze,
+        totalXP: user.learningStats.totalXP,
+        xpSpent: xpCost
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
