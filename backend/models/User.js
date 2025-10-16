@@ -98,6 +98,70 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true // All users in database are verified
   },
+  // Subscription management
+  subscription: {
+    plan: {
+      type: String,
+      enum: ['free', 'pro', 'premium', 'enterprise'],
+      default: 'free'
+    },
+    status: {
+      type: String,
+      enum: ['active', 'inactive', 'cancelled', 'expired', 'trial'],
+      default: 'trial'
+    },
+    trialStartDate: {
+      type: Date,
+      default: Date.now
+    },
+    trialEndDate: {
+      type: Date,
+      default: function() {
+        // 1 year trial from now
+        return new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+      }
+    },
+    subscriptionStartDate: {
+      type: Date,
+      default: null
+    },
+    subscriptionEndDate: {
+      type: Date,
+      default: null
+    },
+    paymentMethod: {
+      type: String,
+      enum: ['razorpay', 'stripe', 'paypal', 'none'],
+      default: 'none'
+    },
+    razorpaySubscriptionId: {
+      type: String,
+      default: null
+    },
+    razorpayCustomerId: {
+      type: String,
+      default: null
+    },
+    autoRenew: {
+      type: Boolean,
+      default: false
+    },
+    billingCycle: {
+      type: String,
+      enum: ['monthly', 'yearly'],
+      default: 'monthly'
+    },
+    features: {
+      unlimitedQuizzes: { type: Boolean, default: false },
+      advancedAnalytics: { type: Boolean, default: false },
+      prioritySupport: { type: Boolean, default: false },
+      customProgressTracking: { type: Boolean, default: false },
+      offlineMode: { type: Boolean, default: false },
+      advancedGamification: { type: Boolean, default: false },
+      apiAccess: { type: Boolean, default: false },
+      whiteLabel: { type: Boolean, default: false }
+    }
+  },
   resetPasswordToken: String,
   resetPasswordExpire: Date,
   refreshToken: String,

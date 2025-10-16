@@ -12,10 +12,11 @@ import {
   StarIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextConstants';
 import Sidebar from '../components/Sidebar';
 import EnhancedQuiz from '../components/EnhancedQuiz';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
+import PageHeader from '../components/PageHeader';
 
 export default function Quiz() {
   const [quizzes, setQuizzes] = useState([]);
@@ -193,14 +194,7 @@ export default function Quiz() {
           <div className="max-w-6xl mx-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h1 className={`text-3xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
-                    Sign Language Quizzes
-                  </h1>
-                  <p className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                    Test your knowledge and earn XP!
-                  </p>
-                </div>
+                <PageHeader title="Assessments" subtitle="Test your sign language knowledge and earn XP!" className="mb-0" />
               <div className="flex items-center space-x-6">
                 {/* Level Progress Ring */}
                 <div className="relative w-20 h-20">

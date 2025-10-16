@@ -16,11 +16,14 @@ import {
   StarIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextConstants';
 import { useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import { useUserStats } from '../hooks/useUserStats';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
+import SubscriptionStatus from '../components/SubscriptionStatus';
+import UnitSelector from '../components/UnitSelector';
+import LessonViewer from '../components/LessonViewer';
 
 export default function Dashboard() {
   const { stats: userStats } = useUserStats();
@@ -30,6 +33,8 @@ export default function Dashboard() {
   const [categories, setCategories] = useState([]);
   const [recentSigns, setRecentSigns] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'curriculum', 'lesson'
+  const [selectedUnit, setSelectedUnit] = useState(null);
   
   const { darkMode } = useTheme();
   const { logout } = useAuth();
@@ -168,6 +173,45 @@ export default function Dashboard() {
     navigate('/');
   };
 
+  // Curriculum navigation handlers
+  const handleCurriculumClick = () => {
+    setCurrentView('curriculum');
+  };
+
+  const handleUnitSelect = (unit) => {
+    setSelectedUnit(unit);
+    setCurrentView('lesson');
+  };
+
+  const handleBackToCurriculum = () => {
+    setCurrentView('curriculum');
+    setSelectedUnit(null);
+  };
+
+  const handleBackToDashboard = () => {
+    setCurrentView('dashboard');
+    setSelectedUnit(null);
+  };
+
+  const handleLessonComplete = (data) => {
+    console.log('Lesson completed:', data);
+    // Show completion notification
+    alert(`Lesson completed! You earned ${data.xpEarned} XP. ${data.leveledUp ? 'Level up!' : ''}`);
+    handleBackToCurriculum();
+  };
+
+  // Show loading screen while data is being fetched or user is not loaded
+  if (loading || !userStats) {
+    return (
+      <div className={`min-h-screen ${bg} ${text} flex items-center justify-center`}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00CC00] mx-auto mb-4"></div>
+          <p className="text-lg">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen ${bg} ${text} overflow-x-hidden`}>
       {/* Top Status Bar */}
@@ -208,15 +252,28 @@ export default function Dashboard() {
               <div className="flex-1 p-6">
                 {/* Section Header */}
                 <div className="bg-green-500 text-white p-4 rounded-lg mb-6">
-                  <div className="flex items-center space-x-3">
-                    <Link to="/" className="text-white hover:text-gray-200">
-                      <ArrowUpIcon className="w-5 h-5 rotate-90" />
-                    </Link>
-                    <div>
-                      <h1 className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>SECTION {currentSection}, UNIT {currentUnit}</h1>
-                      <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>Master Basic Hand Signs</h2>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <Link to="/" className="text-white hover:text-gray-200">
+                        <ArrowUpIcon className="w-5 h-5 rotate-90" />
+                      </Link>
+                      <div>
+                        <h1 className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>SECTION {currentSection}, UNIT {currentUnit}</h1>
+                        <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>Master Basic Hand Signs</h2>
+                      </div>
                     </div>
+                    <button
+                      onClick={handleCurriculumClick}
+                      className="px-4 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 font-semibold"
+                    >
+                      Start Learning Path
+                    </button>
                   </div>
+                </div>
+
+                {/* Subscription Status */}
+                <div className="mb-6">
+                  <SubscriptionStatus />
                 </div>
 
                 {/* Learning Path */}
@@ -450,6 +507,23 @@ export default function Dashboard() {
           <ArrowUpIcon className="w-6 h-6" />
         </button>
       )}
+
+      {/* Curriculum Views */}
+      {currentView === 'curriculum' && (
+        <UnitSelector
+          onUnitSelect={handleUnitSelect}
+          onBack={handleBackToDashboard}
+        />
+      )}
+
+      {currentView === 'lesson' && selectedUnit && (
+        <LessonViewer
+          unit={selectedUnit}
+          onBack={handleBackToCurriculum}
+          onLessonComplete={handleLessonComplete}
+        />
+      )}
+
     </div>
   );
 }

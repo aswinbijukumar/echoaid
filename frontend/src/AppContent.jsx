@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import RoleBasedRoute from './components/RoleBasedRoute';
+import ModernSessionTimeout from './components/ModernSessionTimeout';
+import SessionManager from './components/SessionManager';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
@@ -11,17 +13,20 @@ import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import AdminDashboard from './pages/AdminDashboard';
-import Profile from './pages/Profile';
+import RoleBasedProfile from './components/RoleBasedProfile';
 import Dictionary from './pages/Dictionary';
 import Quiz from './pages/Quiz';
 import AccessibilitySettings from './pages/AccessibilitySettings';
 import GoogleAuthSuccess from './pages/GoogleAuthSuccess';
 import Practice from './pages/Practice';
 import AdminQuizPage from './pages/AdminQuizPage';
+import Learn from './pages/Learn';
+import Subscription from './pages/Subscription';
 
 function AppContent() {
   return (
     <AuthProvider>
+      <SessionManager />
       <Router>
         <Routes>
           <Route path="/" element={<Home />} />
@@ -36,6 +41,11 @@ function AppContent() {
               <Dashboard />
             </RoleBasedRoute>
           } />
+          <Route path="/learn" element={
+            <RoleBasedRoute>
+              <Learn />
+            </RoleBasedRoute>
+          } />
           <Route path="/admin" element={
             <RoleBasedRoute allowedRoles={['admin', 'super_admin']}>
               <AdminDashboard />
@@ -46,7 +56,7 @@ function AppContent() {
               <SuperAdminDashboard />
             </RoleBasedRoute>
           } />
-          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile" element={<RoleBasedProfile />} />
           <Route path="/dictionary" element={<Dictionary />} />
           <Route path="/quiz" element={
             <RoleBasedRoute>
@@ -68,9 +78,15 @@ function AppContent() {
               <Practice />
             </RoleBasedRoute>
           } />
+          <Route path="/subscription" element={
+            <RoleBasedRoute>
+              <Subscription />
+            </RoleBasedRoute>
+          } />
           <Route path="/accessibility" element={<AccessibilitySettings />} />
           <Route path="/auth/google/success" element={<GoogleAuthSuccess />} />
         </Routes>
+        <ModernSessionTimeout />
       </Router>
     </AuthProvider>
   );

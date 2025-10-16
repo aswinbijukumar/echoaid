@@ -22,11 +22,12 @@ import {
   StarIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextConstants';
 import Sidebar from '../components/Sidebar';
 import { useUserStats } from '../hooks/useUserStats';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import Modal from '../components/Modal';
+import PageHeader from '../components/PageHeader';
 
 export default function Dictionary() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,11 +40,59 @@ export default function Dictionary() {
   const [contentRef, setContentRef] = useState(null);
   const [selectedSign, setSelectedSign] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   const { darkMode } = useTheme();
   const { logout } = useAuth();
   const navigate = useNavigate();
   const { stats: userStats } = useUserStats();
+
+  // Organize signs by category and subcategory
+  const organizeSigns = (signsData) => {
+    const organized = {};
+    
+    signsData.forEach(sign => {
+      const category = sign.category || 'other';
+      if (!organized[category]) {
+        organized[category] = {};
+      }
+      
+      // For alphabet, group by letter
+      if (category === 'alphabet') {
+        const letter = sign.word.charAt(0).toUpperCase();
+        if (!organized[category][letter]) {
+          organized[category][letter] = [];
+        }
+        organized[category][letter].push(sign);
+      }
+      // For numbers, group by range
+      else if (category === 'numbers') {
+        const num = parseInt(sign.word);
+        let range = 'other';
+        if (num >= 1 && num <= 10) range = '1-10';
+        else if (num >= 11 && num <= 20) range = '11-20';
+        else if (num >= 21 && num <= 50) range = '21-50';
+        else if (num >= 51 && num <= 100) range = '51-100';
+        
+        if (!organized[category][range]) {
+          organized[category][range] = [];
+        }
+        organized[category][range].push(sign);
+      }
+      // For other categories, group by first letter
+      else {
+        const firstLetter = sign.word.charAt(0).toUpperCase();
+        if (!organized[category][firstLetter]) {
+          organized[category][firstLetter] = [];
+        }
+        organized[category][firstLetter].push(sign);
+      }
+    });
+    
+    return organized;
+  };
+
 
   const handleLogout = () => {
     logout();
@@ -64,6 +113,7 @@ export default function Dictionary() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        console.log('Fetching signs from database...');
         
         // Fetch categories from public alias
         const categoriesResponse = await fetch(`${API_BASE_URL}/api/content/categories`);
@@ -86,9 +136,14 @@ export default function Dictionary() {
         const signsResponse = await fetch(`${API_BASE_URL}/api/dictionary/db/signs?limit=500`);
         const signsData = await signsResponse.json();
         
+        console.log('Signs response:', signsData);
+        console.log('Number of signs fetched:', signsData.signs?.length || 0);
+        
         if (signsData.signs && signsData.signs.length > 0) {
+          console.log('First sign example:', signsData.signs[0]);
           setSigns(signsData.signs);
         } else {
+          console.log('No signs found in database, using fallback');
           // Fallback to filesystem alphabet
           const fsResp = await fetch(`${API_BASE_URL}/api/dictionary/signs/alphabet`);
           const fsData = await fsResp.json();
@@ -112,7 +167,13 @@ export default function Dictionary() {
     };
 
     fetchData();
-  }, [API_BASE_URL]);
+  }, [API_BASE_URL, refreshTrigger]);
+
+  // Refresh function to reload signs
+  const refreshSigns = () => {
+    console.log('Manual refresh triggered');
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   // Fetch signs for selected category
   useEffect(() => {
@@ -199,16 +260,23 @@ export default function Dictionary() {
     setSelectedSign(null);
   };
 
-  const openPractice = (sign) => {
+  const openPreview = (sign) => {
+    setSelectedSign(sign);
+    setShowPreview(true);
+  };
+
+  const openPractice = (sign, exerciseType = 'sign-recognition') => {
     console.log('Dictionary - Opening practice for sign:', sign);
     console.log('Dictionary - Sign ID:', sign._id || sign.id);
+    console.log('Dictionary - Exercise Type:', exerciseType);
     
     // Navigate to Practice page with sign data
     navigate('/practice', {
       state: {
         startPractice: true,
         specificSign: sign._id || sign.id,
-        signData: sign // Send full sign data as fallback
+        signData: sign, // Send full sign data as fallback
+        exerciseType: exerciseType
       }
     });
   };
@@ -307,24 +375,23 @@ export default function Dictionary() {
                 className={`flex-1 p-6 overflow-y-auto min-h-0 ${bg}`}
               >
                 {/* Header */}
-                <div className="mb-6">
-                  <h1 className={`text-3xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>Sign Language Dictionary</h1>
-                  <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Search and learn thousands of sign language signs</p>
-                  
-                  {/* Scroll Progress Indicator */}
-                  {showScrollTop && (
-                    <div className="mt-4">
-                      <div className="w-full bg-gray-200 rounded-full h-1">
-                        <div 
-                          className="bg-green-500 h-1 rounded-full transition-all duration-300"
-                          style={{ 
-                            width: contentRef ? `${Math.min((contentRef.scrollTop / (contentRef.scrollHeight - contentRef.clientHeight)) * 100, 100)}%` : '0%' 
-                          }}
-                        ></div>
-                      </div>
+                <PageHeader 
+                  title="Sign Language Dictionary" 
+                  subtitle="Search and learn thousands of sign language signs"
+                />
+                {/* Scroll Progress Indicator */}
+                {showScrollTop && (
+                  <div className="mt-4">
+                    <div className="w-full bg-gray-200 rounded-full h-1">
+                      <div 
+                        className="bg-green-500 h-1 rounded-full transition-all duration-300"
+                        style={{ 
+                          width: contentRef ? `${Math.min((contentRef.scrollTop / (contentRef.scrollHeight - contentRef.clientHeight)) * 100, 100)}%` : '0%'
+                        }}
+                      ></div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Search Bar */}
                 <div className="mb-6">
@@ -337,6 +404,46 @@ export default function Dictionary() {
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className={`w-full pl-10 pr-4 py-3 ${cardBg} border ${border} rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent`}
                     />
+                  </div>
+                </div>
+
+                {/* View Mode Toggle */}
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>Dictionary</h2>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={refreshSigns}
+                      className={`p-2 rounded-lg transition-colors ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                      title="Refresh signs"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setViewMode('grid')}
+                      className={`p-2 rounded-lg transition-colors ${
+                        viewMode === 'grid' 
+                          ? 'bg-blue-500 text-white' 
+                          : `${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'} hover:bg-blue-500 hover:text-white`
+                      }`}
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setViewMode('list')}
+                      className={`p-2 rounded-lg transition-colors ${
+                        viewMode === 'list' 
+                          ? 'bg-blue-500 text-white' 
+                          : `${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'} hover:bg-blue-500 hover:text-white`
+                      }`}
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd"/>
+                      </svg>
+                    </button>
                   </div>
                 </div>
 
@@ -425,76 +532,139 @@ export default function Dictionary() {
                     </div>
                   )}
 
-                  {/* Signs Grid */}
+                  {/* Organized Signs Display */}
                   {!loading && !error && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                      {filteredSigns.map((sign) => (
-                        <div
-                          key={sign.id}
-                          className={`${cardBg} p-4 rounded-lg border ${border} hover:shadow-lg transition-all cursor-pointer group`}
-                          onClick={() => handleSignPreview(sign)}
-                        >
-                          {/* Sign Image */}
-                          <div className="mb-3 relative">
-                            {(() => {
-                              const pickThumb = sign.thumbnailUrl || sign.imageUrl || sign.imagePath;
-                              const imageSource = typeof pickThumb === 'string' && pickThumb.startsWith('http') ? pickThumb : `${API_BASE_URL}${pickThumb || ''}`;
-                              return (
-                                <img
-                                  src={imageSource}
-                                  alt={`Sign for ${sign.word}`}
-                                  className="w-full h-32 object-contain rounded-lg bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 group-hover:scale-105 transition-all duration-200 shadow-sm"
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                    e.target.nextSibling.style.display = 'flex';
-                                  }}
-                                />
-                              );
-                            })()}
-                            <div className="w-full h-32 bg-white dark:bg-gray-100 rounded-lg flex items-center justify-center hidden border border-gray-200 dark:border-gray-300">
-                              <PhotoIcon className="w-8 h-8 text-gray-400" />
-                            </div>
-                          </div>
+                    <div className="space-y-8">
+                      {(() => {
+                        const organizedSigns = organizeSigns(filteredSigns);
+                        const currentCategory = selectedCategory === 'all' ? Object.keys(organizedSigns) : [selectedCategory];
+                        
+                        return currentCategory.map(categoryKey => {
+                          const categoryData = organizedSigns[categoryKey];
+                          if (!categoryData) return null;
                           
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <h3 className={`font-semibold text-lg ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>{sign.word}</h3>
-                              <p className="text-gray-400 text-sm">{sign.description}</p>
+                          return (
+                            <div key={categoryKey} className="space-y-4">
+                              {/* Category Header */}
+                              <div className="flex items-center justify-between">
+                                <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
+                                  {categories.find(c => c.id === categoryKey)?.name || categoryKey.charAt(0).toUpperCase() + categoryKey.slice(1)}
+                                </h2>
+                                <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                  {Object.values(categoryData).flat().length} signs
+                                </span>
+                              </div>
+                              
+                              {/* Subcategories */}
+                              {Object.entries(categoryData).map(([subCategory, signs]) => (
+                                <div key={subCategory} className="space-y-3">
+                                  {/* Subcategory Header */}
+                                  <div className="flex items-center justify-between">
+                                    <h3 className={`text-lg font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      {subCategory}
+                                    </h3>
+                                    <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                      {signs.length} signs
+                                    </span>
+                                  </div>
+                                  
+                                  {/* Signs Grid */}
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                                    {signs.map((sign) => (
+                                      <div
+                                        key={sign.id}
+                                        className={`${cardBg} p-4 rounded-lg border ${border} hover:shadow-lg transition-all cursor-pointer group`}
+                                        onClick={() => handleSignPreview(sign)}
+                                      >
+                                        {/* Sign Image */}
+                                        <div className="mb-3 relative">
+                                          {(() => {
+                                            const pickThumb = sign.coverThumbnail || sign.coverImage || sign.thumbnailUrl || sign.imageUrl || sign.imagePath;
+                                            const imageSource = typeof pickThumb === 'string' && pickThumb.startsWith('http') ? pickThumb : `${API_BASE_URL}${pickThumb || ''}`;
+                                            return (
+                                              <img
+                                                src={imageSource}
+                                                alt={`Sign for ${sign.word}`}
+                                                className="w-full h-32 object-contain rounded-lg bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 group-hover:scale-105 transition-all duration-200 shadow-sm"
+                                                onError={(e) => {
+                                                  e.target.style.display = 'none';
+                                                  e.target.nextSibling.style.display = 'flex';
+                                                }}
+                                              />
+                                            );
+                                          })()}
+                                          <div className="w-full h-32 bg-white dark:bg-gray-100 rounded-lg flex items-center justify-center hidden border border-gray-200 dark:border-gray-300">
+                                            <PhotoIcon className="w-8 h-8 text-gray-400" />
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="flex items-start justify-between mb-3">
+                                          <div>
+                                            <h3 className={`font-semibold text-lg ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>{sign.word}</h3>
+                                            <p className="text-gray-400 text-sm">{sign.description}</p>
+                                          </div>
+                                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                            sign.difficulty === 'Beginner' ? 'bg-green-100 text-green-800' :
+                                            sign.difficulty === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' :
+                                            'bg-red-100 text-red-800'
+                                          }`}>
+                                            {sign.difficulty}
+                                          </span>
+                                        </div>
+                                        
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center space-x-2">
+                                            {sign.variants && sign.variants.length > 0 && (
+                                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                                {sign.variants.length} variants
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <button 
+                                              className="flex items-center space-x-1 text-blue-500 hover:text-blue-400 transition-colors"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                openPreview(sign);
+                                              }}
+                                            >
+                                              <PlayIcon className="w-4 h-4" />
+                                              <span className="text-sm">Learn</span>
+                                            </button>
+                                            <div className="flex space-x-1">
+                                              <button
+                                                onClick={(e) => { e.stopPropagation(); openPractice(sign, 'sign-recognition'); }}
+                                                className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition-colors"
+                                                title="Sign Recognition"
+                                              >
+                                                👁️
+                                              </button>
+                                              <button
+                                                onClick={(e) => { e.stopPropagation(); openPractice(sign, 'flashcard'); }}
+                                                className="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition-colors"
+                                                title="Flashcard"
+                                              >
+                                                📚
+                                              </button>
+                                              <button
+                                                onClick={(e) => { e.stopPropagation(); openPractice(sign, 'video-tutorial'); }}
+                                                className="px-2 py-1 bg-purple-500 text-white rounded text-xs hover:bg-purple-600 transition-colors"
+                                                title="Video Tutorial"
+                                              >
+                                                ▶️
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              sign.difficulty === 'Beginner' ? 'bg-green-100 text-green-800' :
-                              sign.difficulty === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {sign.difficulty}
-                            </span>
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-500 capitalize">
-                              {categories.find(c => c.id === sign.category)?.name || sign.category}
-                            </span>
-                            <div className="flex items-center space-x-2">
-                              <button 
-                                className="flex items-center space-x-1 text-blue-500 hover:text-blue-400 transition-colors"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  // Future video functionality
-                                }}
-                              >
-                                <PlayIcon className="w-4 h-4" />
-                                <span className="text-sm">Watch</span>
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); openPractice(sign); }}
-                                className="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition-colors"
-                              >
-                                Practice
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                          );
+                        });
+                      })()}
                     </div>
                   )}
 
@@ -609,10 +779,10 @@ export default function Dictionary() {
 
             {/* Modal Content */}
             <div className="p-6">
-              {/* Large Sign Image */}
+              {/* Cover Image */}
               <div className="mb-6">
                 {(() => {
-                  const pickUrl = selectedSign.imageUrl || selectedSign.imagePath;
+                  const pickUrl = selectedSign.coverImage || selectedSign.imageUrl || selectedSign.imagePath;
                   const src = typeof pickUrl === 'string' && pickUrl.startsWith('http') ? pickUrl : `${API_BASE_URL}${pickUrl || ''}`;
                   return (
                     <img
@@ -630,6 +800,38 @@ export default function Dictionary() {
                   <PhotoIcon className="w-16 h-16 text-gray-400" />
                 </div>
               </div>
+
+              {/* Sign Variants */}
+              {selectedSign.variants && selectedSign.variants.length > 0 && (
+                <div className="mb-6">
+                  <h3 className={`font-semibold text-xl mb-4 ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
+                    Learning Variants ({selectedSign.variants.length})
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {selectedSign.variants.map((variant, index) => (
+                      <div key={index} className="text-center">
+                        <div className="w-full h-24 bg-gray-100 rounded-lg overflow-hidden mb-2">
+                          {variant.type === 'image' ? (
+                            <img
+                              src={variant.path}
+                              alt={`${selectedSign.word} - ${variant.angle}`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <video
+                              src={variant.path}
+                              className="w-full h-full object-cover"
+                              muted
+                            />
+                          )}
+                        </div>
+                        <div className="text-xs font-medium">{variant.angle}</div>
+                        <div className="text-xs text-gray-500">{variant.type}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Sign Details */}
               <div className="space-y-6">

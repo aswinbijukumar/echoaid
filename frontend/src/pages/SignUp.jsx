@@ -185,6 +185,7 @@ export default function SignUp() {
                 value={formData.email}
                 onChange={handleInputChange}
                 placeholder="Email"
+                autoComplete="email"
                 className={`w-full px-4 py-3 ${inputBg} ${border} border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00CC00] focus:border-transparent transition-colors`}
                 required
               />
@@ -198,6 +199,7 @@ export default function SignUp() {
                 value={formData.password}
                 onChange={handleInputChange}
                 placeholder="Password"
+                autoComplete="new-password"
                 className={`w-full px-4 py-3 pr-12 ${inputBg} ${border} border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00CC00] focus:border-transparent transition-colors ${
                   validationErrors.password ? 'border-red-500' : ''
                 }`}

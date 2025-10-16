@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextConstants';
 
 const GoogleAuthSuccess = () => {
   const navigate = useNavigate();
@@ -23,6 +23,7 @@ const GoogleAuthSuccess = () => {
       setToken(token);
       
       // Add a small delay to show the success message
+      // AuthContext will automatically fetch user data and set user state
       setTimeout(() => {
         navigate('/dashboard');
       }, 2000);
@@ -43,8 +44,8 @@ const GoogleAuthSuccess = () => {
           </div>
         </div>
         
-        <h2 className="text-white text-3xl font-bold mb-4">Welcome to EchoAid!</h2>
-        <p className="text-gray-400 mb-8 text-lg">Your account has been successfully created</p>
+        <h2 className="text-white text-3xl font-bold mb-4">Welcome back to EchoAid!</h2>
+        <p className="text-gray-400 mb-8 text-lg">You are being signed in securely</p>
         
         {/* Progress steps */}
         <div className="space-y-4 text-left bg-[#23272F] p-6 rounded-xl">
@@ -62,7 +63,7 @@ const GoogleAuthSuccess = () => {
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
             </div>
-            <span className="text-sm font-medium">Profile created</span>
+            <span className="text-sm font-medium">Profile loaded</span>
           </div>
           <div className="flex items-center text-blue-400">
             <div className="w-5 h-5 bg-blue-500 rounded-full mr-4 animate-pulse"></div>

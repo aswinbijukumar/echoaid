@@ -22,13 +22,52 @@ const signSchema = new mongoose.Schema({
     required: [true, 'Please provide a description'],
     maxlength: [500, 'Description cannot be more than 500 characters']
   },
+  // Cover image (main image shown in dictionary)
+  coverImage: {
+    type: String,
+    required: [true, 'Please provide a cover image']
+  },
+  coverThumbnail: {
+    type: String,
+    required: [true, 'Please provide a cover thumbnail']
+  },
+  // Multiple variants for learning from different angles
+  variants: [{
+    type: {
+      type: String,
+      enum: ['image', 'video'],
+      required: true
+    },
+    path: {
+      type: String,
+      required: true
+    },
+    thumbnail: {
+      type: String,
+      default: null
+    },
+    description: {
+      type: String,
+      maxlength: [200, 'Variant description cannot be more than 200 characters']
+    },
+    angle: {
+      type: String,
+      enum: ['front', 'side', 'back', 'close-up', 'slow', 'fast', 'demo'],
+      default: 'front'
+    },
+    isDefault: {
+      type: Boolean,
+      default: false
+    }
+  }],
+  // Legacy fields for backward compatibility
   imagePath: {
     type: String,
-    required: [true, 'Please provide an image path']
+    default: null
   },
   thumbnailPath: {
     type: String,
-    required: [true, 'Please provide a thumbnail path']
+    default: null
   },
   videoPath: {
     type: String,

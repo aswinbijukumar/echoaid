@@ -5,6 +5,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
 import { v2 as cloudinary } from 'cloudinary';
+import csv from 'csv-parser';
+import os from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -355,10 +357,16 @@ export const updateSign = async (req, res) => {
           }
           const uploaded = await cloudinary.uploader.upload(filePath, {
             folder: `echoaid/signs/${category || sign.category}`,
-            resource_type: 'image'
+            resource_type: 'image',
+            quality: 'auto:good',
+            fetch_format: 'auto'
           });
+          sign.coverImage = uploaded.secure_url;
+          sign.coverThumbnail = cloudinary.url(uploaded.public_id, { width: 200, height: 200, crop: 'fit', quality: 'auto', secure: true, format: 'jpg' });
+          
+          // Keep legacy fields for backward compatibility
           sign.imagePath = uploaded.secure_url;
-          sign.thumbnailPath = cloudinary.url(uploaded.public_id, { width: 200, height: 200, crop: 'fit', quality: 'auto', secure: true, format: 'jpg' });
+          sign.thumbnailPath = sign.coverThumbnail;
         } catch (e) {
           return res.status(500).json({ success: false, message: 'Image upload failed', error: e.message });
         }
@@ -400,6 +408,22 @@ export const updateSign = async (req, res) => {
     if (movement) sign.movement = movement;
     if (relatedSigns) sign.relatedSigns = relatedSigns.split(',').map(id => id.trim());
     if (isActive !== undefined) sign.isActive = isActive === 'true' || isActive === true;
+    
+    // Ensure coverImage and coverThumbnail exist (for backward compatibility)
+    if (!sign.coverImage && sign.imagePath) {
+      sign.coverImage = sign.imagePath;
+    }
+    if (!sign.coverThumbnail && sign.thumbnailPath) {
+      sign.coverThumbnail = sign.thumbnailPath;
+    }
+    
+    // If still no cover image, use a default or skip validation
+    if (!sign.coverImage) {
+      sign.coverImage = sign.imagePath || 'https://via.placeholder.com/300x300?text=No+Image';
+    }
+    if (!sign.coverThumbnail) {
+      sign.coverThumbnail = sign.thumbnailPath || 'https://via.placeholder.com/200x200?text=No+Image';
+    }
     
     await sign.save();
     
@@ -466,6 +490,296 @@ export const deleteSign = async (req, res) => {
   }
 };
 
+// @desc    Create sign with multiple variants
+// @route   POST /api/content/signs/bulk-variants
+// @access  Private (Admin, Super Admin)
+export const createSignWithVariants = async (req, res) => {
+  try {
+    // Ensure Cloudinary is configured
+    ensureCloudinaryConfigured();
+    
+    const {
+      word,
+      category,
+      difficulty,
+      description,
+      tags,
+      usage,
+      signLanguageType,
+      handDominance,
+      facialExpression,
+      bodyPosition,
+      movement,
+      isActive
+    } = req.body;
+
+    // Comprehensive validations
+    const validationErrors = [];
+
+    // Word validation
+    if (!word || !word.trim()) {
+      validationErrors.push('Word is required');
+    } else if (word.trim().length < 1) {
+      validationErrors.push('Word must be at least 1 character long');
+    } else if (word.trim().length > 100) {
+      validationErrors.push('Word must be less than 100 characters');
+    } else if (!/^[a-zA-Z0-9\s\-'.,!?]+$/.test(word.trim())) {
+      validationErrors.push('Word contains invalid characters. Only letters, numbers, spaces, and basic punctuation are allowed');
+    }
+
+    // Category validation
+    if (!category || !category.trim()) {
+      validationErrors.push('Category is required');
+    } else if (!['alphabet', 'numbers', 'phrases', 'family', 'activities', 'advanced'].includes(category.trim())) {
+      validationErrors.push('Invalid category. Must be one of: alphabet, numbers, phrases, family, activities, advanced');
+    }
+
+    // Description validation
+    if (!description || !description.trim()) {
+      validationErrors.push('Description is required');
+    } else if (description.trim().length < 10) {
+      validationErrors.push('Description must be at least 10 characters long');
+    } else if (description.trim().length > 500) {
+      validationErrors.push('Description must be less than 500 characters');
+    }
+
+    // Difficulty validation
+    if (!difficulty) {
+      validationErrors.push('Difficulty is required');
+    } else if (!['Beginner', 'Intermediate', 'Advanced'].includes(difficulty)) {
+      validationErrors.push('Invalid difficulty. Must be one of: Beginner, Intermediate, Advanced');
+    }
+
+    // Usage validation (optional)
+    if (usage && usage.trim().length > 200) {
+      validationErrors.push('Usage description must be less than 200 characters');
+    }
+
+    // Tags validation (optional)
+    if (tags) {
+      try {
+        const parsedTags = JSON.parse(tags);
+        if (!Array.isArray(parsedTags)) {
+          validationErrors.push('Tags must be an array');
+        } else if (parsedTags.length > 10) {
+          validationErrors.push('Maximum 10 tags allowed');
+        } else {
+          parsedTags.forEach((tag, index) => {
+            if (typeof tag !== 'string' || tag.trim().length === 0) {
+              validationErrors.push(`Tag ${index + 1} must be a non-empty string`);
+            } else if (tag.trim().length > 50) {
+              validationErrors.push(`Tag ${index + 1} must be less than 50 characters`);
+            }
+          });
+        }
+      } catch (e) {
+        validationErrors.push('Invalid tags format. Must be a valid JSON array');
+      }
+    }
+
+    // Check for duplicate word in same category
+    try {
+      const existingSign = await Sign.findOne({ 
+        word: { $regex: new RegExp(`^${word.trim()}$`, 'i') }, 
+        category: category.trim(),
+        isActive: true 
+      });
+      if (existingSign) {
+        validationErrors.push(`Sign "${word}" already exists in ${category} category`);
+      }
+    } catch (dbError) {
+      console.error('Database error during duplicate check:', dbError);
+      // Continue with other validations
+    }
+
+    // File validations
+    if (!req.files || !req.files.coverFile) {
+      validationErrors.push('Cover image is required');
+    } else {
+      const coverFile = req.files.coverFile;
+      
+      // File size validation (5MB limit)
+      if (coverFile.size > 5 * 1024 * 1024) {
+        validationErrors.push('Cover image must be less than 5MB');
+      }
+      
+      // File type validation
+      const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+      if (!allowedImageTypes.includes(coverFile.mimetype)) {
+        validationErrors.push('Cover image must be JPEG, PNG, or GIF format');
+      }
+    }
+
+    if (!req.files || !req.files.variantFiles) {
+      validationErrors.push('At least one variant file is required');
+    } else {
+      const variantFiles = Array.isArray(req.files.variantFiles) ? req.files.variantFiles : [req.files.variantFiles];
+      
+      if (variantFiles.length > 10) {
+        validationErrors.push('Maximum 10 variant files allowed per sign');
+      }
+
+      variantFiles.forEach((file, index) => {
+        // File size validation
+        if (file.size > 5 * 1024 * 1024) {
+          validationErrors.push(`Variant ${index + 1} file must be less than 5MB`);
+        }
+        
+        // File type validation
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'video/mp4'];
+        if (!allowedTypes.includes(file.mimetype)) {
+          validationErrors.push(`Variant ${index + 1} must be JPEG, PNG, GIF, or MP4 format`);
+        }
+      });
+    }
+
+    // Return validation errors if any
+    if (validationErrors.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Validation failed', 
+        errors: validationErrors 
+      });
+    }
+
+    // Handle cover image upload
+    let coverImagePath = null;
+    let coverThumbnailPath = null;
+    
+    if (req.files && req.files.coverFile) {
+      const coverFile = req.files.coverFile;
+      const filePath = coverFile.tempFilePath || coverFile.path;
+      
+      try {
+        console.log('Uploading cover image to Cloudinary...');
+        console.log('File path:', filePath);
+        console.log('Category:', category);
+        
+        const uploaded = await cloudinary.uploader.upload(filePath, {
+          folder: `signs/${category}`,
+          use_filename: true,
+          unique_filename: true,
+          // Optimize for web delivery
+          quality: 'auto:good',
+          fetch_format: 'auto'
+        });
+        
+        console.log('Cover image uploaded successfully:', uploaded.secure_url);
+        
+        coverImagePath = uploaded.secure_url;
+        coverThumbnailPath = cloudinary.url(uploaded.public_id, { 
+          width: 200, 
+          height: 200, 
+          crop: 'fit', 
+          quality: 'auto:eco', 
+          secure: true, 
+          format: 'jpg'
+        });
+      } catch (e) {
+        console.error('Cover image upload error:', e);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Cover image upload failed', 
+          error: e.message,
+          details: e
+        });
+      }
+    }
+
+    // Handle variant files upload
+    const variants = [];
+    if (req.files && req.files.variantFiles) {
+      const variantFiles = Array.isArray(req.files.variantFiles) ? req.files.variantFiles : [req.files.variantFiles];
+      const variantTypes = Array.isArray(req.body.variantTypes) ? req.body.variantTypes : [req.body.variantTypes];
+      const variantAngles = Array.isArray(req.body.variantAngles) ? req.body.variantAngles : [req.body.variantAngles];
+      const variantDescriptions = Array.isArray(req.body.variantDescriptions) ? req.body.variantDescriptions : [req.body.variantDescriptions];
+
+      for (let i = 0; i < variantFiles.length; i++) {
+        const variantFile = variantFiles[i];
+        const filePath = variantFile.tempFilePath || variantFile.path;
+        
+        try {
+          console.log(`Uploading variant ${i + 1} to Cloudinary...`);
+          console.log('File path:', filePath);
+          console.log('Variant type:', variantTypes[i]);
+          
+          const uploaded = await cloudinary.uploader.upload(filePath, {
+            folder: `signs/${category}/variants`,
+            use_filename: true,
+            unique_filename: true,
+            // Optimize for web delivery
+            quality: 'auto:good',
+            fetch_format: 'auto',
+            // Video optimization
+            resource_type: 'auto'
+          });
+          
+          console.log(`Variant ${i + 1} uploaded successfully:`, uploaded.secure_url);
+          
+          variants.push({
+            type: variantTypes[i] || 'image',
+            path: uploaded.secure_url,
+            thumbnail: cloudinary.url(uploaded.public_id, { 
+              width: 150, 
+              height: 150, 
+              crop: 'fit', 
+              quality: 'auto:eco', 
+              secure: true, 
+              format: 'jpg'
+            }),
+            description: variantDescriptions[i] || `${word} variant`,
+            angle: variantAngles[i] || 'front',
+            isDefault: i === 0
+          });
+        } catch (e) {
+          console.error(`Variant ${i + 1} upload failed:`, e);
+          // Continue with other variants but log the error
+        }
+      }
+    }
+
+    // Create sign with variants
+    const signData = {
+      word: word.trim(),
+      category: category.trim(),
+      difficulty: difficulty || 'Beginner',
+      description: description.trim(),
+      coverImage: coverImagePath,
+      coverThumbnail: coverThumbnailPath,
+      variants: variants,
+      tags: tags ? JSON.parse(tags) : [word.toLowerCase()],
+      usage: usage || `Common usage of ${word} in sign language`,
+      signLanguageType: signLanguageType || 'ISL',
+      handDominance: handDominance || 'right',
+      facialExpression: facialExpression || '',
+      bodyPosition: bodyPosition || '',
+      movement: movement || '',
+      isActive: isActive !== undefined ? isActive : true,
+      createdBy: req.user._id,
+      // Legacy fields for backward compatibility
+      imagePath: coverImagePath,
+      thumbnailPath: coverThumbnailPath,
+      videoPath: variants.find(v => v.type === 'video')?.path || null
+    };
+
+    const sign = await Sign.create(signData);
+
+    res.status(201).json({
+      success: true,
+      message: `Sign "${word}" created successfully with ${variants.length} variants`,
+      data: sign
+    });
+
+  } catch (error) {
+    console.error('Error creating sign with variants:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Bulk operations on signs
 // @route   POST /api/admin/content/signs/bulk
 // @access  Private (Admin, Super Admin)
@@ -473,7 +787,10 @@ export const bulkSignOperations = async (req, res) => {
   try {
     const { operation, signIds, data } = req.body;
     
+    console.log('Bulk operation request:', { operation, signIds: signIds?.length, data });
+    
     if (!operation || !signIds || !Array.isArray(signIds)) {
+      console.log('Invalid request parameters:', { operation, signIds, isArray: Array.isArray(signIds) });
       return res.status(400).json({
         success: false,
         message: 'Invalid request parameters'
@@ -498,23 +815,42 @@ export const bulkSignOperations = async (req, res) => {
         break;
         
       case 'delete':
+        console.log('Processing bulk delete for signIds:', signIds);
         // Get signs to delete their files
         const signsToDelete = await Sign.find({ _id: { $in: signIds } });
+        console.log('Found signs to delete:', signsToDelete.length);
         
         // Delete associated files
         signsToDelete.forEach(sign => {
-          if (sign.imagePath && fs.existsSync(sign.imagePath)) {
-            fs.unlinkSync(sign.imagePath);
-          }
-          if (sign.thumbnailPath && fs.existsSync(sign.thumbnailPath)) {
-            fs.unlinkSync(sign.thumbnailPath);
-          }
-          if (sign.videoPath && fs.existsSync(sign.videoPath)) {
-            fs.unlinkSync(sign.videoPath);
+          try {
+            if (sign.imagePath && !sign.imagePath.startsWith('http')) {
+              const imagePath = path.join(__dirname, '..', sign.imagePath);
+              if (fs.existsSync(imagePath)) {
+                fs.unlinkSync(imagePath);
+                console.log('Deleted image file:', imagePath);
+              }
+            }
+            if (sign.thumbnailPath && !sign.thumbnailPath.startsWith('http')) {
+              const thumbnailPath = path.join(__dirname, '..', sign.thumbnailPath);
+              if (fs.existsSync(thumbnailPath)) {
+                fs.unlinkSync(thumbnailPath);
+                console.log('Deleted thumbnail file:', thumbnailPath);
+              }
+            }
+            if (sign.videoPath && !sign.videoPath.startsWith('http')) {
+              const videoPath = path.join(__dirname, '..', sign.videoPath);
+              if (fs.existsSync(videoPath)) {
+                fs.unlinkSync(videoPath);
+                console.log('Deleted video file:', videoPath);
+              }
+            }
+          } catch (fileError) {
+            console.warn('Error deleting file:', fileError.message);
           }
         });
         
         result = await Sign.deleteMany({ _id: { $in: signIds } });
+        console.log('Bulk delete result:', result);
         break;
         
       case 'update':
@@ -548,6 +884,84 @@ export const bulkSignOperations = async (req, res) => {
       message: 'Server error',
       error: error.message
     });
+  }
+};
+
+// @desc    Import signs from CSV (uploaded) with optional localize
+// @route   POST /api/admin/content/signs/import
+// @access  Private (Admin, Super Admin)
+export const importSignsFromCsv = async (req, res) => {
+  try {
+    const { dedupe = 'merge', localize = 'url', categoryFallback = 'alphabet' } = req.body || {};
+    if (!req.files || !req.files.file) {
+      return res.status(400).json({ success: false, message: 'CSV file is required (field name: file)' });
+    }
+
+    const file = req.files.file;
+    const rows = [];
+    const parseCsv = () => new Promise((resolve, reject) => {
+      const chunks = [];
+      if (file.data) {
+        chunks.push(file.data);
+        const stream = Buffer.concat(chunks);
+        const results = [];
+        const r = require('stream').Readable.from(stream);
+        r.pipe(csv())
+          .on('data', (data) => results.push(data))
+          .on('end', () => resolve(results))
+          .on('error', reject);
+      } else {
+        reject(new Error('No file data'));
+      }
+    });
+
+    const data = await parseCsv();
+    let inserted = 0, updated = 0, skipped = 0;
+
+    for (const row of data) {
+      const word = (row.word || row.label || '').toString().trim();
+      const category = (row.category || '').toString().trim() || categoryFallback;
+      const description = (row.description || '').toString().trim() || `${word} sign`;
+      const imagePath = (row.imagePath || row.image_url || row.imageUrl || '').toString().trim();
+      const videoPath = (row.videoPath || row.video_url || row.videoUrl || '').toString().trim();
+      const difficulty = (row.difficulty || 'Beginner').toString().trim();
+      const tags = (row.tags || '').toString().split(/[;,]/).map(t => t.trim()).filter(Boolean);
+
+      if (!word || !category || !imagePath) { skipped++; continue; }
+
+      const existing = await Sign.findOne({ word, category });
+
+      const doc = {
+        word,
+        category,
+        description,
+        difficulty,
+        imagePath,
+        thumbnailPath: row.thumbnailPath || imagePath,
+        videoPath: videoPath || undefined,
+        tags,
+        isActive: true,
+        createdBy: req.user._id
+      };
+
+      if (!existing) {
+        await Sign.create(doc);
+        inserted++;
+      } else if (dedupe === 'overwrite') {
+        await Sign.updateOne({ _id: existing._id }, doc);
+        updated++;
+      } else if (dedupe === 'merge') {
+        const merged = { ...existing.toObject(), ...doc };
+        await Sign.updateOne({ _id: existing._id }, merged);
+        updated++;
+      } else {
+        skipped++;
+      }
+    }
+
+    res.status(200).json({ success: true, data: { inserted, updated, skipped, total: data.length } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Import failed', error: error.message });
   }
 };
 
@@ -732,32 +1146,75 @@ export const getCategoryById = async (req, res) => {
 export const createCategory = async (req, res) => {
   try {
     console.log('createCategory called by user:', req.user?.email, 'role:', req.user?.role);
-    const { name, description, icon, color } = req.body || {};
+    const { name, description, icon, color, slug } = req.body || {};
     let { order } = req.body || {};
 
+    // Comprehensive validation
+    const validationErrors = [];
+
+    // Name validation
     if (!name || !name.trim()) {
-      return res.status(400).json({ success: false, message: 'Category name is required' });
+      validationErrors.push('Category name is required');
+    } else if (name.trim().length < 2) {
+      validationErrors.push('Category name must be at least 2 characters long');
+    } else if (name.trim().length > 50) {
+      validationErrors.push('Category name must be less than 50 characters');
+    } else if (!/^[a-zA-Z0-9\s\-_]+$/.test(name.trim())) {
+      validationErrors.push('Category name can only contain letters, numbers, spaces, hyphens, and underscores');
     }
 
-    // Normalize slug and order
-    const normalizedSlug = name
+    // Description validation (optional)
+    if (description && description.trim().length > 200) {
+      validationErrors.push('Description must be less than 200 characters');
+    }
+
+    // Color validation
+    const validColors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500', 'bg-orange-500', 'bg-red-500', 'bg-teal-500', 'bg-yellow-500'];
+    if (color && !validColors.includes(color)) {
+      validationErrors.push('Invalid color selected');
+    }
+
+    // Order validation
+    if (order !== undefined) {
+      order = Number.isFinite(Number(order)) ? Number(order) : 0;
+      if (order < 0 || order > 100) {
+        validationErrors.push('Order must be between 0 and 100');
+      }
+    } else {
+      order = 0;
+    }
+
+    // Return validation errors if any
+    if (validationErrors.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Validation failed', 
+        errors: validationErrors 
+      });
+    }
+
+    // Generate or use provided slug
+    const normalizedSlug = slug || name
       .toLowerCase()
-      .replace(/[^a-z0-9]/g, '-')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '');
-
-    order = Number.isFinite(Number(order)) ? Number(order) : 0;
 
     // Check conflicts by name or slug
     const existingCategory = await Category.findOne({
       $or: [
-        { name: { $regex: new RegExp(`^${name}$`, 'i') } },
+        { name: { $regex: new RegExp(`^${name.trim()}$`, 'i') } },
         { slug: { $regex: new RegExp(`^${normalizedSlug}$`, 'i') } }
       ]
     });
 
     if (existingCategory) {
-      return res.status(400).json({ success: false, message: 'Category with this name already exists' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Category with this name or slug already exists',
+        errors: ['A category with this name already exists']
+      });
     }
 
     const category = await Category.create({

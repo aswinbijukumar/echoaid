@@ -13,8 +13,14 @@ import practiceRoutes from './routes/practice.js';
 import quizRoutes from './routes/quiz.js';
 import adminQuizRoutes from './routes/adminQuiz.js';
 import aiRoutes from './routes/ai.js';
-import { getAllCategories, getCategoryById } from './controllers/contentController.js';
+import subscriptionRoutes from './routes/subscription.js';
+import adminSubscriptionRoutes from './routes/adminSubscription.js';
+import curriculumRoutes from './routes/curriculum.js';
+import skillRoutes from './routes/skills.js';
+import { getAllCategories, getCategoryById, createSignWithVariants } from './controllers/contentController.js';
 import { errorHandler } from './utils/errorHandler.js';
+import { protect, adminAndSuperAdmin, canManageContent } from './middleware/roleAuth.js';
+import fileUpload from 'express-fileupload';
 
 // Load env vars
 dotenv.config({ path: './config.env' });
@@ -55,10 +61,28 @@ app.use('/api/practice', practiceRoutes);
 app.use('/api/quiz', quizRoutes);
 app.use('/api/admin/quiz', adminQuizRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/admin/subscriptions', adminSubscriptionRoutes);
+app.use('/api/curriculum', curriculumRoutes);
+app.use('/api/curriculum/skills', skillRoutes);
 
 // Public aliases for categories so user Dictionary can access them without auth
 app.get('/api/content/categories', getAllCategories);
 app.get('/api/content/categories/:id', getCategoryById);
+
+// Public route for bulk variants (with authentication)
+app.post('/api/content/signs/bulk-variants', 
+  protect, 
+  adminAndSuperAdmin, 
+  canManageContent,
+  fileUpload({
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+    abortOnLimit: true,
+    useTempFiles: true,
+    tempFileDir: './tmp/'
+  }),
+  createSignWithVariants
+);
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -68,6 +92,40 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Debug file upload route
+app.post('/api/debug/upload', 
+  fileUpload({
+    limits: { fileSize: 50 * 1024 * 1024 },
+    abortOnLimit: true,
+    useTempFiles: true,
+    tempFileDir: './tmp/'
+  }),
+  (req, res) => {
+    console.log('Debug upload request received');
+    console.log('Files:', req.files);
+    console.log('Body:', req.body);
+    
+    if (req.files) {
+      Object.keys(req.files).forEach(key => {
+        const file = req.files[key];
+        console.log(`File ${key}:`, {
+          name: file.name,
+          size: file.size,
+          tempFilePath: file.tempFilePath,
+          path: file.path
+        });
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Debug upload successful',
+      files: req.files ? Object.keys(req.files) : [],
+      body: req.body
+    });
+  }
+);
 
 // 404 handler
 app.use('*', (req, res, next) => {

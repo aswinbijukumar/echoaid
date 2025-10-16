@@ -16,7 +16,12 @@ import {
   disable2FA,
   verify2FALogin,
   updatePrivacy,
-  updateNotifications
+  updateNotifications,
+  refreshToken,
+  logout,
+  getUserSessions,
+  revokeSession,
+  revokeAllSessions
 } from '../controllers/authController.js';
 import { protect } from '../middleware/auth.js';
 import { 
@@ -61,5 +66,13 @@ router.delete('/profile-photo', protect, removeProfilePhoto);
 router.put('/privacy', protect, updatePrivacy);
 // Notification preferences
 router.put('/notifications', protect, updateNotifications);
+
+// Session management
+router.post('/logout', protect, logout);
+router.get('/sessions', protect, getUserSessions);
+router.delete('/sessions/:sessionId', protect, revokeSession);
+router.delete('/sessions', protect, revokeAllSessions);
+// Token refresh
+router.post('/refresh', protect, refreshToken);
 
 export default router; 

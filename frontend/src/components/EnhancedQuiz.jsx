@@ -15,7 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import Modal from './Modal';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextConstants';
 
 const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
   const [quiz, setQuiz] = useState(null);
@@ -154,6 +154,86 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
       setError('Failed to submit quiz');
     }
   }, [quizId, answers, onComplete]);
+
+  const retryIncorrectOnly = () => {
+    if (!quiz || !results || !quiz.questions?.length) return;
+    // Build a reduced question set of only incorrectly answered questions
+    const incorrectIndexes = quiz.questions
+      .map((q, idx) => {
+        const correctOption = q.options.find(opt => opt.isCorrect);
+        const userAnswer = answers[idx]?.selectedAnswer;
+        const isCorrect = userAnswer === correctOption?.text;
+        return isCorrect ? null : idx;
+      })
+      .filter(idx => idx !== null);
+
+    if (incorrectIndexes.length === 0) {
+      // Nothing to retry; just restart full quiz quickly
+      window.location.reload();
+      return;
+    }
+
+    const reducedQuestions = incorrectIndexes.map(idx => quiz.questions[idx]);
+
+    // Reset state for a new run with reduced questions
+    setQuiz(prev => ({
+      ...prev,
+      questions: reducedQuestions
+    }));
+    setAnswers([]);
+    setCurrentQuestion(0);
+    setCombo(0);
+    setMaxCombo(0);
+    setShowResults(false);
+    setResults(null);
+    setIsStarted(true);
+    // Reset timer proportionally (same per-question average time)
+    // Fallback: use original quiz timeLimit minutes
+    const totalSeconds = (quiz.timeLimit || 10) * 60;
+    const avgPerQ = Math.max(30, Math.floor(totalSeconds / Math.max(1, (quiz.questions?.length || 1))));
+    const newTime = avgPerQ * reducedQuestions.length;
+    clearInterval(timerRef.current);
+    setTimeLeft(newTime);
+    startTimeRef.current = Date.now();
+    startTimer();
+  };
+
+  // Keep reference to original total seconds to compute retry timing
+  const prevTimeLimitSecondsRef = useRef(null);
+  useEffect(() => {
+    if (quiz?.timeLimit) {
+      prevTimeLimitSecondsRef.current = quiz.timeLimit * 60;
+    }
+  }, [quiz?.timeLimit]);
+
+  const copyResultsToClipboard = async () => {
+    try {
+      if (!results || !quiz) return;
+      const lines = [];
+      lines.push(`Quiz: ${quiz.title || ''}`);
+      lines.push(`Score: ${results.percentage}%`);
+      if (typeof results.xpEarned !== 'undefined') lines.push(`XP Earned: ${results.xpEarned}`);
+      if (typeof results.streak !== 'undefined') lines.push(`Streak: ${results.streak}`);
+      lines.push('');
+      lines.push('Incorrect Questions:');
+      quiz.questions.forEach((q, idx) => {
+        const userAnswer = answers[idx]?.selectedAnswer;
+        const correct = q.options.find(o => o.isCorrect)?.text;
+        const isCorrect = userAnswer === correct;
+        if (!isCorrect) {
+          lines.push(`- Q${idx + 1}: ${q.question}`);
+          lines.push(`  Your answer: ${userAnswer ?? 'N/A'}`);
+          lines.push(`  Correct: ${correct ?? 'N/A'}`);
+          if (q.explanation) lines.push(`  Why: ${q.explanation}`);
+        }
+      });
+      const text = lines.join('\n');
+      await navigator.clipboard.writeText(text);
+      alert('Results copied to clipboard');
+    } catch (e) {
+      console.error('Copy failed', e);
+    }
+  };
 
   const startTimer = () => {
     timerRef.current = setInterval(() => {
@@ -578,12 +658,24 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
               </div>
             </div>
 
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <button
                 onClick={onBack}
                 className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
               >
                 Back to Quizzes
+              </button>
+              <button
+                onClick={retryIncorrectOnly}
+                className="flex-1 bg-yellow-500 text-white py-2 px-4 rounded-lg hover:bg-yellow-600 transition-colors"
+              >
+                Retry Incorrect Only
+              </button>
+              <button
+                onClick={copyResultsToClipboard}
+                className="flex-1 bg-indigo-500 text-white py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors"
+              >
+                Copy Results
               </button>
               <button
                 onClick={() => window.location.reload()}

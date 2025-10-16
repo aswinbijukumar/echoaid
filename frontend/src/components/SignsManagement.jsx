@@ -12,7 +12,7 @@ import {
   XCircleIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextConstants';
 import Modal from './Modal';
 
 export default function SignsManagement() {

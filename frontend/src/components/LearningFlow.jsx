@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../context/AuthContext';
-import SignRecognition from './SignRecognition';
+import { useAuth } from '../context/AuthContextConstants';
 import LearningProgression from './LearningProgression';
 
 const API_BASE_URL = 'http://localhost:5000/api';
@@ -299,12 +298,14 @@ export default function LearningFlow({
                         </div>
 
                         {/* Sign Recognition */}
-                        <SignRecognition
-                          targetSign={selectedSign}
-                          onRecognition={handleRecognition}
-                          mode="webcam"
-                          isActive={isActive}
-                        />
+                        <div className="text-center">
+                          <div className="w-64 h-48 bg-gray-200 dark:bg-gray-700 rounded-lg mx-auto mb-4 flex items-center justify-center">
+                            <span className="text-gray-500">Camera Preview</span>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Sign recognition will be available when camera is connected
+                          </p>
+                        </div>
                       </div>
                     </div>
 

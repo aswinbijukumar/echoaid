@@ -28,6 +28,11 @@ export const protect = async (req, res, next) => {
     if (!user) {
       return next(new AppError('User not found', 401));
     }
+
+    // Check if user is active
+    if (!user.isActive) {
+      return next(new AppError('Account is deactivated', 401));
+    }
     
     req.user = user;
     next();

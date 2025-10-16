@@ -19,15 +19,30 @@ import {
   StarIcon,
   CalendarIcon,
   PhotoIcon,
-  XMarkIcon
+  XMarkIcon,
+  ComputerDesktopIcon,
+  DevicePhoneMobileIcon,
+  CreditCardIcon,
+  KeyIcon,
+  BellIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  ClockIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextConstants';
 import Sidebar from '../components/Sidebar';
 import { useUserStats } from '../hooks/useUserStats';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
+import SessionInstances from '../components/SessionInstances';
+import SubscriptionStatus from '../components/SubscriptionStatus';
+import { useSessionManager } from '../hooks/useSessionManager';
 
 export default function Profile() {
+  const [activeTab, setActiveTab] = useState('overview');
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
@@ -37,6 +52,12 @@ export default function Profile() {
   const { user, logout, setUser } = useAuth();
   const navigate = useNavigate();
   const { stats: userStats } = useUserStats();
+  const { 
+    sessionInfo, 
+    isRefreshing, 
+    refreshSession, 
+    formatTimeUntilExpiry 
+  } = useSessionManager();
 
 
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
@@ -182,6 +203,7 @@ export default function Profile() {
     };
 
     document.addEventListener('mousedown', handleClickOutside);
+    
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -264,8 +286,8 @@ export default function Profile() {
                                 disabled={isUploadingPhoto}
                                 className="w-full flex items-center space-x-2 p-2 hover:bg-gray-700 rounded text-sm transition-colors"
                               >
-                                <PhotoIcon className="w-4 h-4 text-gray-900 font-semibold" />
-                                <span className="text-gray-900 font-semibold">{isUploadingPhoto ? 'Uploading...' : 'Upload New Photo'}</span>
+                                <PhotoIcon className="w-4 h-4 text-white" />
+                                <span className="text-white">{isUploadingPhoto ? 'Uploading...' : 'Upload New Photo'}</span>
                               </button>
                               
                               {getProfilePhoto() && (
@@ -273,14 +295,14 @@ export default function Profile() {
                                   onClick={handleRemovePhoto}
                                   className="w-full flex items-center space-x-2 p-2 hover:bg-gray-700 rounded text-sm transition-colors text-red-400"
                                 >
-                                  <XMarkIcon className="w-4 h-4 text-gray-900 font-semibold" />
-                                  <span className="text-gray-900 font-semibold">{isGoogleUser() ? 'Remove Google Photo' : 'Remove Photo'}</span>
+                                  <XMarkIcon className="w-4 h-4" />
+                                  <span>{isGoogleUser() ? 'Remove Google Photo' : 'Remove Photo'}</span>
                                 </button>
                               )}
                               
                               {isGoogleUser() && getProfilePhoto() && (
                                 <div className="p-2 text-xs text-gray-400 border-t border-gray-600 mt-2">
-                                  <p className="text-gray-900 font-semibold">Currently using Google profile photo</p>
+                                  <p className="text-white">Currently using Google profile photo</p>
                                   <p className="text-yellow-400 mt-1">You can replace it with your own photo</p>
                                 </div>
                               )}
@@ -297,8 +319,6 @@ export default function Profile() {
                         onChange={handlePhotoUpload}
                         className="hidden"
                       />
-                      
-
                     </div>
                   </div>
                   
@@ -314,35 +334,64 @@ export default function Profile() {
                      {!isGoogleUser() && getProfilePhoto() && (
                        <p className="text-purple-400 text-sm">📸 Custom profile photo</p>
                      )}
-                    {/* Community metrics removed: Following/Followers */}
                   </div>
                 </div>
 
-                
+                {/* Tab Navigation */}
+                <div className={`${cardBg} rounded-lg border ${border} mb-6`}>
+                  <div className="border-b border-gray-200 dark:border-gray-700">
+                    <nav className="flex space-x-8 px-6">
+                      {[
+                        { id: 'overview', label: 'Overview', icon: UserCircleIcon },
+                        { id: 'security', label: 'Security & Sessions', icon: ShieldCheckIcon },
+                        { id: 'subscription', label: 'Subscription', icon: CreditCardIcon },
+                        { id: 'achievements', label: 'Achievements', icon: TrophyIcon }
+                      ].map((tab) => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id)}
+                          className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                            activeTab === tab.id
+                              ? 'border-green-500 text-green-600 dark:text-green-400'
+                              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                          }`}
+                        >
+                          <tab.icon className="w-5 h-5" />
+                          <span>{tab.label}</span>
+                        </button>
+                      ))}
+                    </nav>
+                  </div>
+                </div>
 
+                {/* Tab Content */}
+                <div className="space-y-6">
+                  {/* Overview Tab */}
+                  {activeTab === 'overview' && (
+                    <div className="space-y-6">
                 {/* Statistics Section */}
-                <div className={`p-6 rounded-lg border ${border} mb-6`}>
-                  <h2 className="text-xl font-bold mb-4">Statistics</h2>
+                      <div className={`p-6 rounded-lg border ${border}`}>
+                        <h2 className="text-xl font-bold mb-4">Learning Statistics</h2>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-gray-700 p-4 rounded-lg">
+                          <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
                       <div className="flex items-center space-x-2 mb-2">
                         <FireIcon className="w-5 h-5 text-orange-400" />
                         <span className="font-semibold">{userStats.streak} Day streak</span>
                       </div>
                     </div>
-                    <div className="bg-gray-700 p-4 rounded-lg">
+                          <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
                       <div className="flex items-center space-x-2 mb-2">
                         <SparklesIcon className="w-5 h-5 text-blue-400" />
                         <span className="font-semibold">{userStats.totalXP} Total XP</span>
                       </div>
                     </div>
-                    <div className="bg-gray-700 p-4 rounded-lg">
+                          <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
                       <div className="flex items-center space-x-2 mb-2">
                         <ShieldCheckIcon className="w-5 h-5 text-green-400" />
                         <span className="font-semibold">{userStats.currentLeague}</span>
                       </div>
                     </div>
-                    <div className="bg-gray-700 p-4 rounded-lg">
+                          <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
                       <div className="flex items-center space-x-2 mb-2">
                         <TrophyIcon className="w-5 h-5 text-yellow-400" />
                         <span className="font-semibold">{userStats.top3Finishes} Top 3 finishes</span>
@@ -351,28 +400,158 @@ export default function Profile() {
                   </div>
                 </div>
 
-                {/* Achievements Section (respect privacy) */}
-                {(user?.privacy?.showAchievements ?? true) && (
+                      {/* Quick Actions */}
+                      <div className={`p-6 rounded-lg border ${border}`}>
+                        <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <button
+                            onClick={() => navigate('/learn')}
+                            className="flex items-center space-x-3 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                          >
+                            <AcademicCapIcon className="w-6 h-6" />
+                            <span>Continue Learning</span>
+                          </button>
+                          <button
+                            onClick={() => navigate('/quiz')}
+                            className="flex items-center space-x-3 p-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                          >
+                            <PuzzlePieceIcon className="w-6 h-6" />
+                            <span>Take a Quiz</span>
+                          </button>
+                          <button
+                            onClick={() => navigate('/dictionary')}
+                            className="flex items-center space-x-3 p-4 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                          >
+                            <BookOpenIcon className="w-6 h-6" />
+                            <span>Browse Dictionary</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Security & Sessions Tab */}
+                  {activeTab === 'security' && (
+                    <div className="space-y-6">
+                      {/* Current Session Status */}
+                      <div className={`p-6 rounded-lg border ${border}`}>
+                        <h2 className="text-xl font-bold mb-4">Current Session</h2>
+                        {sessionInfo ? (
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className={`p-2 rounded-lg ${sessionInfo.isValid ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'}`}>
+                                  {sessionInfo.isValid ? (
+                                    <CheckCircleIcon className="w-6 h-6 text-green-600" />
+                                  ) : (
+                                    <ExclamationTriangleIcon className="w-6 h-6 text-red-600" />
+                                  )}
+                                </div>
+                                <div>
+                                  <h3 className="font-semibold">Session Status</h3>
+                                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    {sessionInfo.isValid ? 'Active and secure' : 'Expired or invalid'}
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={refreshSession}
+                                disabled={isRefreshing}
+                                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
+                              >
+                                {isRefreshing ? (
+                                  <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <ArrowPathIcon className="w-4 h-4" />
+                                )}
+                                <span>{isRefreshing ? 'Refreshing...' : 'Refresh Session'}</span>
+                              </button>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <ClockIcon className="w-5 h-5 text-blue-500" />
+                                  <span className="font-medium">Time Until Expiry</span>
+                                </div>
+                                <p className="text-2xl font-bold text-blue-600">
+                                  {formatTimeUntilExpiry(sessionInfo.timeUntilExpiry)}
+                                </p>
+                              </div>
+                              <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <ComputerDesktopIcon className="w-5 h-5 text-green-500" />
+                                  <span className="font-medium">Activity Status</span>
+                                </div>
+                                <p className="text-2xl font-bold text-green-600">
+                                  {sessionInfo.isActive ? 'Active' : 'Inactive'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8">
+                            <ExclamationTriangleIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                            <p className="text-gray-600 dark:text-gray-400">Unable to load session information</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Active Sessions */}
+                      <div className={`p-6 rounded-lg border ${border}`}>
+                        <h2 className="text-xl font-bold mb-4">Active Sessions</h2>
+                        <SessionInstances />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Subscription Tab */}
+                  {activeTab === 'subscription' && (
+                    <div className="space-y-6">
+                      <div className={`p-6 rounded-lg border ${border}`}>
+                        <div className="flex items-center justify-between mb-4">
+                          <h2 className="text-xl font-bold">Subscription & Billing</h2>
+                          <button
+                            onClick={() => navigate('/subscription')}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                          >
+                            Manage Subscription
+                          </button>
+                        </div>
+                        <SubscriptionStatus />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Achievements Tab */}
+                  {activeTab === 'achievements' && (
+                    <div className="space-y-6">
                   <div className={`p-6 rounded-lg border ${border}`}>
-                    <h2 className="text-xl font-bold mb-4">Achievements</h2>
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                        <h2 className="text-xl font-bold mb-4">Your Achievements</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {achievements.map((achievement) => (
                         <div 
                           key={achievement.id} 
-                          className={`p-4 rounded-lg border ${achievement.unlocked ? 'bg-gray-700 border-green-500' : 'bg-gray-800 border-gray-600 opacity-50'}`}
+                              className={`p-4 rounded-lg border ${
+                                achievement.unlocked 
+                                  ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
+                                  : 'border-gray-300 dark:border-gray-600 opacity-50'
+                              }`}
                         >
                           <div className="flex items-center space-x-3">
                             <span className="text-2xl">{achievement.icon}</span>
                             <div>
                               <h3 className="font-semibold text-sm">{achievement.title}</h3>
-                              <p className="text-gray-400 text-xs">{achievement.description}</p>
+                                  <p className="text-gray-600 dark:text-gray-400 text-xs">{achievement.description}</p>
                             </div>
                           </div>
                         </div>
                       ))}
+                        </div>
                     </div>
                   </div>
                 )}
+                </div>
 
                  {/* Minimal Footer */}
                  <div className="mt-12 mb-8">
@@ -405,14 +584,13 @@ export default function Profile() {
                    </div>
                  </div>
                </div>
-
-               {/* Right Sidebar removed for full-width layout */}
             </div>
           </div>
         </div>
 
         {/* Subtle line between sidebar and content */}
         <div className="fixed left-64 top-0 h-screen w-px bg-gray-600 z-40"></div>
+
       </div>
     </div>
   );

@@ -16,7 +16,7 @@ import {
   StarIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextConstants';
 import { ThemeContext } from '../context/ThemeContext.js';
 import Sidebar from '../components/Sidebar';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';

@@ -1,54 +1,67 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContextConstants';
+import { getRoleBasedRedirect, isAuthorizedForRoute } from '../utils/roleRedirect';
 
 export default function RoleBasedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    
     if (!loading) {
-      if (!user) {
-        // User not authenticated, redirect to login
+      // Check if session is valid
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('No token found, redirecting to login');
         navigate('/login');
         return;
       }
 
-      if (allowedRoles && !allowedRoles.includes(user.role)) {
-        // User doesn't have required role, redirect based on their role
-        switch (user.role) {
-          case 'super_admin':
-            navigate('/super-admin');
-            break;
-          case 'admin':
-            navigate('/admin');
-            break;
-          case 'user':
-          default:
-            navigate('/dashboard');
-            break;
+      // Validate token format and expiry
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const expiry = payload.exp * 1000;
+        if (Date.now() >= expiry) {
+          console.log('Token expired, redirecting to login');
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          navigate('/login');
+          return;
+        }
+      } catch (error) {
+        console.error('Invalid token format:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        navigate('/login');
+        return;
+      }
+
+      if (!user) {
+        console.log('No user found, redirecting to login');
+        navigate('/login');
+        return;
+      }
+
+      // Check if user is authorized for this route
+      if (!isAuthorizedForRoute(user.role, allowedRoles)) {
+        console.log(`User role ${user.role} not authorized for route, redirecting to appropriate dashboard`);
+        const redirectPath = getRoleBasedRedirect(user.role, location.pathname);
+        if (redirectPath) {
+          navigate(redirectPath);
         }
         return;
       }
 
-      // For /dashboard route, redirect based on user role
-      if (window.location.pathname === '/dashboard') {
-        switch (user.role) {
-          case 'super_admin':
-            navigate('/super-admin');
-            break;
-          case 'admin':
-            navigate('/admin');
-            break;
-          case 'user':
-          default:
-            // Regular users stay on /dashboard
-            break;
-        }
+      // Handle /dashboard route redirection
+      const redirectPath = getRoleBasedRedirect(user.role, location.pathname);
+      if (redirectPath) {
+        console.log(`Redirecting ${user.role} from ${location.pathname} to ${redirectPath}`);
+        navigate(redirectPath);
+        return;
       }
     }
-  }, [user, loading, navigate, allowedRoles]);
+  }, [user, loading, navigate, allowedRoles, location.pathname]);
 
   // Show loading while checking role
   if (loading) {

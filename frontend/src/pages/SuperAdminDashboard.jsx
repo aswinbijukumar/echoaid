@@ -38,10 +38,11 @@ import {
   UserGroupIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextConstants';
 import Sidebar from '../components/Sidebar';
 import Modal from '../components/Modal';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
+import AdminSkillManagement from '../components/AdminSkillManagement';
 
 export default function SuperAdminDashboard() {
   const [dashboardData, setDashboardData] = useState(null);
@@ -56,6 +57,7 @@ export default function SuperAdminDashboard() {
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [showSkillManagement, setShowSkillManagement] = useState(false);
   const [addUserForm, setAddUserForm] = useState({
     name: '',
     email: '',
@@ -71,6 +73,7 @@ export default function SuperAdminDashboard() {
   const text = darkMode ? 'text-white' : 'text-[#23272F]';
   const border = darkMode ? 'border-gray-600' : 'border-gray-300';
   const statusBarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
+  const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
 
   const totalUsersCount = users && users.length ? users.length : (dashboardData?.stats?.totalUsers || 0);
   const activeUsersCount = users && users.length ? users.filter(u => u.isActive).length : (dashboardData?.stats?.activeUsers || 0);
@@ -398,7 +401,8 @@ export default function SuperAdminDashboard() {
                   {[
                     { id: 'overview', label: 'Overview', icon: ChartBarIcon },
                     { id: 'system', label: 'System Settings', icon: Cog6ToothIcon },
-                    { id: 'security', label: 'Security & Logs', icon: ShieldExclamationIcon }
+                    { id: 'security', label: 'Security & Logs', icon: ShieldExclamationIcon },
+                    { id: 'skills', label: 'Skills Management', icon: AcademicCapIcon }
                   ].map((tab) => (
                     <button
                       key={tab.id}
@@ -832,7 +836,7 @@ export default function SuperAdminDashboard() {
 
                 {/* Security & Backup Tab */}
                 {activeTab === 'security' && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                     <div className={`p-6 rounded-lg border ${border}`}>
                       <h3 className="text-xl font-bold mb-4">Security Logs</h3>
                       <div className="space-y-3">
@@ -850,6 +854,78 @@ export default function SuperAdminDashboard() {
                             </div>
                           </div>
                         ))}
+                      </div>
+                    </div>
+
+                    <div className={`p-6 rounded-lg border ${border}`}>
+                      <h3 className="text-xl font-bold mb-4">Session Monitoring</h3>
+                      <div className="space-y-4">
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <ShieldCheckIcon className="h-5 w-5 text-blue-600" />
+                            <span className="font-medium text-blue-800 dark:text-blue-200">Active Sessions</span>
+                          </div>
+                          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                            {dashboardData?.stats?.activeSessions || '0'}
+                          </p>
+                          <p className="text-sm text-blue-600 dark:text-blue-400">
+                            Across all users
+                          </p>
+                        </div>
+                        
+                        <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <CheckCircleIcon className="h-5 w-5 text-green-600" />
+                            <span className="font-medium text-green-800 dark:text-green-200">Secure Sessions</span>
+                          </div>
+                          <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                            {dashboardData?.stats?.secureSessions || '0'}
+                          </p>
+                          <p className="text-sm text-green-600 dark:text-green-400">
+                            No suspicious activity
+                          </p>
+                        </div>
+                        
+                        <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <ExclamationTriangleIcon className="h-5 w-5 text-yellow-600" />
+                            <span className="font-medium text-yellow-800 dark:text-yellow-200">Suspicious Activity</span>
+                          </div>
+                          <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                            {dashboardData?.stats?.suspiciousSessions || '0'}
+                          </p>
+                          <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                            Requires attention
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Session Management Actions */}
+                      <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Session Management</h4>
+                        <div className="space-y-2">
+                          <button 
+                            onClick={() => {/* TODO: Implement session cleanup */}}
+                            className="w-full text-left p-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                          >
+                            <ClockIcon className="h-4 w-4 inline mr-2" />
+                            Cleanup Expired Sessions
+                          </button>
+                          <button 
+                            onClick={() => {/* TODO: Implement session audit */}}
+                            className="w-full text-left p-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                          >
+                            <ShieldCheckIcon className="h-4 w-4 inline mr-2" />
+                            Audit All Sessions
+                          </button>
+                          <button 
+                            onClick={() => {/* TODO: Implement security report */}}
+                            className="w-full text-left p-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                          >
+                            <ExclamationTriangleIcon className="h-4 w-4 inline mr-2" />
+                            Generate Security Report
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -1085,6 +1161,78 @@ export default function SuperAdminDashboard() {
             </button>
           </div>
         </Modal>
+      )}
+
+      {/* Skills Management Tab */}
+      {activeTab === 'skills' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">Skills & Lessons Management</h2>
+              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                Manage Duolingo-style learning skills and exercises
+              </p>
+            </div>
+            <button
+              onClick={() => setShowSkillManagement(true)}
+              className="bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 transition-colors flex items-center space-x-2"
+            >
+              <AcademicCapIcon className="w-5 h-5" />
+              <span>Open Skills Manager</span>
+            </button>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className={`p-6 rounded-lg border ${border} ${cardBg}`}>
+              <div className="flex items-center space-x-3">
+                <AcademicCapIcon className="w-8 h-8 text-blue-500" />
+                <div>
+                  <p className="text-sm text-gray-500">Total Skills</p>
+                  <p className="text-2xl font-bold">0</p>
+                </div>
+              </div>
+            </div>
+            <div className={`p-6 rounded-lg border ${border} ${cardBg}`}>
+              <div className="flex items-center space-x-3">
+                <BookOpenIcon className="w-8 h-8 text-green-500" />
+                <div>
+                  <p className="text-sm text-gray-500">Total Exercises</p>
+                  <p className="text-2xl font-bold">0</p>
+                </div>
+              </div>
+            </div>
+            <div className={`p-6 rounded-lg border ${border} ${cardBg}`}>
+              <div className="flex items-center space-x-3">
+                <StarIcon className="w-8 h-8 text-yellow-500" />
+                <div>
+                  <p className="text-sm text-gray-500">Active Categories</p>
+                  <p className="text-2xl font-bold">7</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Skills Management Modal */}
+          {showSkillManagement && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white dark:bg-[#1A1A1A] rounded-lg w-full max-w-7xl h-[90vh] overflow-hidden">
+                <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-600">
+                  <h2 className="text-2xl font-bold">Skills & Lessons Management</h2>
+                  <button
+                    onClick={() => setShowSkillManagement(false)}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                  >
+                    <XMarkIcon className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="h-full overflow-y-auto">
+                  <AdminSkillManagement />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Enhanced Scroll to Top Button */}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -14,7 +14,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import Modal from './Modal';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextConstants';
 
 const AdminQuizManagement = () => {
   const [quizzes, setQuizzes] = useState([]);
@@ -59,16 +59,17 @@ const AdminQuizManagement = () => {
     total: 0,
     pages: 0
   });
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { darkMode } = useTheme();
   const { token } = useAuth();
 
-  useEffect(() => {
-  const fetchQuizzes = async () => {
+  // Reusable fetch function
+  const fetchQuizzes = useCallback(async () => {
     try {
-        setLoading(true);
+      setLoading(true);
       const queryParams = new URLSearchParams({
-        page: pagination.current,
+        page: currentPage,
         limit: 10,
         ...filters
       });
@@ -81,22 +82,25 @@ const AdminQuizManagement = () => {
 
       if (response.ok) {
         const data = await response.json();
-          if (data.success) {
-        setQuizzes(data.data);
-        setPagination(data.pagination);
-          }
-        } else {
-          console.error('Failed to fetch quizzes');
+        if (data.success) {
+          setQuizzes(data.data);
+          setPagination(data.pagination);
+          setCurrentPage(data.pagination.current);
+        }
+      } else {
+        console.error('Failed to fetch quizzes');
       }
     } catch (error) {
       console.error('Error fetching quizzes:', error);
     } finally {
       setLoading(false);
-      }
-    };
+    }
+  }, [currentPage, filters, token]);
 
+  // Effect for filters and token changes
+  useEffect(() => {
     fetchQuizzes();
-  }, [filters, pagination.current, token]);
+  }, [fetchQuizzes]);
 
   const handleCreateQuiz = async (e) => {
     e.preventDefault();
@@ -421,7 +425,7 @@ const AdminQuizManagement = () => {
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
-    setPagination(prev => ({ ...prev, current: 1 }));
+        setCurrentPage(1);
   };
 
   const getDifficultyColor = (difficulty) => {
@@ -637,22 +641,22 @@ const AdminQuizManagement = () => {
         {pagination.pages > 1 && (
           <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between">
             <div className="text-sm text-gray-600 font-medium">
-              Showing {((pagination.current - 1) * 10) + 1} to {Math.min(pagination.current * 10, pagination.total)} of {pagination.total} results
+              Showing {((currentPage - 1) * 10) + 1} to {Math.min(currentPage * 10, pagination.total)} of {pagination.total} results
             </div>
             <div className="flex space-x-2">
               <button
-                onClick={() => setPagination(prev => ({ ...prev, current: prev.current - 1 }))}
-                disabled={pagination.current === 1}
+                onClick={() => setCurrentPage(prev => prev - 1)}
+                disabled={currentPage === 1}
                 className="px-4 py-2 border-2 border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-transparent hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Previous
               </button>
               <span className="px-3 py-1 text-sm">
-                Page {pagination.current} of {pagination.pages}
+                Page {currentPage} of {pagination.pages}
               </span>
               <button
-                onClick={() => setPagination(prev => ({ ...prev, current: prev.current + 1 }))}
-                disabled={pagination.current === pagination.pages}
+                onClick={() => setCurrentPage(prev => prev + 1)}
+                disabled={currentPage === pagination.pages}
                 className="px-4 py-2 border-2 border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-transparent hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next

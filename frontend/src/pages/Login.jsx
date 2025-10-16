@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextConstants';
 
 export default function Login() {
   const [formData, setFormData] = useState({
@@ -18,7 +18,7 @@ export default function Login() {
   const [twoFactorCode, setTwoFactorCode] = useState('');
   
   const { darkMode } = useTheme();
-  const { login } = useAuth();
+  const { login, setUser, setToken } = useAuth();
   const navigate = useNavigate();
 
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
@@ -41,25 +41,12 @@ export default function Login() {
     setError('');
 
     try {
-      // Use AuthContext login method instead of direct fetch
-      const res = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Login failed');
+      // Use AuthContext login method to properly set user state
+      const data = await login(formData);
+      
       if (data.requires2FA) {
         setRequires2FA(true);
         return; // wait for code
-      }
-      // Normal login fallback if server returned token directly
-      if (data.token && data.user) {
-        localStorage.setItem('token', data.token);
-        // minimal set; AuthProvider will refresh user later
-      } else {
-        // Use context as original path
-        await login(formData);
       }
 
       // Show loading page
@@ -69,6 +56,8 @@ export default function Login() {
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       if (!requires2FA) {
+        // Navigate to dashboard - RoleBasedRoute will handle role-based redirects
+        console.log('Login successful, redirecting to dashboard');
         navigate('/dashboard');
       }
     } catch (err) {
@@ -89,7 +78,14 @@ export default function Login() {
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.message || '2FA verification failed');
+      
+      // Set user state properly using AuthContext
+      setUser(data.user);
+      setToken(data.token);
       localStorage.setItem('token', data.token);
+      
+      // Navigate to dashboard - RoleBasedRoute will handle role-based redirects
+      console.log('2FA verification successful, redirecting to dashboard');
       navigate('/dashboard');
     } catch (e) {
       setError(e.message);
@@ -193,6 +189,7 @@ export default function Login() {
                 value={formData.email}
                 onChange={handleInputChange}
                 placeholder="Email"
+                autoComplete="email"
                 className={`w-full px-4 py-3 ${inputBg} ${border} border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00CC00] focus:border-transparent transition-colors`}
                 required
               />
@@ -206,6 +203,7 @@ export default function Login() {
                 value={formData.password}
                 onChange={handleInputChange}
                 placeholder="Password"
+                autoComplete="current-password"
                 className={`w-full px-4 py-3 pr-12 ${inputBg} ${border} border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00CC00] focus:border-transparent transition-colors`}
                 required
               />
@@ -243,6 +241,7 @@ export default function Login() {
                 value={twoFactorCode}
                 onChange={(e) => setTwoFactorCode(e.target.value)}
                 maxLength={6}
+                autoComplete="one-time-code"
                 className={`w-full px-4 py-3 ${inputBg} ${border} border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00CC00] focus:border-transparent transition-colors`}
                 placeholder="123456"
               />

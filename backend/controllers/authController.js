@@ -7,6 +7,8 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs'; // Added bcrypt import
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
+import sessionSecurity from '../utils/sessionSecurity.js';
+import UserSession from '../models/UserSession.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
@@ -15,6 +17,13 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE || '24h'
+  });
+};
+
+// Generate Refresh Token
+const generateRefreshToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_REFRESH_EXPIRE || '7d'
   });
 };
 
@@ -365,9 +374,14 @@ export const login = async (req, res) => {
     await user.save();
 
     const token = generateToken(user._id);
+    
+    // Create secure session
+    const session = await sessionSecurity.createSession(user._id, req);
+    
     res.status(200).json({
       success: true,
       token,
+      refreshToken: session.refreshToken,
       user: {
         id: user._id,
         name: user.name,
@@ -375,7 +389,14 @@ export const login = async (req, res) => {
         avatar: user.avatar,
         isEmailVerified: user.isEmailVerified,
         role: user.role,
-        permissions: user.permissions
+        permissions: user.permissions,
+        subscription: user.subscription || {
+          plan: 'free',
+          status: 'trial',
+          trialStartDate: new Date(),
+          trialEndDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          features: {}
+        }
       }
     });
   } catch (error) {
@@ -720,9 +741,14 @@ export const verify2FALogin = async (req, res) => {
     user.lastLogin = Date.now();
     await user.save();
     const jwtToken = generateToken(user._id);
+    
+    // Create secure session
+    const session = await sessionSecurity.createSession(user._id, req);
+    
     return res.status(200).json({
       success: true,
       token: jwtToken,
+      refreshToken: session.refreshToken,
       user: {
         id: user._id,
         name: user.name,
@@ -774,6 +800,14 @@ export const getMe = async (req, res) => {
           badges: user.learningStats?.badges || [],
           achievements: user.learningStats?.achievements || [],
           categoryProgress: user.learningStats?.categoryProgress || {},
+        },
+        // Include subscription data
+        subscription: user.subscription || {
+          plan: 'free',
+          status: 'trial',
+          trialStartDate: new Date(),
+          trialEndDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          features: {}
         }
       }
     });
@@ -921,5 +955,173 @@ export const updateNotifications = async (req, res) => {
     res.status(200).json({ success: true, data: user.notifications });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Server error', error: e.message });
+  }
+};
+
+// @desc    Refresh token with enhanced security
+// @route   POST /api/auth/refresh
+// @access  Private
+export const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        message: 'Refresh token required'
+      });
+    }
+
+    // Validate refresh token
+    const session = await sessionSecurity.validateRefreshToken(refreshToken);
+    
+    if (!session) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired refresh token'
+      });
+    }
+
+    const user = session.userId;
+    
+    if (!user.isActive) {
+      await sessionSecurity.revokeSession(refreshToken);
+      return res.status(401).json({
+        success: false,
+        message: 'Account is deactivated'
+      });
+    }
+
+    // Check for suspicious activity
+    const suspiciousCheck = await sessionSecurity.checkSuspiciousActivity(user._id, req);
+    if (suspiciousCheck.suspicious) {
+      console.warn(`Suspicious activity detected for user ${user.email}:`, suspiciousCheck.reason);
+      // For high severity, revoke all sessions
+      if (suspiciousCheck.severity === 'high') {
+        await sessionSecurity.revokeAllUserSessions(user._id);
+        return res.status(401).json({
+          success: false,
+          message: 'Suspicious activity detected. Please log in again.'
+        });
+      }
+    }
+
+    // Generate new access token
+    const newToken = generateToken(user._id);
+    
+    res.status(200).json({
+      success: true,
+      token: newToken,
+      refreshToken: refreshToken, // Keep same refresh token
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        isEmailVerified: user.isEmailVerified
+      }
+    });
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Token refresh failed'
+    });
+  }
+};
+
+// @desc    Logout user and revoke session
+// @route   POST /api/auth/logout
+// @access  Private
+export const logout = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (refreshToken) {
+      await sessionSecurity.revokeSession(refreshToken);
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Logout failed'
+    });
+  }
+};
+
+// @desc    Get user active sessions
+// @route   GET /api/auth/sessions
+// @access  Private
+export const getUserSessions = async (req, res) => {
+  try {
+    const sessions = await sessionSecurity.getUserSessions(req.user._id);
+    
+    res.status(200).json({
+      success: true,
+      data: sessions.map(session => ({
+        id: session._id,
+        deviceInfo: session.deviceInfo,
+        lastActivity: session.lastActivity,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt
+      }))
+    });
+  } catch (error) {
+    console.error('Get sessions error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get sessions'
+    });
+  }
+};
+
+// @desc    Revoke specific session
+// @route   DELETE /api/auth/sessions/:sessionId
+// @access  Private
+export const revokeSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    await UserSession.findOneAndUpdate(
+      { _id: sessionId, userId: req.user._id },
+      { isActive: false }
+    );
+    
+    res.status(200).json({
+      success: true,
+      message: 'Session revoked successfully'
+    });
+  } catch (error) {
+    console.error('Revoke session error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to revoke session'
+    });
+  }
+};
+
+// @desc    Revoke all sessions
+// @route   DELETE /api/auth/sessions
+// @access  Private
+export const revokeAllSessions = async (req, res) => {
+  try {
+    await sessionSecurity.revokeAllUserSessions(req.user._id);
+    
+    res.status(200).json({
+      success: true,
+      message: 'All sessions revoked successfully'
+    });
+  } catch (error) {
+    console.error('Revoke all sessions error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to revoke sessions'
+    });
   }
 };

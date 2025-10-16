@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, EyeIcon, EyeSlashIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextConstants';
 import PasswordStrength from '../components/PasswordStrength';
 
 export default function ResetPassword() {
@@ -180,6 +180,7 @@ export default function ResetPassword() {
                 value={formData.password}
                 onChange={handleInputChange}
                 placeholder="New password"
+                autoComplete="new-password"
                 className={`w-full px-4 py-3 pr-12 ${inputBg} ${border} border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00CC00] focus:border-transparent transition-colors ${
                   validationErrors.password ? 'border-red-500' : ''
                 }`}
@@ -205,6 +206,7 @@ export default function ResetPassword() {
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
                 placeholder="Confirm new password"
+                autoComplete="new-password"
                 className={`w-full px-4 py-3 pr-12 ${inputBg} ${border} border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00CC00] focus:border-transparent transition-colors`}
                 required
               />

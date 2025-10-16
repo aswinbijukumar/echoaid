@@ -39,15 +39,18 @@ import {
   ArrowsUpDownIcon,
   FolderIcon,
   PlayIcon,
-  CubeIcon
+  CubeIcon,
+  StarIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextConstants';
 import Sidebar from '../components/Sidebar';
 import Modal from '../components/Modal';
 import ContentManagement from '../components/ContentManagement';
 import AdminQuizManagement from '../components/AdminQuizManagement';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
+import AdminSubscriptionManagement from '../components/AdminSubscriptionManagement';
+import AdminSkillManagement from '../components/AdminSkillManagement';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { Bar, Pie } from 'react-chartjs-2';
 
@@ -188,6 +191,7 @@ export default function AdminDashboard() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [showQuizManagement, setShowQuizManagement] = useState(false);
+  const [showSkillManagement, setShowSkillManagement] = useState(false);
   
   // Section Assignment States
   const [assignedSection] = useState('alphabet');
@@ -205,6 +209,7 @@ export default function AdminDashboard() {
   
   // Content management modal states
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
   const [uploadForm, setUploadForm] = useState({
     title: '',
     description: '',
@@ -212,6 +217,20 @@ export default function AdminDashboard() {
     level: 'beginner',
     file: null,
     filePreview: null
+  });
+  const [bulkUploadForm, setBulkUploadForm] = useState({
+    category: 'alphabet',
+    level: 'Beginner',
+    files: [],
+    filePreviews: [],
+    signDetails: [], // Array to store individual sign details
+    // Single sign details for bulk upload
+    signInfo: {
+      word: '',
+      description: '',
+      usage: '',
+      tags: []
+    }
   });
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedContent, setSelectedContent] = useState(null);
@@ -246,7 +265,7 @@ export default function AdminDashboard() {
   // Handle URL parameters for tab navigation
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab && ['overview', 'content', 'users', 'analytics'].includes(tab)) {
+    if (tab && ['overview', 'content', 'users', 'subscriptions', 'analytics'].includes(tab)) {
       setActiveTab(tab);
     } else if (!tab) {
       // Default to overview when no tab parameter is present
@@ -492,6 +511,404 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleBulkFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    console.log('Bulk upload - Files selected:', files.length);
+    
+    // Validation 1: Check if files are selected
+    if (files.length === 0) {
+      alert('Please select at least one file');
+      return;
+    }
+
+    // Validation 2: Check maximum file count
+    if (files.length > 10) {
+      alert('Maximum 10 files allowed per sign. Please select fewer files.');
+      return;
+    }
+
+    // Validate each file
+    const validFiles = [];
+    const validPreviews = [];
+    const validationErrors = [];
+    
+    files.forEach((file, index) => {
+      // Validation 3: File size validation (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        validationErrors.push(`File "${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 5MB.`);
+        return;
+      }
+      
+      // Validation 4: File type validation
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'video/mp4'];
+      if (!allowedTypes.includes(file.type)) {
+        validationErrors.push(`File "${file.name}" is not supported. Please upload PNG, JPEG, GIF, or MP4 files only.`);
+        return;
+      }
+
+      // Validation 5: File name validation
+      if (file.name.length > 255) {
+        validationErrors.push(`File "${file.name}" has a name that is too long. Maximum 255 characters.`);
+        return;
+      }
+
+      // Validation 6: Check for duplicate file names
+      const duplicateFile = validFiles.find(f => f.name === file.name);
+      if (duplicateFile) {
+        validationErrors.push(`Duplicate file name: "${file.name}". Please rename one of the files.`);
+        return;
+      }
+      
+      validFiles.push(file);
+      validPreviews.push({
+        file: file,
+        preview: URL.createObjectURL(file),
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
+    });
+
+    // Display validation errors if any
+    if (validationErrors.length > 0) {
+      alert('File Validation Errors:\n\n' + validationErrors.join('\n'));
+      return;
+    }
+
+    // Validation 7: Check if at least one valid file
+    if (validFiles.length === 0) {
+      alert('No valid files selected. Please check your file selection.');
+      return;
+    }
+
+    console.log('Bulk upload - Setting form with:', {
+      files: validFiles.length,
+      totalSize: validFiles.reduce((sum, file) => sum + file.size, 0)
+    });
+    
+    setBulkUploadForm({
+      ...bulkUploadForm,
+      files: validFiles,
+      filePreviews: validPreviews,
+      signDetails: [] // Will be generated based on category selection
+    });
+  };
+
+  const generateSignDetailsFromCategory = () => {
+    const validationErrors = [];
+
+    // Validation 1: Check if files are selected
+    if (bulkUploadForm.files.length === 0) {
+      validationErrors.push('Please select files first');
+    }
+
+    // Validation 2: Check sign word
+    if (!bulkUploadForm.signInfo.word.trim()) {
+      validationErrors.push('Please enter the sign word/name');
+    } else if (bulkUploadForm.signInfo.word.trim().length > 100) {
+      validationErrors.push('Sign word must be less than 100 characters');
+    } else if (!/^[a-zA-Z0-9\s\-'.,!?]+$/.test(bulkUploadForm.signInfo.word.trim())) {
+      validationErrors.push('Sign word contains invalid characters. Only letters, numbers, spaces, and basic punctuation are allowed');
+    }
+
+    // Validation 3: Check category
+    if (!bulkUploadForm.category) {
+      validationErrors.push('Please select a category');
+    } else if (!['alphabet', 'numbers', 'phrases', 'family', 'activities', 'advanced'].includes(bulkUploadForm.category)) {
+      validationErrors.push('Invalid category selected');
+    }
+
+    // Validation 4: Check difficulty
+    if (!bulkUploadForm.level) {
+      validationErrors.push('Please select a difficulty level');
+    } else if (!['Beginner', 'Intermediate', 'Advanced'].includes(bulkUploadForm.level)) {
+      validationErrors.push('Invalid difficulty level selected');
+    }
+
+    // Validation 5: Check description (optional but if provided, validate)
+    if (bulkUploadForm.signInfo.description && bulkUploadForm.signInfo.description.trim().length > 500) {
+      validationErrors.push('Description must be less than 500 characters');
+    }
+
+    // Validation 6: Check usage (optional but if provided, validate)
+    if (bulkUploadForm.signInfo.usage && bulkUploadForm.signInfo.usage.trim().length > 200) {
+      validationErrors.push('Usage description must be less than 200 characters');
+    }
+
+    // Display validation errors if any
+    if (validationErrors.length > 0) {
+      alert('Validation Errors:\n\n' + validationErrors.join('\n'));
+      return;
+    }
+
+    const { category, level, signInfo } = bulkUploadForm;
+
+    // Create a single sign with multiple variants
+    const signDetail = {
+      word: signInfo.word,
+      description: signInfo.description || `Sign for ${signInfo.word}`,
+      category: category,
+      difficulty: level,
+      tags: signInfo.tags.length > 0 ? signInfo.tags : [signInfo.word.toLowerCase()],
+      usage: signInfo.usage || `Common usage of ${signInfo.word} in sign language`,
+      signLanguageType: 'ISL',
+      handDominance: 'right',
+      facialExpression: '',
+      bodyPosition: '',
+      movement: '',
+      isActive: true,
+      // Cover image (first file)
+      coverFile: bulkUploadForm.files[0],
+      // Variants (all files)
+      variantFiles: bulkUploadForm.files.map((file, index) => ({
+        file: file,
+        type: file.type.startsWith('image/') ? 'image' : 'video',
+        angle: index === 0 ? 'front' : 
+               index === 1 ? 'side' : 
+               index === 2 ? 'back' : 
+               index === 3 ? 'close-up' : 'demo',
+        description: `${signInfo.word} - ${index === 0 ? 'Front view' : 
+                     index === 1 ? 'Side view' : 
+                     index === 2 ? 'Back view' : 
+                     index === 3 ? 'Close-up' : 'Demo'}`
+      }))
+    };
+
+    setBulkUploadForm({
+      ...bulkUploadForm,
+      signDetails: [signDetail] // Single sign with multiple variants
+    });
+  };
+
+  // Removed unused updateSignDetail function
+
+  const updateSignInfo = (field, value) => {
+    setBulkUploadForm({
+      ...bulkUploadForm,
+      signInfo: {
+        ...bulkUploadForm.signInfo,
+        [field]: value
+      }
+    });
+  };
+
+  const handleBulkUpload = async (e) => {
+    e.preventDefault();
+    
+    // Validation 1: Check if sign details exist
+    if (bulkUploadForm.signDetails.length === 0) {
+      alert('Please generate sign details first');
+      return;
+    }
+
+    const signDetail = bulkUploadForm.signDetails[0]; // Single sign with variants
+
+    // Validation 2: Required fields validation
+    const validationErrors = [];
+    
+    // Word validation
+    if (!signDetail.word || signDetail.word.trim() === '') {
+      validationErrors.push('Sign word is required');
+    } else if (signDetail.word.trim().length < 1) {
+      validationErrors.push('Sign word must be at least 1 character long');
+    } else if (signDetail.word.trim().length > 100) {
+      validationErrors.push('Sign word must be less than 100 characters');
+    } else if (!/^[a-zA-Z0-9\s\-'.,!?]+$/.test(signDetail.word.trim())) {
+      validationErrors.push('Sign word contains invalid characters. Only letters, numbers, spaces, and basic punctuation are allowed');
+    }
+
+    // Description validation
+    if (!signDetail.description || signDetail.description.trim() === '') {
+      validationErrors.push('Sign description is required');
+    } else if (signDetail.description.trim().length < 10) {
+      validationErrors.push('Sign description must be at least 10 characters long');
+    } else if (signDetail.description.trim().length > 500) {
+      validationErrors.push('Sign description must be less than 500 characters');
+    }
+
+    // Category validation
+    if (!signDetail.category) {
+      validationErrors.push('Sign category is required');
+    } else if (!['alphabet', 'numbers', 'phrases', 'family', 'activities', 'advanced'].includes(signDetail.category)) {
+      validationErrors.push('Invalid category selected');
+    }
+
+    // Difficulty validation
+    if (!signDetail.difficulty) {
+      validationErrors.push('Sign difficulty is required');
+    } else if (!['Beginner', 'Intermediate', 'Advanced'].includes(signDetail.difficulty)) {
+      validationErrors.push('Invalid difficulty level selected');
+    }
+
+    // Usage validation (optional but if provided, validate)
+    if (signDetail.usage && signDetail.usage.trim().length > 200) {
+      validationErrors.push('Usage description must be less than 200 characters');
+    }
+
+    // Validation 3: File validation
+    if (!signDetail.coverFile) {
+      validationErrors.push('Cover image is required');
+    } else {
+      // File size validation (5MB limit)
+      if (signDetail.coverFile.size > 5 * 1024 * 1024) {
+        validationErrors.push('Cover image must be less than 5MB');
+      }
+      
+      // File type validation
+      const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+      if (!allowedImageTypes.includes(signDetail.coverFile.type)) {
+        validationErrors.push('Cover image must be JPEG, PNG, or GIF format');
+      }
+    }
+
+    // Validation 4: Variants validation
+    if (!signDetail.variantFiles || signDetail.variantFiles.length === 0) {
+      validationErrors.push('At least one variant file is required');
+    } else {
+      // Validate each variant file
+      signDetail.variantFiles.forEach((variant, index) => {
+        if (!variant.file) {
+          validationErrors.push(`Variant ${index + 1} file is missing`);
+          return;
+        }
+
+        // File size validation (5MB limit)
+        if (variant.file.size > 5 * 1024 * 1024) {
+          validationErrors.push(`Variant ${index + 1} file must be less than 5MB`);
+        }
+
+        // File type validation
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'video/mp4'];
+        if (!allowedTypes.includes(variant.file.type)) {
+          validationErrors.push(`Variant ${index + 1} must be JPEG, PNG, GIF, or MP4 format`);
+        }
+
+        // Variant type validation
+        if (!variant.type || !['image', 'video'].includes(variant.type)) {
+          validationErrors.push(`Variant ${index + 1} type must be either 'image' or 'video'`);
+        }
+
+        // Angle validation
+        if (!variant.angle || !['front', 'side', 'back', 'close-up', 'slow', 'fast', 'demo'].includes(variant.angle)) {
+          validationErrors.push(`Variant ${index + 1} angle must be one of: front, side, back, close-up, slow, fast, demo`);
+        }
+      });
+
+      // Total file count validation
+      if (signDetail.variantFiles.length > 10) {
+        validationErrors.push('Maximum 10 variant files allowed per sign');
+      }
+    }
+
+    // Validation 5: Duplicate word check (client-side)
+    // This is a basic check - server should also validate
+    const wordExists = signs.some(sign => 
+      sign.word.toLowerCase() === signDetail.word.trim().toLowerCase() && 
+      sign.category === signDetail.category
+    );
+    if (wordExists) {
+      validationErrors.push(`Sign "${signDetail.word}" already exists in ${signDetail.category} category`);
+    }
+
+    // Validation 6: Authentication check
+    if (!token) {
+      validationErrors.push('Authentication token not found. Please log in again.');
+    }
+
+    // Display validation errors
+    if (validationErrors.length > 0) {
+      alert('Validation Errors:\n\n' + validationErrors.join('\n'));
+      return;
+    }
+
+    try {
+      // Debug: Check if token exists
+      if (!token) {
+        alert('Authentication token not found. Please log in again.');
+        return;
+      }
+      
+      console.log('Token exists:', !!token);
+      console.log('Sign details:', signDetail);
+      
+      const formData = new FormData();
+      
+      // Add sign details
+      formData.append('word', signDetail.word);
+      formData.append('description', signDetail.description);
+      formData.append('category', signDetail.category);
+      formData.append('difficulty', signDetail.difficulty);
+      formData.append('tags', JSON.stringify(signDetail.tags));
+      formData.append('usage', signDetail.usage);
+      formData.append('signLanguageType', signDetail.signLanguageType);
+      formData.append('handDominance', signDetail.handDominance);
+      formData.append('facialExpression', signDetail.facialExpression);
+      formData.append('bodyPosition', signDetail.bodyPosition);
+      formData.append('movement', signDetail.movement);
+      formData.append('isActive', signDetail.isActive);
+      
+      // Add cover image (first file)
+      formData.append('coverFile', signDetail.coverFile);
+      
+      // Add variant files
+      signDetail.variantFiles.forEach((variant, index) => {
+        formData.append(`variantFiles`, variant.file);
+        formData.append(`variantTypes`, variant.type);
+        formData.append(`variantAngles`, variant.angle);
+        formData.append(`variantDescriptions`, variant.description);
+      });
+
+      console.log('Making request to:', 'http://localhost:5000/api/content/signs/bulk-variants');
+      console.log('FormData entries:');
+      for (let [key, value] of formData.entries()) {
+        console.log(key, value);
+      }
+      
+      const response = await fetch('http://localhost:5000/api/content/signs/bulk-variants', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Failed to upload ${signDetail.word}: ${errorData.message || 'Unknown error'}`);
+      }
+
+      const result = await response.json();
+      
+      alert(`Successfully uploaded "${signDetail.word}" with ${signDetail.variantFiles.length} variants!`);
+      
+      // Reset form
+      setBulkUploadForm({
+        category: 'alphabet',
+        level: 'Beginner',
+        files: [],
+        filePreviews: [],
+        signDetails: [],
+        signInfo: {
+          word: '',
+          description: '',
+          usage: '',
+          tags: []
+        }
+      });
+      setShowBulkUploadModal(false);
+      
+      // Refresh content items
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      alert(`Error uploading files: ${error.message}`);
+    }
+  };
+
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!uploadForm.file) {
@@ -507,7 +924,7 @@ export default function AdminDashboard() {
     formData.append('file', uploadForm.file);
 
     try {
-      const response = await fetch('http://localhost:5000/api/content/upload', {
+      const response = await fetch('http://localhost:5000/api/content/signs', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -560,7 +977,7 @@ export default function AdminDashboard() {
 
   const handleDelete = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/content/${selectedContent.id}`, {
+      const response = await fetch(`http://localhost:5000/api/admin/content/signs/${selectedContent.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -826,10 +1243,22 @@ export default function AdminDashboard() {
                      <div className={`p-6 rounded-lg border ${border} mb-8`}>
                        <div className="flex items-center justify-between mb-6">
                          <h3 className="text-xl font-bold">Content Management</h3>
-                         <button className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors">
-                           <PlusIcon className="w-5 h-5 inline mr-2" />
-                           Add Content
-                         </button>
+                         <div className="flex space-x-2">
+                           <button 
+                             onClick={() => setActiveTab('content')}
+                             className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
+                           >
+                             <PlusIcon className="w-5 h-5 inline mr-2" />
+                             Manage Signs
+                           </button>
+                           <button 
+                             onClick={() => setShowBulkUploadModal(true)}
+                             className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                           >
+                             <CloudArrowUpIcon className="w-5 h-5 inline mr-2" />
+                             Bulk Upload
+                           </button>
+                         </div>
                        </div>
 
                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -860,14 +1289,14 @@ export default function AdminDashboard() {
 
                          {/* Dictionary */}
                          <div 
-                           onClick={() => window.location.href = '/dictionary'}
+                           onClick={() => navigate('/dictionary')}
                            className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02]`}
                            tabIndex={0}
                            role="button"
                            onKeyDown={(e) => {
                              if (e.key === 'Enter' || e.key === ' ') {
                                e.preventDefault();
-                               window.location.href = '/dictionary';
+                               navigate('/dictionary');
                              }
                            }}
                          >
@@ -903,6 +1332,30 @@ export default function AdminDashboard() {
                            <div className="flex justify-between text-sm">
                              <span>{contentItems.filter(item => item.type === 'quiz').length} quizzes</span>
                              <span className="text-yellow-500">Active</span>
+                           </div>
+                         </div>
+
+                         {/* Skills Management */}
+                         <div 
+                           onClick={() => setShowSkillManagement(true)}
+                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02]`}
+                           tabIndex={0}
+                           role="button"
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter' || e.key === ' ') {
+                               e.preventDefault();
+                               setShowSkillManagement(true);
+                             }
+                           }}
+                         >
+                           <div className="flex items-center space-x-3 mb-3">
+                             <StarIcon className="w-6 h-6 text-indigo-500" />
+                             <h4 className="font-semibold">Skills & Lessons</h4>
+                           </div>
+                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'} mb-3`}>Manage Duolingo-style learning skills</p>
+                           <div className="flex justify-between text-sm">
+                             <span>0 skills</span>
+                             <span className="text-indigo-500">New</span>
                            </div>
                          </div>
 
@@ -1054,6 +1507,22 @@ export default function AdminDashboard() {
                            <UsersIcon className="w-6 h-6 text-green-500 mb-2" />
                            <p className="font-semibold">Manage Users</p>
                           <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Add and manage users in your section</p>
+                         </button>
+                        <button 
+                          onClick={() => setActiveTab('subscriptions')}
+                          className={`p-4 border rounded-lg transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'subscriptions' ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
+                          tabIndex={0}
+                          aria-pressed={activeTab === 'subscriptions'}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setActiveTab('subscriptions');
+                            }
+                          }}
+                        >
+                           <StarIcon className="w-6 h-6 text-blue-500 mb-2" />
+                           <p className="font-semibold">Subscription Management</p>
+                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Manage user subscriptions and billing</p>
                          </button>
                         <button 
                           onClick={() => setActiveTab('analytics')}
@@ -1259,7 +1728,15 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                
+                {/* Subscription Management Tab */}
+                {activeTab === 'subscriptions' && (
+                  <div className="space-y-6 mb-8">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xl font-bold">Subscription Management</h3>
+                    </div>
+                    <AdminSubscriptionManagement />
+                  </div>
+                )}
 
                 {/* Section Analytics Tab */}
                 {activeTab === 'analytics' && (
@@ -1547,6 +2024,228 @@ export default function AdminDashboard() {
         </Modal>
       )}
 
+      {/* Bulk Upload Modal */}
+      {showBulkUploadModal && (
+        <Modal
+          isOpen={showBulkUploadModal}
+          onClose={() => setShowBulkUploadModal(false)}
+          title="Bulk Upload Content"
+          className={`${bg} w-full max-w-4xl`}
+        >
+          <form onSubmit={handleBulkUpload} className="space-y-6">
+            {/* Step 1: Sign Information */}
+            <div className={`p-6 rounded-lg border ${border}`}>
+              <h3 className={`text-lg font-semibold mb-4 ${text}`}>Step 1: Sign Information</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${text}`}>Sign Word/Name *</label>
+                  <input
+                    type="text"
+                    value={bulkUploadForm.signInfo.word}
+                    onChange={(e) => updateSignInfo('word', e.target.value)}
+                    className={`w-full p-3 border rounded-lg ${border} ${bg} ${text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    placeholder="e.g., Hello, Thank you, Number 5"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${text}`}>Category *</label>
+                  <select
+                    value={bulkUploadForm.category}
+                    onChange={(e) => setBulkUploadForm({...bulkUploadForm, category: e.target.value})}
+                    className={`w-full p-3 border rounded-lg ${border} ${bg} ${text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  >
+                    <option value="alphabet">Alphabet</option>
+                    <option value="numbers">Numbers</option>
+                    <option value="phrases">Phrases</option>
+                    <option value="family">Family</option>
+                    <option value="activities">Activities</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${text}`}>Difficulty Level *</label>
+                  <select
+                    value={bulkUploadForm.level}
+                    onChange={(e) => setBulkUploadForm({...bulkUploadForm, level: e.target.value})}
+                    className={`w-full p-3 border rounded-lg ${border} ${bg} ${text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  >
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${text}`}>Usage</label>
+                  <input
+                    type="text"
+                    value={bulkUploadForm.signInfo.usage}
+                    onChange={(e) => updateSignInfo('usage', e.target.value)}
+                    className={`w-full p-3 border rounded-lg ${border} ${bg} ${text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    placeholder="e.g., Greeting, Expression of gratitude"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className={`block text-sm font-medium mb-2 ${text}`}>Description</label>
+                <textarea
+                  value={bulkUploadForm.signInfo.description}
+                  onChange={(e) => updateSignInfo('description', e.target.value)}
+                  className={`w-full p-3 border rounded-lg ${border} ${bg} ${text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  rows="3"
+                  placeholder="Describe the sign, its meaning, and how it's used"
+                />
+              </div>
+            </div>
+
+            {/* Step 2: File Selection */}
+            <div className={`p-6 rounded-lg border ${border}`}>
+              <h3 className={`text-lg font-semibold mb-4 ${text}`}>Step 2: Select Multiple Images/Videos</h3>
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${text}`}>Select Multiple Files</label>
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleBulkFileUpload}
+                  accept=".png,.jpg,.jpeg,.gif,.mp4"
+                  className={`w-full p-3 border rounded-lg ${border} ${bg} ${text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  required
+                />
+                <p className={`text-sm mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  Max 5MB per file. Supported: PNG, JPEG, GIF, MP4. Select multiple images/videos of the same sign.
+                </p>
+                {bulkUploadForm.files.length > 0 && (
+                  <div className="mt-4">
+                    <p className={`text-sm font-medium ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
+                      ✅ {bulkUploadForm.files.length} files selected for "{bulkUploadForm.signInfo.word || 'this sign'}"
+                    </p>
+                    <button
+                      type="button"
+                      onClick={generateSignDetailsFromCategory}
+                      className="mt-3 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    >
+                      Generate Sign Details
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Step 3: Review Sign Structure */}
+            {bulkUploadForm.signDetails.length > 0 && (
+              <div className={`p-6 rounded-lg border ${border}`}>
+                <h3 className={`text-lg font-semibold mb-4 ${text}`}>Step 3: Review Sign Structure</h3>
+                
+                {/* Sign Information */}
+                <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                  <h4 className={`font-medium ${text}`}>Sign: "{bulkUploadForm.signDetails[0].word}"</h4>
+                  <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    {bulkUploadForm.signDetails[0].description}
+                  </p>
+                  <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {bulkUploadForm.signDetails[0].category} • {bulkUploadForm.signDetails[0].difficulty}
+                  </p>
+                </div>
+
+                {/* Cover Image */}
+                <div className="mb-6">
+                  <h4 className={`font-medium mb-3 ${text}`}>Cover Image (Dictionary Display)</h4>
+                  <div className="flex items-center space-x-4">
+                    <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden">
+                      {bulkUploadForm.signDetails[0].coverFile.type.startsWith('image/') ? (
+                        <img 
+                          src={URL.createObjectURL(bulkUploadForm.signDetails[0].coverFile)} 
+                          alt="Cover" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <video 
+                          src={URL.createObjectURL(bulkUploadForm.signDetails[0].coverFile)} 
+                          className="w-full h-full object-cover"
+                          muted
+                        />
+                      )}
+                    </div>
+                    <div>
+                      <p className={`font-medium ${text}`}>Cover Image</p>
+                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {bulkUploadForm.signDetails[0].coverFile.name}
+                      </p>
+                      <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        This will be shown in the dictionary
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Variants */}
+                <div>
+                  <h4 className={`font-medium mb-3 ${text}`}>Learning Variants ({bulkUploadForm.signDetails[0].variantFiles.length} variants)</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-64 overflow-y-auto">
+                    {bulkUploadForm.signDetails[0].variantFiles.map((variant, index) => (
+                      <div key={index} className={`p-4 rounded-lg border ${border} ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                        <div className="text-center">
+                          <div className="w-full h-32 bg-gray-100 rounded-lg mb-3 overflow-hidden">
+                            {variant.type === 'image' ? (
+                              <img 
+                                src={URL.createObjectURL(variant.file)} 
+                                alt="Variant" 
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <video 
+                                src={URL.createObjectURL(variant.file)} 
+                                className="w-full h-full object-cover"
+                                muted
+                              />
+                            )}
+                          </div>
+                          <div className={`text-sm font-medium ${text}`}>{variant.angle}</div>
+                          <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            {variant.file.name}
+                          </div>
+                          <div className="mt-2">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                              ✅ {variant.type}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className={`mt-4 p-4 rounded-lg ${darkMode ? 'bg-green-900/20' : 'bg-green-100'}`}>
+                  <p className={`text-sm font-medium ${darkMode ? 'text-green-400' : 'text-green-800'}`}>
+                    ✅ Sign "{bulkUploadForm.signDetails[0].word}" ready with cover image and {bulkUploadForm.signDetails[0].variantFiles.length} learning variants!
+                  </p>
+                </div>
+              </div>
+            )}
+          </form>
+          <div className="flex justify-end space-x-2 mt-6">
+            <button
+              onClick={() => setShowBulkUploadModal(false)}
+              className="px-4 py-2 border rounded hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleBulkUpload}
+              disabled={bulkUploadForm.signDetails.length === 0}
+              className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 transition-colors"
+            >
+              Upload "{bulkUploadForm.signDetails[0]?.word || 'Sign'}" with {bulkUploadForm.signDetails[0]?.variantFiles?.length || 0} Variants
+            </button>
+          </div>
+        </Modal>
+      )}
+
       {/* Edit Content Modal */}
       {showEditModal && selectedContent && (
         <Modal
@@ -1783,6 +2482,26 @@ export default function AdminDashboard() {
             </button>
           </div>
         </Modal>
+      )}
+
+      {/* Skill Management Modal */}
+      {showSkillManagement && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-[#1A1A1A] rounded-lg w-full max-w-7xl h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-600">
+              <h2 className="text-2xl font-bold">Skills & Lessons Management</h2>
+              <button
+                onClick={() => setShowSkillManagement(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="h-full overflow-y-auto">
+              <AdminSkillManagement />
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Enhanced Scroll to Top Button */}

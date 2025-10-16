@@ -1,13 +1,40 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-
-const AuthContext = createContext();
-
-const API_BASE_URL = 'http://localhost:5000/api';
+import { useState, useEffect, useCallback } from 'react';
+import { modernSessionManager } from '../utils/modernSessionManager.js';
+import { API_BASE_URL } from '../constants/api.js';
+import { AuthContext } from './AuthContextConstants.js';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
+  const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'));
+
+  // Define logout function first
+  const logout = useCallback(async () => {
+    try {
+      // Revoke session on server
+      if (refreshToken) {
+        await fetch(`${API_BASE_URL}/api/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ refreshToken })
+        });
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+      setToken(null);
+      setRefreshToken(null);
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      // Cleanup modern session management
+      modernSessionManager.destroy();
+    }
+  }, [refreshToken, token]);
 
   // Check if user is logged in on app start
   useEffect(() => {
@@ -15,7 +42,7 @@ export function AuthProvider({ children }) {
       if (token) {
         try {
           console.log('Checking authentication with token:', token.substring(0, 20) + '...');
-          const response = await fetch(`${API_BASE_URL}/auth/me`, {
+          const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -25,28 +52,48 @@ export function AuthProvider({ children }) {
             const data = await response.json();
             console.log('Authentication successful:', data.user);
             setUser(data.user);
+            // Initialize modern session management for authenticated user
+            modernSessionManager.initialize(
+              () => logout(), // onSessionExpired
+              (newToken, newRefreshToken) => { // onTokenRefreshed
+                setToken(newToken);
+                setRefreshToken(newRefreshToken);
+              }
+            );
           } else {
             console.log('Authentication failed:', response.status, response.statusText);
-            // Token is invalid, remove it
+            // Token is invalid or expired, remove it
             localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
             setToken(null);
+            setRefreshToken(null);
+            setUser(null);
+            modernSessionManager.destroy();
           }
         } catch (error) {
           console.error('Auth check error:', error);
+          // Clear all auth data on error
           localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
           setToken(null);
+          setRefreshToken(null);
+          setUser(null);
+          modernSessionManager.destroy();
         }
+      } else {
+        // No token, ensure user is null
+        setUser(null);
       }
       setLoading(false);
     };
 
     checkAuth();
-  }, [token]);
+  }, [token, logout]);
 
   const login = async (credentials) => {
     try {
       console.log('Attempting login for:', credentials.email);
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -68,7 +115,17 @@ export function AuthProvider({ children }) {
       console.log('Login successful:', data.user);
       setUser(data.user);
       setToken(data.token);
+      setRefreshToken(data.refreshToken);
       localStorage.setItem('token', data.token);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      // Initialize modern session management after successful login
+      modernSessionManager.initialize(
+        () => logout(), // onSessionExpired
+        (newToken, newRefreshToken) => { // onTokenRefreshed
+          setToken(newToken);
+          setRefreshToken(newRefreshToken);
+        }
+      );
       return data;
     } catch (error) {
       console.error('Login error:', error);
@@ -77,7 +134,7 @@ export function AuthProvider({ children }) {
   };
 
   const signup = async (userData) => {
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -98,7 +155,7 @@ export function AuthProvider({ children }) {
   };
 
   const googleAuth = async (googleToken) => {
-    const response = await fetch(`${API_BASE_URL}/auth/google`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -119,7 +176,8 @@ export function AuthProvider({ children }) {
   };
 
   const forgotPassword = async (email) => {
-    const response = await fetch(`${API_BASE_URL}/auth/forgotpassword`, {
+    // cspell:ignore forgotpassword
+      const response = await fetch(`${API_BASE_URL}/api/auth/forgotpassword`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -136,15 +194,10 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem('token');
-  };
-
   const value = {
     user,
     token,
+    refreshToken,
     loading,
     login,
     signup,
@@ -152,6 +205,7 @@ export function AuthProvider({ children }) {
     forgotPassword,
     logout,
     setToken,
+    setRefreshToken,
     setUser
   };
 
@@ -162,10 +216,4 @@ export function AuthProvider({ children }) {
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
+

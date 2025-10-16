@@ -1,614 +1,664 @@
-import { useEffect, useState } from 'react';
-import { useLocation, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../hooks/useTheme';
+import { useAuth } from '../context/AuthContextConstants';
+import { useUserStats } from '../hooks/useUserStats';
+import Sidebar from '../components/Sidebar';
+import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import SignRecognition from '../components/SignRecognition';
-import SignLearningChatbot from '../components/SignLearningChatbot';
-import LearningProgression from '../components/LearningProgression';
-import BackToTop from '../components/BackToTop';
 import { 
-  HandRaisedIcon, 
-  CameraIcon, 
-  PhotoIcon,
-  PlayIcon,
-  TrophyIcon,
+  BoltIcon,
   FireIcon,
   SparklesIcon,
-  ArrowUpIcon,
+  StarIcon,
+  ClockIcon,
+  TrophyIcon,
+  HandRaisedIcon,
   AcademicCapIcon,
-  PuzzlePieceIcon,
-  UserCircleIcon,
-  BookOpenIcon,
-  ChatBubbleLeftRightIcon,
-  XMarkIcon,
-  LightBulbIcon,
-  ChartBarIcon,
-  ClockIcon
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  ArrowRightIcon,
+  PlayIcon
 } from '@heroicons/react/24/outline';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
 export default function Practice() {
-  const { token } = useAuth();
   const { darkMode } = useTheme();
+  const { logout } = useAuth();
+  const { stats: userStats } = useUserStats();
+  const navigate = useNavigate();
   const location = useLocation();
   
-  // Practice state
-  const [currentMode, setCurrentMode] = useState('webcam'); // 'webcam' | 'upload'
-  const [selectedSign, setSelectedSign] = useState(null);
-  const [sessionData, setSessionData] = useState({
-    attempts: [],
-    startTime: new Date(),
-    totalTime: 0,
-    bestScore: 0,
-    averageScore: 0
-  });
-  const [isActive, setIsActive] = useState(false);
-  const [showProgression, setShowProgression] = useState(false);
-  // Data state
-  const [signs, setSigns] = useState([]);
-  const [notification, setNotification] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [userProgress] = useState({});
+  // Practice state - Duolingo Style
+  const [practiceMode, setPracticeMode] = useState('review');
+  const [recentSigns, setRecentSigns] = useState([]);
+  const [weakSigns, setWeakSigns] = useState([]);
+  const [dailyGoal, setDailyGoal] = useState({ completed: 0, target: 5 });
+  const [loading, setLoading] = useState(true);
+  
+  // Practice session state
+  const [isPracticeSession, setIsPracticeSession] = useState(false);
+  const [currentSign, setCurrentSign] = useState(null);
+  const [sessionMode, setSessionMode] = useState('review');
+  const [exerciseType, setExerciseType] = useState('sign-recognition');
+
+  // Theme variables
+  const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
+  const text = darkMode ? 'text-white' : 'text-[#23272F]';
+  const border = darkMode ? 'border-gray-600' : 'border-gray-300';
+  const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
+  const statusBarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
 
   useEffect(() => {
-    initializePractice();
-  }, [token]);
-
-  // Restore selected sign from localStorage on page load (for page refreshes)
-  useEffect(() => {
-    const savedSignData = localStorage.getItem('practiceSelectedSign');
-    if (savedSignData && !selectedSign) {
-      try {
-        const { specificSign, signData } = JSON.parse(savedSignData);
-        console.log('Practice page - restoring from localStorage:', { specificSign, signData });
-        
-        if (signData) {
-          // Use the saved sign data directly
-          setSelectedSign(signData);
-          setIsActive(true);
-        } else if (signs.length > 0) {
-          // Try to find the sign in loaded signs
-          const sign = signs.find(s => s._id === specificSign || s.id === specificSign);
-          if (sign) {
-            setSelectedSign(sign);
-            setIsActive(true);
-          }
-        }
-      } catch (error) {
-        console.error('Error parsing saved sign data:', error);
-        localStorage.removeItem('practiceSelectedSign');
-      }
-    }
-  }, [signs, selectedSign]);
-
-  // Auto-start session if navigated with state from Dictionary
-  useEffect(() => {
+    fetchPracticeData();
+    
+    // Check if we're in a practice session
     const state = location.state;
-    console.log('Practice page - location.state:', state);
-    console.log('Practice page - signs loaded:', signs.length);
-    
-    if (state?.startPractice && state?.specificSign) {
-      // Store the sign data in localStorage for persistence
-      localStorage.setItem('practiceSelectedSign', JSON.stringify({
-        specificSign: state.specificSign,
-        signData: state.signData
-      }));
-      
-      // Try to find the sign in the loaded signs
-      if (signs.length > 0) {
-        const sign = signs.find(s => s._id === state.specificSign || s.id === state.specificSign);
-        console.log('Practice page - found sign:', sign);
-        if (sign) {
-          setSelectedSign(sign);
-          setIsActive(true);
-          // Clear the state to avoid re-trigger on back/forward
-          window.history.replaceState({}, document.title);
-        } else {
-          console.log('Practice page - sign not found with ID:', state.specificSign);
-          console.log('Available signs:', signs.map(s => ({ id: s._id, word: s.word })));
-          // Use the direct sign data if available
-          if (state.signData) {
-            setSelectedSign(state.signData);
-            setIsActive(true);
-          } else {
-            // Create a temporary sign object if not found
-            setSelectedSign({
-              _id: state.specificSign,
-              word: 'Unknown Sign',
-              category: 'Unknown'
-            });
-            setIsActive(true);
-            setNotification({ 
-              type: 'warning', 
-              message: 'Sign not found in database. Using fallback data.' 
-            });
-          }
-        }
-      } else {
-        console.log('Practice page - signs not loaded yet, creating temporary sign');
-        // Use direct sign data if available, otherwise create temporary sign
-        if (state.signData) {
-          setSelectedSign(state.signData);
-        } else {
-          setSelectedSign({
-            _id: state.specificSign,
-            word: 'Loading...',
-            category: 'Loading...'
-          });
-        }
-        setIsActive(true);
-      }
+    if (state?.startPractice) {
+      setIsPracticeSession(true);
+      // Handle both sign data formats
+      const signData = state.sign || state.signData || { word: state.specificSign || 'Unknown Sign' };
+      setCurrentSign(signData);
+      setSessionMode(state.mode || 'review');
+      setExerciseType(state.exerciseType || 'sign-recognition');
     }
-  }, [location.state, signs]);
+  }, [location.state]);
 
-  // Handle direct sign data from Dictionary (fallback)
-  useEffect(() => {
-    const state = location.state;
-    if (state?.startPractice && state?.signData && !selectedSign) {
-      console.log('Practice page - using direct sign data:', state.signData);
-      setSelectedSign(state.signData);
-      setIsActive(true);
-      // Clear the state to avoid re-trigger on back/forward
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state, selectedSign]);
-
-  // Update selectedSign when signs load and we have a temporary sign
-  useEffect(() => {
-    if (selectedSign && selectedSign.word === 'Loading...' && signs.length > 0) {
-      const state = location.state;
-      if (state?.specificSign) {
-        const sign = signs.find(s => s._id === state.specificSign || s.id === state.specificSign);
-        if (sign) {
-          console.log('Practice page - updating from temporary to real sign:', sign);
-          setSelectedSign(sign);
-        }
-      }
-    }
-  }, [signs, selectedSign, location.state]);
-
-  // Handle recognition results
-  const handleRecognition = (result) => {
-    const newAttempt = {
-      id: Date.now(),
-      timestamp: new Date(),
-      confidence: result.confidence,
-      isCorrect: result.isCorrect,
-      feedback: result.feedback,
-      landmarks: result.landmarks,
-      improvements: result.improvements
-    };
-
-    setSessionData(prev => {
-      const newAttempts = [...prev.attempts, newAttempt];
-      const scores = newAttempts.map(a => a.confidence);
-      const bestScore = Math.max(...scores);
-      const averageScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-
-      return {
-        ...prev,
-        attempts: newAttempts,
-        bestScore,
-        averageScore: Math.round(averageScore),
-        totalTime: Math.round((new Date() - prev.startTime) / 1000)
-      };
-    });
-  };
-
-  // Complete session
-  const handleComplete = async () => {
-    const finalData = {
-      ...sessionData,
-      endTime: new Date(),
-      totalTime: Math.round((new Date() - sessionData.startTime) / 1000)
-    };
-    
-    // Save progress
-    if (selectedSign && token) {
-      try {
-        const progress = {
-          practiceCount: finalData.attempts?.length || 0,
-          accuracy: finalData.averageScore || 0,
-          bestScore: finalData.bestScore || 0,
-          lastPractice: new Date()
-        };
-
-        await fetch(`${API_BASE_URL}/practice/progress`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            signId: selectedSign._id,
-            progress
-          })
-        });
-      } catch (error) {
-        console.error('Failed to save practice progress', error);
-      }
-    }
-
-    // Reset session
-    cleanupSession();
-    
-    setNotification({ 
-      type: 'success', 
-      message: `Session complete! Best score: ${finalData.bestScore}%` 
-    });
-  };
-
-  // Clean up practice session data
-  const cleanupSession = () => {
-    setSelectedSign(null);
-    setSessionData({
-      attempts: [],
-      startTime: new Date(),
-      totalTime: 0,
-      bestScore: 0,
-      averageScore: 0
-    });
-    setIsActive(false);
-    // Clear the saved sign data
-    localStorage.removeItem('practiceSelectedSign');
-    // Clear any browser history state to prevent re-triggering
-    window.history.replaceState({}, document.title);
-  };
-
-  const initializePractice = async () => {
-    setIsLoading(true);
+  const fetchPracticeData = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/dictionary/db/signs?limit=100`);
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      const data = await res.json();
-      if (data.signs && Array.isArray(data.signs)) {
-        setSigns(data.signs);
-      } else {
-        console.warn('No signs data received from API');
-        setSigns([]);
-      }
-    } catch (e) {
-      console.error('Failed to load signs:', e);
-      setNotification({ 
-        type: 'error', 
-        message: `Failed to load practice data: ${e.message}` 
-      });
-      setSigns([]);
+      setLoading(true);
+      
+      // Mock data for demonstration
+      const mockRecentSigns = [
+        { id: 1, word: 'Hello', accuracy: 85, lastPracticed: new Date(), category: 'basics' },
+        { id: 2, word: 'Thank you', accuracy: 92, lastPracticed: new Date(), category: 'basics' },
+        { id: 3, word: 'Goodbye', accuracy: 78, lastPracticed: new Date(), category: 'basics' },
+        { id: 4, word: 'Please', accuracy: 65, lastPracticed: new Date(), category: 'basics' }
+      ];
+      
+      const mockWeakSigns = [
+        { id: 5, word: 'Sorry', accuracy: 45, lastPracticed: new Date(), category: 'basics' },
+        { id: 6, word: 'Excuse me', accuracy: 52, lastPracticed: new Date(), category: 'basics' },
+        { id: 7, word: 'Help', accuracy: 38, lastPracticed: new Date(), category: 'basics' }
+      ];
+      
+      setRecentSigns(mockRecentSigns);
+      setWeakSigns(mockWeakSigns);
+      setDailyGoal({ completed: 2, target: 5 });
+      
+    } catch (error) {
+      console.error('Error fetching practice data:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  // Auto-hide notifications
-  useEffect(() => {
-    if (!notification) return;
-    const t = setTimeout(() => setNotification(null), 4000);
-    return () => clearTimeout(t);
-  }, [notification]);
-
-  // Get session stats
-  const getSessionStats = () => {
-    const { attempts, bestScore, averageScore, totalTime } = sessionData;
-    const correctAttempts = attempts.filter(a => a.isCorrect).length;
-    const accuracy = attempts.length > 0 ? Math.round((correctAttempts / attempts.length) * 100) : 0;
-    
-    return {
-      totalAttempts: attempts.length,
-      correctAttempts,
-      accuracy,
-      bestScore,
-      averageScore,
-      totalTime: Math.round(totalTime / 60) // minutes
-    };
+  const handleLogout = () => {
+    logout();
+    navigate('/');
   };
 
-  const stats = getSessionStats();
-  const bg = darkMode ? 'bg-[#0F1216]' : 'bg-gray-50';
-  const border = darkMode ? 'border-gray-700' : 'border-gray-200';
-  const cardBg = 'bg-transparent';
+  const startPractice = (sign, mode = 'review', exerciseType = 'sign-recognition') => {
+    // Start practice session
+    setIsPracticeSession(true);
+    setCurrentSign(sign);
+    setSessionMode(mode);
+    setExerciseType(exerciseType);
+  };
 
-  if (isLoading) {
-    return (
-      <div className={`${bg} min-h-screen p-6`}>
-        <div className="max-w-6xl mx-auto">
-          <div className="min-h-[60vh] flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
-              <p className="text-lg">Loading practice...</p>
+  const endPracticeSession = () => {
+    setIsPracticeSession(false);
+    setCurrentSign(null);
+    setSessionMode('review');
+    setExerciseType('sign-recognition');
+  };
+
+  const handleRecognitionResult = (result) => {
+    console.log('Recognition result:', result);
+    // Handle the recognition result
+    // This could update progress, show feedback, etc.
+  };
+
+  const renderExerciseContent = () => {
+    switch (exerciseType) {
+      case 'sign-recognition':
+        return (
+          <SignRecognition
+            targetSign={currentSign}
+            onRecognition={handleRecognitionResult}
+            mode="webcam"
+          />
+        );
+      
+      case 'flashcard':
+        return (
+          <div className="text-center space-y-6">
+            {/* Show cover image or first variant */}
+            <div className="w-64 h-48 bg-gray-200 dark:bg-gray-700 rounded-lg mx-auto overflow-hidden">
+              {currentSign.coverImage ? (
+                <img
+                  src={currentSign.coverImage}
+                  alt={`Sign for ${currentSign.word}`}
+                  className="w-full h-full object-cover"
+                />
+              ) : currentSign.variants && currentSign.variants.length > 0 ? (
+                currentSign.variants[0].type === 'image' ? (
+                  <img
+                    src={currentSign.variants[0].path}
+                    alt={`Sign for ${currentSign.word}`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <video
+                    src={currentSign.variants[0].path}
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    loop
+                    muted
+                  />
+                )
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <span className="text-gray-500">Sign Demonstration</span>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state if no signs are available
-  if (!isLoading && signs.length === 0) {
-    return (
-      <div className={`${bg} min-h-screen p-6`}>
-        <div className="max-w-6xl mx-auto">
-          <div className="min-h-[60vh] flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-6xl mb-4">⚠️</div>
-              <h2 className="text-2xl font-bold mb-4">No Signs Available</h2>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Unable to load practice signs. Please check your connection and try again.
-              </p>
-              <div className="space-x-4">
-                <button
-                  onClick={initializePractice}
-                  className="px-6 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors"
-                >
-                  Retry
-                </button>
-                <Link
-                  to="/dictionary"
-                  className="px-6 py-3 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-colors inline-block"
-                >
-                  Go to Dictionary
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Main Practice page content (overlay content as main page)
-  return (
-    <div className={`${bg} min-h-screen p-6`}>
-      <div className="max-w-7xl xl:max-w-[1400px] mx-auto">
-        {/* Notifications */}
-        {notification && (
-          <div className={`mb-4 p-4 rounded-xl border ${
-            notification.type === 'success'
-              ? 'border-green-500/40 text-green-400'
-              : notification.type === 'error'
-              ? 'border-red-500/40 text-red-400'
-              : notification.type === 'warning'
-              ? 'border-yellow-500/40 text-yellow-400'
-              : 'border-blue-500/40 text-blue-400'
-          } bg-transparent` }>
-            <div className="flex items-center justify-between">
-              <span className="font-medium">{notification.message}</span>
-              <button
-                onClick={() => setNotification(null)}
-                className="ml-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <XMarkIcon className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Header */}
-        <div className={`${cardBg} border ${border} rounded-2xl p-6 mb-6 shadow-sm`}>
-          <div className="flex items-center justify-between">
             <div>
-              <div className="flex items-center gap-3">
-                <div className="text-2xl">🤟</div>
-                <h1 className={`text-2xl md:text-3xl font-bold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
-                  {selectedSign ? `Practice: ${selectedSign.word}` : 'Practice Sign Language'}
-                </h1>
-              </div>
-              <p className={`${darkMode ? 'text-gray-200' : 'text-gray-700'} mt-1`}>
-                {selectedSign 
-                  ? `Practice the sign "${selectedSign.word}" with webcam or upload. Recognition is running automatically!`
-                  : 'Practice any sign with webcam or upload. Recognition system is ready!'
-                }
+              <h3 className="text-2xl font-bold mb-2">{currentSign.word}</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Study this sign and its meaning
               </p>
-              {selectedSign && selectedSign.word === 'Loading...' && (
-                <p className={`${darkMode ? 'text-yellow-400' : 'text-yellow-600'} text-sm mt-2`}>
-                  Loading sign data...
+              {currentSign.variants && currentSign.variants.length > 1 && (
+                <p className="text-sm text-blue-600 mb-4">
+                  This sign has {currentSign.variants.length} learning variants
                 </p>
               )}
-            </div>
-            <div className="flex gap-3">
               <button
-                onClick={() => setShowProgression(!showProgression)}
-                className="px-4 py-2 rounded-xl border border-transparent bg-blue-500 text-white hover:bg-blue-600 transition-colors font-medium"
+                onClick={() => handleRecognitionResult({ isValid: true, confidence: 0.9 })}
+                className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
               >
-                {showProgression ? 'Hide Progress' : 'Show Progress'}
+                I understand this sign
               </button>
-              <Link
-                to="/dictionary"
-                className="px-4 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 text-white transition-colors font-medium flex items-center gap-2"
-                title="Back to Dictionary"
-              >
-                <BookOpenIcon className="w-5 h-5" />
-                <span className="hidden sm:inline">Dictionary</span>
-              </Link>
+            </div>
+          </div>
+        );
+      
+      case 'video-tutorial':
+        return (
+          <div className="text-center space-y-6">
+            <div className="w-full max-w-md mx-auto">
+              <div className="relative bg-black rounded-lg overflow-hidden">
+                {currentSign.variants && currentSign.variants.find(v => v.type === 'video') ? (
+                  <video
+                    src={currentSign.variants.find(v => v.type === 'video').path}
+                    className="w-full h-48 object-cover"
+                    controls
+                    autoPlay
+                  />
+                ) : (
+                  <div className="w-full h-48 bg-gray-800 flex items-center justify-center">
+                    <PlayIcon className="w-16 h-16 text-white" />
+                  </div>
+                )}
+                <div className="absolute bottom-4 left-4 right-4">
+                  <div className="bg-black bg-opacity-50 rounded p-2">
+                    <div className="text-white text-sm font-medium">{currentSign.word}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold mb-2">{currentSign.word}</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Watch the video tutorial to learn this sign
+              </p>
+              {currentSign.variants && currentSign.variants.length > 1 && (
+                <p className="text-sm text-blue-600 mb-4">
+                  This sign has {currentSign.variants.length} learning variants
+                </p>
+              )}
+              <div className="flex space-x-4 justify-center">
+                <button
+                  onClick={() => handleRecognitionResult({ isValid: true, confidence: 0.9 })}
+                  className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                >
+                  I learned this sign
+                </button>
+                <button
+                  onClick={() => handleRecognitionResult({ isValid: false, confidence: 0.3 })}
+                  className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  Need more practice
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      
+      default:
+        return (
+          <SignRecognition
+            targetSign={currentSign}
+            onRecognition={handleRecognitionResult}
+            mode="webcam"
+          />
+        );
+    }
+  };
+
+  const getAccuracyColor = (accuracy) => {
+    if (accuracy >= 80) return 'text-green-500';
+    if (accuracy >= 60) return 'text-yellow-500';
+    return 'text-red-500';
+  };
+
+  const getAccuracyBg = (accuracy) => {
+    if (accuracy >= 80) return 'bg-green-100 dark:bg-green-900/20';
+    if (accuracy >= 60) return 'bg-yellow-100 dark:bg-yellow-900/20';
+    return 'bg-red-100 dark:bg-red-900/20';
+  };
+
+  if (loading) {
+    return (
+      <div className={`min-h-screen ${bg} flex items-center justify-center`}>
+            <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className={`text-lg ${text}`}>Loading practice data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Practice Session View
+  if (isPracticeSession && currentSign) {
+    return (
+      <div className={`min-h-screen ${bg} ${text} overflow-x-hidden`}>
+        {/* Top Status Bar */}
+        <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64 sticky top-0 z-30`}>
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center space-x-4">
+                <button
+                onClick={endPracticeSession}
+                className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"
+                >
+                <span>←</span>
+                <span>Back to Practice</span>
+                </button>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <FireIcon className="w-5 h-5 text-orange-400" />
+                <span className="font-semibold">{userStats.streak}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <SparklesIcon className="w-5 h-5 text-blue-400" />
+                <span className="font-semibold">{userStats.totalXP} XP</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <StarIcon className="w-5 h-5 text-yellow-400" />
+                <span className="font-semibold">Lv {userStats.level}</span>
+              </div>
+              <TopBarUserAvatar size={8} />
             </div>
           </div>
         </div>
 
-        {/* Always show the recognition interface */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
-            {/* Main Practice Area */}
-            <div className="lg:col-span-8 space-y-4 lg:space-y-6">
-              {/* Tabs */}
-              <div className={`${cardBg} border ${border} rounded-2xl p-0 shadow-sm`}> 
-                <div className="flex">
-                  {['webcam','upload'].map(tab => (
-                    <button
-                      key={tab}
-                      onClick={() => setCurrentMode(tab)}
-                  className={`flex-1 py-3 md:py-4 text-sm md:text-base font-semibold rounded-t-2xl transition-colors ${
-                    currentMode === tab
-                      ? 'bg-green-500 text-white'
-                      : `${darkMode ? 'text-gray-300' : 'text-gray-600'}`
-                  }`}
-                    >
-                      {tab === 'webcam' ? '📹 Webcam' : '📤 Upload'}
-                    </button>
-                  ))}
-                </div>
-                <div className="p-6">
-                  <SignRecognition
-                    targetSign={selectedSign}
-                    onRecognition={handleRecognition}
-                    mode={currentMode}
-                  />
-                </div>
-              </div>
+        <div className="flex">
+          {/* Fixed Left Sidebar - Navigation */}
+          <Sidebar handleLogout={handleLogout} />
 
-            {/* Controls */}
-            <div className={`${cardBg} border ${border} rounded-2xl p-4 lg:p-6 shadow-sm`}>
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 lg:gap-3">
-                <div className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} text-sm`}>
-                  {isActive ? 'Recognition is running...' : 'Press Start to begin automatic captures.'}
-                </div>
-                <div className="flex gap-2 lg:gap-3">
-                  <button
-                    onClick={() => setIsActive(!isActive)}
-                    className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl ${
-                      isActive
-                        ? 'bg-red-500 text-white hover:bg-red-600 transform hover:scale-105'
-                        : 'bg-green-500 text-white hover:bg-green-600 transform hover:scale-105'
-                    }`}
-                  >
-                    {isActive ? '⏸️ Pause' : '▶️ Start'}
-                  </button>
-                  <button
-                    onClick={handleComplete}
-                    disabled={sessionData.attempts.length === 0}
-                    className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl ${
-                      sessionData.attempts.length === 0
-                        ? 'bg-gray-400 text-white opacity-60 cursor-not-allowed'
-                        : 'bg-blue-500 text-white hover:bg-blue-600 transform hover:scale-105'
-                    }`}
-                  >
-                    ✅ Complete Session
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="lg:col-span-4 space-y-4 lg:space-y-6 lg:sticky lg:top-6 self-start">
-            {/* Sign Details */}
-            {selectedSign && (
-              <div className={`${cardBg} border ${border} rounded-2xl p-4 lg:p-6 shadow-sm`}>
-                <h3 className="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200">Sign Details</h3>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between items-center py-2 px-3 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} font-medium`}>Word</span>
-                    <span className="font-bold text-green-600 dark:text-green-400 text-lg">{selectedSign.word}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 px-3 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} font-medium`}>Category</span>
-                    <span className="font-semibold capitalize text-blue-600 dark:text-blue-400">{selectedSign.category}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-              {/* Coaching Assistant */}
-              <div className={`${cardBg} border ${border} rounded-2xl p-4 lg:p-6 shadow-sm`}>
-                <h3 className="text-lg font-bold mb-3 text-gray-800 dark:text-gray-200 flex items-center">
-                  <LightBulbIcon className="w-5 h-5 mr-2 text-yellow-500" />
-                  Assistant
-                </h3>
-                {sessionData.attempts.length === 0 ? (
-                  <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} text-sm p-3 rounded-lg border border-blue-500/40 bg-transparent`}>
-                    Start a capture to receive targeted tips.
-                  </p>
-                ) : (
-                  <div className="space-y-2 text-sm">
-                    {(() => {
-                      const last = sessionData.attempts[sessionData.attempts.length - 1];
-                      const tips = [];
-                      if (last.confidence < 75) tips.push('Focus on precise hand shape for better accuracy.');
-                      if (last.landmarks?.position === 'needs_adjustment') tips.push('Adjust hand position relative to your torso.');
-                      if (last.landmarks?.orientation === 'needs_adjustment') tips.push('Rotate wrist to match the reference orientation.');
-                      if (last.landmarks?.movement === 'needs_adjustment') tips.push('Smooth out the movement pattern of the sign.');
-                      return tips.length ? tips.map((t, i) => (
-                        <div key={i} className={`p-3 rounded-lg border ${darkMode ? 'border-yellow-500/40 text-yellow-400' : 'border-yellow-400 text-yellow-700'} bg-transparent`}>
-                          <span className="text-yellow-600 dark:text-yellow-400">💡</span> <span className="ml-2">{t}</span>
-                        </div>
-                      )) : <div className={`p-3 rounded-lg border ${darkMode ? 'border-green-500/40 text-green-300' : 'border-green-400 text-green-700'} bg-transparent`}>
-                        <span className="text-green-600 dark:text-green-400">✅</span> <span className="ml-2">Looking good! Try for a higher score.</span>
-                      </div>;
-                    })()}
-                  </div>
-                )}
-              </div>
-
-              {/* Session Stats */}
-              <div className={`${cardBg} border ${border} rounded-2xl p-4 lg:p-6 shadow-sm`}>
-                <h3 className="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200 flex items-center">
-                  <ChartBarIcon className="w-5 h-5 mr-2 text-blue-500" />
-                  Session Stats
-                </h3>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="p-4 rounded-xl border border-green-200 dark:border-green-800 bg-transparent">
-                    <div className="text-xs font-medium text-green-600 dark:text-green-400 mb-1">Best</div>
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.bestScore}%</div>
-                  </div>
-                  <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-transparent">
-                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">Average</div>
-                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.averageScore}%</div>
-                  </div>
-                  <div className="p-4 rounded-xl border border-purple-200 dark:border-purple-800 bg-transparent">
-                    <div className="text-xs font-medium text-purple-600 dark:text-purple-400 mb-1">Attempts</div>
-                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.totalAttempts}</div>
-                  </div>
-                  <div className="p-4 rounded-xl border border-orange-200 dark:border-orange-800 bg-transparent">
-                    <div className="text-xs font-medium text-orange-600 dark:text-orange-400 mb-1">Time</div>
-                    <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.totalTime}m</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Recent Attempts */}
-              {sessionData.attempts.length > 0 && (
-                <div className={`${cardBg} border ${border} rounded-2xl p-4 lg:p-6 shadow-sm`}>
-                  <h3 className="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200 flex items-center">
-                    <ClockIcon className="w-5 h-5 mr-2 text-purple-500" />
-                    Recent Attempts
-                  </h3>
-                  <div className="space-y-3">
-                    {sessionData.attempts.slice(-5).reverse().map(attempt => (
-                      <div key={attempt.id} className={`p-4 rounded-xl border ${darkMode ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-700'} bg-transparent`}>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className={`text-lg font-bold ${
-                            attempt.confidence >= 80 ? 'text-green-600 dark:text-green-400' :
-                            attempt.confidence >= 60 ? 'text-yellow-600 dark:text-yellow-400' :
-                            'text-red-600 dark:text-red-400'
-                          }`}>
-                            {attempt.confidence}%
-                          </span>
-                          <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-xs font-medium`}>
-                            {new Date(attempt.timestamp).toLocaleTimeString()}
-                          </span>
-                        </div>
-                        <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} text-sm`}>{attempt.feedback}</p>
+          {/* Main Content Area */}
+          <div className={`flex-1 ml-64 ${bg} overflow-hidden pt-16`}>
+            <div className="max-w-7xl mx-auto min-h-0">
+              <div className="flex min-h-0">
+                {/* Main Content */}
+                <div className="flex-1 p-6">
+                  {/* Practice Session Header */}
+                  <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h1 className={`text-3xl font-bold ${text} mb-2`}>Practice Session</h1>
+                        <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                          Practice the sign for "{currentSign.word}"
+                        </p>
                       </div>
-                    ))}
+                      <div className="flex items-center space-x-4">
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          sessionMode === 'review' ? 'bg-blue-100 text-blue-800' :
+                          sessionMode === 'weak' ? 'bg-red-100 text-red-800' :
+                          sessionMode === 'speed' ? 'bg-green-100 text-green-800' :
+                          'bg-purple-100 text-purple-800'
+                        }`}>
+                          {sessionMode.charAt(0).toUpperCase() + sessionMode.slice(1)} Mode
+                        </span>
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          exerciseType === 'sign-recognition' ? 'bg-blue-100 text-blue-800' :
+                          exerciseType === 'flashcard' ? 'bg-green-100 text-green-800' :
+                          exerciseType === 'video-tutorial' ? 'bg-purple-100 text-purple-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {exerciseType === 'sign-recognition' ? '👁️ Recognition' :
+                           exerciseType === 'flashcard' ? '📚 Flashcard' :
+                           exerciseType === 'video-tutorial' ? '▶️ Tutorial' :
+                           exerciseType}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sign Recognition Component */}
+                  <div className={`${cardBg} rounded-lg border ${border} p-6`}>
+                    <div className="text-center mb-6">
+                      <h2 className={`text-2xl font-bold ${text} mb-2`}>
+                        Practice: {currentSign.word}
+                      </h2>
+                      <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                        Show this sign to the camera
+                      </p>
+                    </div>
+
+                    {renderExerciseContent()}
                   </div>
                 </div>
-              )}
-
-              {/* Learning Progression */}
-              {showProgression && (
-                <LearningProgression
-                  sign={selectedSign}
-                  userProgress={userProgress[selectedSign._id] || {}}
-                  onProgressUpdate={(progress) => {
-                    console.log('Progress updated:', progress);
-                  }}
-                />
-              )}
+              </div>
             </div>
           </div>
+
+          {/* Subtle line between sidebar and content */}
+          <div className="fixed left-64 top-0 h-screen w-px bg-gray-600 z-40"></div>
+        </div>
       </div>
-      <BackToTop />
+    );
+  }
+
+  return (
+    <div className={`min-h-screen ${bg} ${text} overflow-x-hidden`}>
+      {/* Top Status Bar */}
+      <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64 sticky top-0 z-30`}>
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center space-x-4">
+            {/* Empty space on the left */}
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <FireIcon className="w-5 h-5 text-orange-400" />
+              <span className="font-semibold">{userStats.streak}</span>
+              </div>
+            <div className="flex items-center space-x-2">
+              <SparklesIcon className="w-5 h-5 text-blue-400" />
+              <span className="font-semibold">{userStats.totalXP} XP</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <StarIcon className="w-5 h-5 text-yellow-400" />
+              <span className="font-semibold">Lv {userStats.level}</span>
+              <span className="text-sm text-gray-400">({userStats.xpToNextLevel} to next)</span>
+            </div>
+            <TopBarUserAvatar size={8} />
+          </div>
+                </div>
+              </div>
+
+      <div className="flex">
+        {/* Fixed Left Sidebar - Navigation */}
+        <Sidebar handleLogout={handleLogout} />
+
+        {/* Main Content Area */}
+        <div className={`flex-1 ml-64 ${bg} overflow-hidden pt-16`}>
+          <div className="max-w-7xl mx-auto min-h-0">
+            <div className="flex min-h-0">
+              {/* Main Content */}
+              <div className="flex-1 p-6">
+                {/* Header - Duolingo Style */}
+                <div className="mb-8">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className={`text-3xl font-bold ${text} mb-2`}>Practice</h1>
+                      <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                        Strengthen your sign language skills
+                      </p>
+                </div>
+                    <div className="flex items-center space-x-4">
+                  <button
+                        onClick={() => navigate('/learn')}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        <AcademicCapIcon className="w-4 h-4 inline mr-2" />
+                        Learning Path
+                  </button>
+                  <button
+                        onClick={() => navigate('/dictionary')}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        <HandRaisedIcon className="w-4 h-4 inline mr-2" />
+                        Dictionary
+                  </button>
+                </div>
+              </div>
+            </div>
+
+                {/* Daily Goal - Duolingo Style */}
+                <div className={`${cardBg} rounded-lg border ${border} p-6 mb-8`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className={`text-xl font-bold ${text}`}>Today's Practice Goal</h3>
+                    <span className="text-sm text-gray-500">
+                      {dailyGoal.completed} / {dailyGoal.target} signs practiced
+                    </span>
+          </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+                    <div 
+                      className="bg-blue-500 h-3 rounded-full transition-all duration-500"
+                      style={{ width: `${(dailyGoal.completed / dailyGoal.target) * 100}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Keep practicing to maintain your streak!</span>
+                    <span className="text-blue-600 font-semibold">
+                      {userStats.streak} day streak
+                    </span>
+                  </div>
+                </div>
+
+                {/* Practice Modes */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                  {/* Recent Signs */}
+                  <div className={`${cardBg} rounded-lg border ${border} p-6`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className={`text-xl font-bold ${text}`}>Recent Signs</h3>
+                      <span className="text-sm text-gray-500">Practice what you learned</span>
+              </div>
+                    
+                    <div className="space-y-3">
+                      {recentSigns.map((sign) => (
+                        <div
+                          key={sign.id}
+                          className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className={`p-2 rounded-lg ${getAccuracyBg(sign.accuracy)}`}>
+                              <CheckCircleIcon className={`w-5 h-5 ${getAccuracyColor(sign.accuracy)}`} />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold">{sign.word}</h4>
+                              <p className="text-sm text-gray-500">{sign.category}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <span className={`text-sm font-semibold ${getAccuracyColor(sign.accuracy)}`}>
+                              {sign.accuracy}%
+                            </span>
+                            <div className="flex space-x-1">
+                              <button
+                                onClick={() => startPractice(sign, 'review', 'sign-recognition')}
+                                className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition-colors"
+                                title="Sign Recognition"
+                              >
+                                👁️
+                              </button>
+                              <button
+                                onClick={() => startPractice(sign, 'review', 'flashcard')}
+                                className="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition-colors"
+                                title="Flashcard"
+                              >
+                                📚
+                              </button>
+                              <button
+                                onClick={() => startPractice(sign, 'review', 'video-tutorial')}
+                                className="px-2 py-1 bg-purple-500 text-white rounded text-xs hover:bg-purple-600 transition-colors"
+                                title="Video Tutorial"
+                              >
+                                ▶️
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Weak Areas */}
+                  <div className={`${cardBg} rounded-lg border ${border} p-6`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className={`text-xl font-bold ${text}`}>Weak Areas</h3>
+                      <span className="text-sm text-gray-500">Focus on improvement</span>
+              </div>
+
+                    <div className="space-y-3">
+                      {weakSigns.map((sign) => (
+                        <div
+                          key={sign.id}
+                          className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className={`p-2 rounded-lg ${getAccuracyBg(sign.accuracy)}`}>
+                              <ExclamationTriangleIcon className={`w-5 h-5 ${getAccuracyColor(sign.accuracy)}`} />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold">{sign.word}</h4>
+                              <p className="text-sm text-gray-500">{sign.category}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <span className={`text-sm font-semibold ${getAccuracyColor(sign.accuracy)}`}>
+                              {sign.accuracy}%
+                            </span>
+                            <div className="flex space-x-1">
+                              <button
+                                onClick={() => startPractice(sign, 'weak', 'sign-recognition')}
+                                className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors"
+                                title="Sign Recognition"
+                              >
+                                👁️
+                              </button>
+                              <button
+                                onClick={() => startPractice(sign, 'weak', 'flashcard')}
+                                className="px-2 py-1 bg-orange-500 text-white rounded text-xs hover:bg-orange-600 transition-colors"
+                                title="Flashcard"
+                              >
+                                📚
+                              </button>
+                              <button
+                                onClick={() => startPractice(sign, 'weak', 'video-tutorial')}
+                                className="px-2 py-1 bg-pink-500 text-white rounded text-xs hover:bg-pink-600 transition-colors"
+                                title="Video Tutorial"
+                              >
+                                ▶️
+                              </button>
+                            </div>
+                  </div>
+                  </div>
+                      ))}
+                  </div>
+                  </div>
+                </div>
+
+                {/* Practice Options */}
+                <div className={`${cardBg} rounded-lg border ${border} p-6`}>
+                  <h3 className={`text-xl font-bold ${text} mb-4`}>Practice Options</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button
+                      onClick={() => setPracticeMode('review')}
+                      className={`p-4 rounded-lg border transition-all ${
+                        practiceMode === 'review' 
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                          : 'border-gray-300 dark:border-gray-600 hover:border-blue-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <ClockIcon className="w-6 h-6 text-blue-500" />
+                        <div className="text-left">
+                          <h4 className="font-semibold">Review</h4>
+                          <p className="text-sm text-gray-500">Practice recent signs</p>
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => setPracticeMode('speed')}
+                      className={`p-4 rounded-lg border transition-all ${
+                        practiceMode === 'speed' 
+                          ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
+                          : 'border-gray-300 dark:border-gray-600 hover:border-green-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <BoltIcon className="w-6 h-6 text-green-500" />
+                        <div className="text-left">
+                          <h4 className="font-semibold">Speed Practice</h4>
+                          <p className="text-sm text-gray-500">Quick recognition</p>
+                </div>
+              </div>
+                    </button>
+
+                    <button
+                      onClick={() => setPracticeMode('accuracy')}
+                      className={`p-4 rounded-lg border transition-all ${
+                        practiceMode === 'accuracy' 
+                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' 
+                          : 'border-gray-300 dark:border-gray-600 hover:border-purple-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <TrophyIcon className="w-6 h-6 text-purple-500" />
+                        <div className="text-left">
+                          <h4 className="font-semibold">Accuracy Practice</h4>
+                          <p className="text-sm text-gray-500">Perfect your form</p>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className={`${cardBg} rounded-lg border ${border} p-6 mt-8`}>
+                  <h3 className={`text-xl font-bold ${text} mb-4`}>Quick Actions</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button
+                      onClick={() => navigate('/dictionary')}
+                      className="flex items-center space-x-3 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      <HandRaisedIcon className="w-6 h-6" />
+                      <span>Browse Dictionary</span>
+                    </button>
+                    <button
+                      onClick={() => navigate('/quiz')}
+                      className="flex items-center space-x-3 p-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                    >
+                      <PlayIcon className="w-6 h-6" />
+                      <span>Take a Quiz</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Subtle line between sidebar and content */}
+        <div className="fixed left-64 top-0 h-screen w-px bg-gray-600 z-40"></div>
+      </div>
     </div>
   );
 }
-

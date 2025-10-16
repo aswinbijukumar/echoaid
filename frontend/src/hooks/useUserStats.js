@@ -13,9 +13,19 @@ export function useUserStats() {
   const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
       const response = await fetch('http://localhost:5000/api/auth/me', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
       if (data?.success) {
         const ls = data.user?.learningStats || {};

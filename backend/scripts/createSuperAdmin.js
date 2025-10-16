@@ -61,7 +61,7 @@ const createSuperAdmin = async () => {
       isEmailVerified: true,
       isActive: true,
       permissions: {
-        manageUsers: false,
+        manageUsers: true,     // Fixed: Admin needs to manage users
         manageContent: true,
         manageSystem: false,
         viewAnalytics: true,

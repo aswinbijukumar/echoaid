@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeftIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextConstants';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -130,6 +130,7 @@ export default function ForgotPassword() {
                   setError('');
                 }}
                 placeholder="Enter your email"
+                autoComplete="email"
                 className={`w-full px-4 py-3 ${inputBg} ${border} border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00CC00] focus:border-transparent transition-colors`}
                 required
               />

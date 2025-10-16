@@ -34,8 +34,13 @@ router.get('/db/signs', async (req, res) => {
       category: sign.category,
       difficulty: sign.difficulty,
       description: sign.description,
-      imageUrl: sign.imageUrl || sign.imagePath,
-      thumbnailUrl: sign.thumbnailUrl || sign.imageUrl || sign.imagePath,
+      // New sign structure with cover image and variants
+      coverImage: sign.coverImage || sign.imageUrl || sign.imagePath,
+      coverThumbnail: sign.coverThumbnail || sign.thumbnailUrl || sign.imageUrl || sign.imagePath,
+      variants: sign.variants || [],
+      // Legacy fields for backward compatibility
+      imageUrl: sign.coverImage || sign.imageUrl || sign.imagePath,
+      thumbnailUrl: sign.coverThumbnail || sign.thumbnailUrl || sign.imageUrl || sign.imagePath,
       videoUrl: sign.videoPath || null,
       isActive: sign.isActive,
       createdAt: sign.createdAt

@@ -3,6 +3,7 @@ import {
   getAllSigns,
   getSignById,
   createSign,
+  createSignWithVariants,
   updateSign,
   deleteSign,
   bulkSignOperations,
@@ -16,6 +17,7 @@ import {
   updateCategory,
   deleteCategory
 } from '../controllers/contentController.js';
+import { importSignsFromCsv } from '../controllers/contentController.js';
 import { protect, adminAndSuperAdmin, canManageContent } from '../middleware/roleAuth.js';
 import fileUpload from 'express-fileupload';
 
@@ -49,6 +51,8 @@ router.post('/signs', createSign);
 router.put('/signs/:id', updateSign);
 router.delete('/signs/:id', deleteSign);
 router.post('/signs/bulk', bulkSignOperations);
+router.post('/signs/bulk-variants', createSignWithVariants);
+router.post('/signs/import', importSignsFromCsv);
 
 // Content approval queue (Super Admin oversight)
 router.get('/queue', getContentQueue);

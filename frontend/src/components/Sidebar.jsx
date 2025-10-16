@@ -10,19 +10,22 @@ import {
   DocumentTextIcon,
   UsersIcon,
   ChartPieIcon,
-  ShieldCheckIcon
+  ShieldCheckIcon,
+  StarIcon,
+  BoltIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextConstants';
 
 export default function Sidebar({ handleLogout }) {
   const { darkMode } = useTheme();
   const { user } = useAuth();
   const location = useLocation();
   
-  // Base links for all users
+  // Base links for all users - Duolingo Style
   const baseLinks = [
-    { to: '/dashboard', label: 'LEARN', icon: AcademicCapIcon },
+    { to: '/learn', label: 'LEARNING PATH', icon: AcademicCapIcon },
+    { to: '/practice', label: 'PRACTICE', icon: BoltIcon },
     { to: '/dictionary', label: 'DICTIONARY', icon: BookOpenIcon },
     { to: '/quiz', label: 'QUIZ', icon: PuzzlePieceIcon },
     { to: '/accessibility', label: 'SETTINGS', icon: Cog6ToothIcon },
@@ -34,8 +37,8 @@ export default function Sidebar({ handleLogout }) {
     { to: '/admin?tab=overview', label: 'DASHBOARD OVERVIEW', icon: ChartBarIcon },
     { to: '/admin?tab=content', label: 'SIGN MANAGEMENT', icon: DocumentTextIcon },
     { to: '/admin?tab=users', label: 'USER MANAGEMENT', icon: UsersIcon },
+    { to: '/admin?tab=subscriptions', label: 'SUBSCRIPTION MANAGEMENT', icon: StarIcon },
     { to: '/admin?tab=analytics', label: 'SECTION ANALYTICS', icon: ChartPieIcon },
-    
     { to: '/admin/quiz', label: 'MANAGE QUIZZES', icon: PuzzlePieceIcon },
     { to: '/profile', label: 'PROFILE', icon: UserCircleIcon },
   ];
@@ -44,6 +47,7 @@ export default function Sidebar({ handleLogout }) {
   const superAdminLinks = [
     { to: '/super-admin', label: 'SUPER ADMIN', icon: ShieldCheckIcon },
     { to: '/admin?tab=users', label: 'USER MANAGEMENT', icon: UsersIcon },
+    { to: '/admin?tab=subscriptions', label: 'SUBSCRIPTION MANAGEMENT', icon: StarIcon },
     // Super admin system analytics lives inside the Super Admin page
     // Keep a simple link to the Super Admin console instead of admin analytics
     // { to: '/super-admin?tab=analytics', label: 'SYSTEM ANALYTICS', icon: ChartPieIcon },
@@ -58,7 +62,7 @@ export default function Sidebar({ handleLogout }) {
     links = adminLinks;
   }
   return (
-    <div className={`fixed left-0 top-0 h-screen w-64 ${darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100'} z-50 pt-4`}>
+    <div className={`fixed left-0 top-0 h-screen w-64 ${darkMode ? 'bg-[#1A1A1A]' : 'bg-white'} z-50 pt-4 border-r ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
       <div className="p-4">
         <div className="flex items-center space-x-4 mb-6">
           <div className="relative">
