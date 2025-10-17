@@ -269,9 +269,9 @@ export default function AdminDashboard() {
       setActiveTab(tab);
     } else if (!tab) {
       // Default to overview when no tab parameter is present
-      setActiveTab('overview');
+      navigate('/admin?tab=overview', { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, navigate]);
 
   // Scroll detection
   useEffect(() => {
@@ -1244,8 +1244,8 @@ export default function AdminDashboard() {
                        <div className="flex items-center justify-between mb-6">
                          <h3 className="text-xl font-bold">Content Management</h3>
                          <div className="flex space-x-2">
-                           <button 
-                             onClick={() => setActiveTab('content')}
+                          <button 
+                            onClick={() => navigate('/admin?tab=content')}
                              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
                            >
                              <PlusIcon className="w-5 h-5 inline mr-2" />
@@ -1263,8 +1263,8 @@ export default function AdminDashboard() {
 
                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                          {/* Learning Modules */}
-                         <div 
-                           onClick={() => setActiveTab('content')}
+                        <div 
+                          onClick={() => navigate('/admin?tab=content')}
                            className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'content' ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''}`}
                            tabIndex={0}
                            role="button"
@@ -1272,7 +1272,7 @@ export default function AdminDashboard() {
                            onKeyDown={(e) => {
                              if (e.key === 'Enter' || e.key === ' ') {
                                e.preventDefault();
-                               setActiveTab('content');
+                              navigate('/admin?tab=content');
                              }
                            }}
                          >
@@ -1362,8 +1362,8 @@ export default function AdminDashboard() {
                 
 
                          {/* User Support */}
-                         <div 
-                           onClick={() => setActiveTab('support')}
+                        <div 
+                          onClick={() => setActiveTab('support')}
                            className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'support' ? 'ring-2 ring-pink-500 bg-pink-50 dark:bg-pink-900/20' : ''}`}
                            tabIndex={0}
                            role="button"
@@ -1371,7 +1371,7 @@ export default function AdminDashboard() {
                            onKeyDown={(e) => {
                              if (e.key === 'Enter' || e.key === ' ') {
                                e.preventDefault();
-                               setActiveTab('support');
+                              setActiveTab('support');
                              }
                            }}
                          >
@@ -1387,8 +1387,8 @@ export default function AdminDashboard() {
                          </div>
 
                          {/* Analytics */}
-                         <div 
-                           onClick={() => setActiveTab('analytics')}
+                        <div 
+                          onClick={() => navigate('/admin?tab=analytics')}
                            className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'analytics' ? 'ring-2 ring-red-500 bg-red-50 dark:bg-red-900/20' : ''}`}
                            tabIndex={0}
                            role="button"
@@ -1396,7 +1396,7 @@ export default function AdminDashboard() {
                            onKeyDown={(e) => {
                              if (e.key === 'Enter' || e.key === ' ') {
                                e.preventDefault();
-                               setActiveTab('analytics');
+                              navigate('/admin?tab=analytics');
                              }
                            }}
                          >
@@ -1476,15 +1476,15 @@ export default function AdminDashboard() {
                      <div className={`p-6 rounded-lg border ${border} mb-8`}>
                        <h3 className="text-xl font-bold mb-4">Quick Actions</h3>
                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <button 
-                          onClick={() => setActiveTab('content')}
+                       <button 
+                         onClick={() => navigate('/admin?tab=content')}
                           className={`p-4 border rounded-lg transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'content' ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
                           tabIndex={0}
                           aria-pressed={activeTab === 'content'}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
-                              setActiveTab('content');
+                             navigate('/admin?tab=content');
                             }
                           }}
                         >
@@ -1492,15 +1492,15 @@ export default function AdminDashboard() {
                            <p className="font-semibold">Manage Signs</p>
                           <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>View and edit sign language content</p>
                          </button>
-                        <button 
-                          onClick={() => setActiveTab('users')}
+                       <button 
+                         onClick={() => navigate('/admin?tab=users')}
                           className={`p-4 border rounded-lg transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'users' ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-900/20' : darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
                           tabIndex={0}
                           aria-pressed={activeTab === 'users'}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
-                              setActiveTab('users');
+                             navigate('/admin?tab=users');
                             }
                           }}
                         >
@@ -1508,15 +1508,15 @@ export default function AdminDashboard() {
                            <p className="font-semibold">Manage Users</p>
                           <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Add and manage users in your section</p>
                          </button>
-                        <button 
-                          onClick={() => setActiveTab('subscriptions')}
+                       <button 
+                         onClick={() => navigate('/admin?tab=subscriptions')}
                           className={`p-4 border rounded-lg transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'subscriptions' ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
                           tabIndex={0}
                           aria-pressed={activeTab === 'subscriptions'}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
-                              setActiveTab('subscriptions');
+                             navigate('/admin?tab=subscriptions');
                             }
                           }}
                         >
@@ -1524,15 +1524,15 @@ export default function AdminDashboard() {
                            <p className="font-semibold">Subscription Management</p>
                           <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Manage user subscriptions and billing</p>
                          </button>
-                        <button 
-                          onClick={() => setActiveTab('analytics')}
+                       <button 
+                         onClick={() => navigate('/admin?tab=analytics')}
                           className={`p-4 border rounded-lg transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'analytics' ? 'ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-900/20' : darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
                           tabIndex={0}
                           aria-pressed={activeTab === 'analytics'}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
-                              setActiveTab('analytics');
+                             navigate('/admin?tab=analytics');
                             }
                           }}
                         >

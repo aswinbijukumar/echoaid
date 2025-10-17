@@ -99,12 +99,12 @@ export default function Sidebar({ handleLogout }) {
                 key={to}
                 to={to}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex items-center space-x-3 p-3 rounded-lg font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 ${extraSpacing}
+                className={`flex items-center space-x-3 p-3 rounded-lg font-semibold transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 ${extraSpacing}
                   ${isActive
-                    ? 'bg-green-500 text-white shadow-lg transform scale-105'
+                    ? 'bg-green-500 text-white shadow-md'
                     : darkMode
-                      ? 'text-white hover:bg-[#23272F] hover:transform hover:scale-[1.02] focus:bg-[#23272F]'
-                      : 'text-gray-900 hover:bg-gray-200 hover:transform hover:scale-[1.02] focus:bg-gray-200'}`}
+                      ? 'text-white hover:bg-[#23272F] focus:bg-[#23272F]'
+                      : 'text-gray-900 hover:bg-gray-200 focus:bg-gray-200'}`}
               >
                 <Icon className={`w-5 h-5 ${isActive ? 'text-white' : darkMode ? 'text-white' : 'text-gray-900'}`} />
                 <span>{label}</span>

@@ -31,6 +31,7 @@ export default function AdminProfile() {
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+  const [adminProfilePhoto, setAdminProfilePhoto] = useState(null);
   const fileInputRef = useRef(null);
   
   const { user, token, logout } = useAuth();
@@ -45,13 +46,14 @@ export default function AdminProfile() {
   } = useSessionManager();
 
   // Theme variables - exactly like user profile
-  const bg = darkMode ? 'bg-gray-900' : 'bg-gray-50';
-  const text = darkMode ? 'text-white' : 'text-gray-900';
-  const statusBarBg = darkMode ? 'bg-gray-800/95 backdrop-blur-sm' : 'bg-white/95 backdrop-blur-sm';
-  const cardBg = darkMode ? 'bg-gray-800' : 'bg-white';
-  const textPrimary = darkMode ? 'text-white' : 'text-gray-900';
+  const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
+  const text = darkMode ? 'text-white' : 'text-[#23272F]';
+  const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
+  const border = darkMode ? 'border-gray-600' : 'border-gray-300';
+  const sidebarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
+  const statusBarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
+  const textPrimary = darkMode ? 'text-white' : 'text-[#23272F]';
   const textSecondary = darkMode ? 'text-gray-300' : 'text-gray-600';
-  const border = darkMode ? 'border-gray-700' : 'border-gray-200';
 
   const handleLogout = async () => {
     try {
@@ -65,6 +67,10 @@ export default function AdminProfile() {
   const handlePhotoUpload = async (file) => {
     setIsUploadingPhoto(true);
     try {
+      // Create a preview URL for immediate display
+      const previewUrl = URL.createObjectURL(file);
+      setAdminProfilePhoto(previewUrl);
+      
       const formData = new FormData();
       formData.append('photo', file);
       
@@ -78,11 +84,18 @@ export default function AdminProfile() {
       
       if (response.ok) {
         const data = await response.json();
-        // Update user context or refresh
-        window.location.reload();
+        // Update admin profile photo with the server response
+        if (data.data && data.data.avatar) {
+          setAdminProfilePhoto(data.data.avatar);
+        }
+      } else {
+        // Revert on error
+        setAdminProfilePhoto(null);
       }
     } catch (error) {
       console.error('Error uploading photo:', error);
+      // Revert on error
+      setAdminProfilePhoto(null);
     } finally {
       setIsUploadingPhoto(false);
       setShowPhotoOptions(false);
@@ -99,7 +112,8 @@ export default function AdminProfile() {
       });
       
       if (response.ok) {
-        window.location.reload();
+        // Clear admin profile photo
+        setAdminProfilePhoto(null);
       }
     } catch (error) {
       console.error('Error removing photo:', error);
@@ -107,7 +121,8 @@ export default function AdminProfile() {
   };
 
   const getProfilePhoto = () => {
-    return user?.avatar && user.avatar.trim() !== '' ? user.avatar : null;
+    // Use admin-specific photo if available, otherwise use user avatar
+    return adminProfilePhoto || (user?.avatar && user.avatar.trim() !== '' ? user.avatar : null);
   };
 
   const formatDate = (dateString) => {
