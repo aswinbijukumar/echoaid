@@ -8,6 +8,8 @@ import Sidebar from '../components/Sidebar';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import SkillTree from '../components/SkillTree';
 import LessonModal from '../components/LessonModal';
+import LearningModule from '../components/LearningModule';
+import AnimatedSkill from '../components/AnimatedSkill';
 import {
   AcademicCapIcon,
   FireIcon,
@@ -35,6 +37,10 @@ export default function Learn() {
   const [error, setError] = useState(null);
   const [dailyGoal, setDailyGoal] = useState({ completed: 0, target: 5 });
   const [streakInfo, setStreakInfo] = useState({ days: 0, frozen: false });
+  
+  // Learning Module state
+  const [selectedSkill, setSelectedSkill] = useState(null);
+  const [showLearningModule, setShowLearningModule] = useState(false);
 
   // Theme variables
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
@@ -357,8 +363,8 @@ export default function Learn() {
 
   const handleUnitClick = (unit) => {
     if (unit.isUnlocked) {
-      setCurrentUnit(unit);
-      setShowLessonModal(true);
+      setSelectedSkill(unit);
+      setShowLearningModule(true);
     }
   };
 
@@ -506,73 +512,20 @@ export default function Learn() {
                   </div>
                 </div>
 
-                {/* Learning Path - Duolingo Style */}
-                <div className="space-y-6">
-                  {learningPath && learningPath.length > 0 ? learningPath.map((unit, index) => {
-                    const IconComponent = unit.icon === 'HandRaisedIcon' ? HandRaisedIcon :
-                                        unit.icon === 'AcademicCapIcon' ? AcademicCapIcon :
-                                        unit.icon === 'UserCircleIcon' ? UserCircleIcon :
-                                        unit.icon === 'BookOpenIcon' ? BookOpenIcon :
-                                        unit.icon === 'PuzzlePieceIcon' ? PuzzlePieceIcon : HandRaisedIcon;
-                    
-                    return (
-                      <div key={unit._id} className="relative">
-                        {/* Unit Card */}
-                        <div 
-                          className={`${cardBg} rounded-lg border ${border} p-6 cursor-pointer transition-all hover:shadow-lg ${
-                            unit.isUnlocked ? 'hover:scale-[1.02]' : 'opacity-60 cursor-not-allowed'
-                          }`}
-                          onClick={() => handleUnitClick(unit)}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                              <div className={`p-3 rounded-lg ${unit.color}`}>
-                                <IconComponent className="w-6 h-6 text-white" />
-                              </div>
-                              <div>
-                                <h3 className={`text-xl font-bold ${text} mb-1`}>{unit.title}</h3>
-                                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                                  {unit.description}
-                                </p>
-                                <div className="flex items-center space-x-4 mt-2">
-                                  <span className="text-xs text-gray-500">
-                                    {unit.lessons?.length || 0} lessons
-                                  </span>
-                                  <span className="text-xs text-blue-500">
-                                    {unit.xpReward || 0} XP
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="text-right">
-                              {unit.isCompleted ? (
-                                <div className="text-green-500 text-sm font-semibold">Completed</div>
-                              ) : unit.isUnlocked ? (
-                                <div className="text-blue-500 text-sm font-semibold">Start</div>
-                              ) : (
-                                <div className="text-gray-400 text-sm">Locked</div>
-                              )}
-                              <div className="w-16 bg-gray-200 rounded-full h-2 mt-2">
-                                <div 
-                                  className={`${unit.color} h-2 rounded-full transition-all duration-300`}
-                                  style={{ width: `${unit.progress}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Connection Line */}
-                        {index < (learningPath?.length || 0) - 1 && (
-                          <div className="flex justify-center my-4">
-                            <div className="w-px h-8 bg-gray-300"></div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }) : (
-                    <div className="text-center py-8">
+                {/* Learning Path - Duolingo Style with Animations */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {learningPath && learningPath.length > 0 ? learningPath.map((skill, index) => (
+                    <AnimatedSkill
+                      key={skill._id}
+                      skill={skill}
+                      onSkillClick={handleUnitClick}
+                      userLevel={userStats.level}
+                      isCompleted={skill.isCompleted}
+                      isUnlocked={skill.isUnlocked}
+                      progress={skill.progress}
+                    />
+                  )) : (
+                    <div className="col-span-full text-center py-8">
                       <p className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                         No learning content available. Please try again later.
                       </p>
@@ -615,6 +568,32 @@ export default function Learn() {
           </div>
         </div>
       </div>
+
+      {/* Learning Module */}
+      {showLearningModule && selectedSkill && (
+        <LearningModule
+          skill={selectedSkill}
+          onBack={() => {
+            setShowLearningModule(false);
+            setSelectedSkill(null);
+          }}
+          onComplete={(completedSkill) => {
+            setShowLearningModule(false);
+            setSelectedSkill(null);
+            // Update learning path to mark skill as completed
+            setLearningPath(prev => prev.map(skill => 
+              skill._id === completedSkill._id 
+                ? { ...skill, isCompleted: true, progress: 100 }
+                : skill
+            ));
+            // Update daily goal
+            setDailyGoal(prev => ({
+              ...prev,
+              completed: Math.min(prev.completed + 1, prev.target)
+            }));
+          }}
+        />
+      )}
 
       {/* Lesson Modal */}
       {showLessonModal && currentUnit && (

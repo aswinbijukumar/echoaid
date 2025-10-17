@@ -231,35 +231,6 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const handleUserDelete = async (userId) => {
-    // Prevent deletion of current user
-    if (userId === user?._id) {
-      alert('You cannot delete your own account');
-      return;
-    }
-
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      try {
-        const response = await fetch(`http://localhost:5000/api/admin/users/${userId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (response.ok) {
-          setUsers(users.filter(user => user._id !== userId));
-          alert('User deleted successfully');
-        } else {
-          const errorData = await response.json();
-          alert(errorData.message || 'Failed to delete user');
-        }
-      } catch (error) {
-        console.error('Error deleting user:', error);
-        alert('An error occurred while deleting the user');
-      }
-    }
-  };
 
   const handleAddUser = async (e) => {
     e.preventDefault();
@@ -708,16 +679,61 @@ export default function SuperAdminDashboard() {
                                       {(() => {
                                         const isSelf = userItem._id === user?._id;
                                         const isTargetSuper = userItem.role === 'super_admin';
-                                        const canDelete = !isSelf && !isTargetSuper;
-                                        const onClick = () => handleUserDelete(userItem._id);
+                                        const canToggle = !isSelf && !isTargetSuper;
+                                        
+                                        const handleToggleUserStatus = async () => {
+                                          if (!canToggle) return;
+                                          const action = userItem.isActive ? 'deactivate' : 'activate';
+                                          if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${userItem.name || userItem.email}?`)) return;
+                                          
+                                          try {
+                                            const res = await fetch(`http://localhost:5000/api/admin/users/${userItem._id}/toggle-status`, {
+                                              method: 'PATCH',
+                                              headers: {
+                                                'Content-Type': 'application/json',
+                                                'Authorization': `Bearer ${token}`
+                                              },
+                                              body: JSON.stringify({ isActive: !userItem.isActive })
+                                            });
+                                            
+                                            const data = await res.json().catch(() => ({}));
+                                            if (!res.ok) {
+                                              alert(data.message || `Failed to ${action} user`);
+                                              return;
+                                            }
+                                            
+                                            // Update the user in the list
+                                            setUsers(prev => prev.map(u => 
+                                              u._id === userItem._id 
+                                                ? { ...u, isActive: !userItem.isActive }
+                                                : u
+                                            ));
+                                            
+                                            alert(`User ${action}d successfully`);
+                                          } catch (e) {
+                                            console.error('Toggle failed', e);
+                                            alert(`${action.charAt(0).toUpperCase() + action.slice(1)} failed`);
+                                          }
+                                        };
+                                        
                                         return (
                                           <button
-                                            onClick={onClick}
-                                            disabled={!canDelete}
-                                            className={`p-1 rounded ${canDelete ? 'hover:bg-red-100 text-red-500' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-                                            title={canDelete ? 'Delete user' : 'Action not allowed'}
+                                            onClick={handleToggleUserStatus}
+                                            disabled={!canToggle}
+                                            className={`p-1 rounded ${
+                                              canToggle 
+                                                ? userItem.isActive 
+                                                  ? 'hover:bg-orange-100 text-orange-500' 
+                                                  : 'hover:bg-green-100 text-green-500'
+                                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                            }`}
+                                            title={canToggle ? (userItem.isActive ? 'Deactivate user' : 'Activate user') : 'Action not allowed'}
                                           >
-                                            <TrashIcon className="w-4 h-4" />
+                                            {userItem.isActive ? (
+                                              <XCircleIcon className="w-4 h-4" />
+                                            ) : (
+                                              <CheckCircleIcon className="w-4 h-4" />
+                                            )}
                                           </button>
                                         );
                                       })()}

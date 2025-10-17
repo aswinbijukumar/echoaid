@@ -47,10 +47,9 @@ import { useAuth } from '../context/AuthContextConstants';
 import Sidebar from '../components/Sidebar';
 import Modal from '../components/Modal';
 import ContentManagement from '../components/ContentManagement';
-import AdminQuizManagement from '../components/AdminQuizManagement';
+import LearningModulesManagement from '../components/LearningModulesManagement';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import AdminSubscriptionManagement from '../components/AdminSubscriptionManagement';
-import AdminSkillManagement from '../components/AdminSkillManagement';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { Bar, Pie } from 'react-chartjs-2';
 
@@ -190,8 +189,6 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [showQuizManagement, setShowQuizManagement] = useState(false);
-  const [showSkillManagement, setShowSkillManagement] = useState(false);
   
   // Section Assignment States
   const [assignedSection] = useState('alphabet');
@@ -265,13 +262,13 @@ export default function AdminDashboard() {
   // Handle URL parameters for tab navigation
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab && ['overview', 'content', 'users', 'subscriptions', 'analytics'].includes(tab)) {
+    if (tab && ['overview', 'content', 'learning', 'users', 'subscriptions', 'analytics'].includes(tab)) {
       setActiveTab(tab);
     } else if (!tab) {
       // Default to overview when no tab parameter is present
-      navigate('/admin?tab=overview', { replace: true });
+      setActiveTab('overview');
     }
-  }, [searchParams, navigate]);
+  }, [searchParams]);
 
   // Scroll detection
   useEffect(() => {
@@ -1083,33 +1080,6 @@ export default function AdminDashboard() {
     );
   }
 
-  // Show quiz management component if selected
-  if (showQuizManagement) {
-    return (
-      <div className={`min-h-screen ${bg} ${text}`}>
-        <div className="flex">
-          <Sidebar handleLogout={handleLogout} />
-          <div className="flex-1 ml-64">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Quiz Management</h1>
-                  <p className="text-gray-600 dark:text-gray-300">Create and manage quizzes</p>
-                </div>
-                <button
-                  onClick={() => setShowQuizManagement(false)}
-                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                >
-                  Back to Dashboard
-                </button>
-              </div>
-              <AdminQuizManagement />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className={`min-h-screen ${bg} ${text}`}>
@@ -1161,6 +1131,18 @@ export default function AdminDashboard() {
                         <div>
                           <h1 className="text-2xl font-bold">Sign Management</h1>
                           <p className="text-green-100">Manage sign language dictionary entries</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {activeTab === 'learning' && (
+                    <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <AcademicCapIcon className="w-8 h-8" />
+                        <div>
+                          <h1 className="text-2xl font-bold">Learning Modules</h1>
+                          <p className="text-blue-100">Manage Duolingo-style learning skills and progression</p>
                         </div>
                       </div>
                     </div>
@@ -1244,8 +1226,11 @@ export default function AdminDashboard() {
                        <div className="flex items-center justify-between mb-6">
                          <h3 className="text-xl font-bold">Content Management</h3>
                          <div className="flex space-x-2">
-                          <button 
-                            onClick={() => navigate('/admin?tab=content')}
+                           <button 
+                             onClick={() => {
+                               setActiveTab('content');
+                               navigate('/admin?tab=content');
+                             }}
                              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
                            >
                              <PlusIcon className="w-5 h-5 inline mr-2" />
@@ -1261,18 +1246,22 @@ export default function AdminDashboard() {
                          </div>
                        </div>
 
-                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                          {/* Learning Modules */}
-                        <div 
-                          onClick={() => navigate('/admin?tab=content')}
-                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'content' ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                         <div 
+                           onClick={() => {
+                             setActiveTab('learning');
+                             navigate('/admin?tab=learning');
+                           }}
+                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'learning' ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''}`}
                            tabIndex={0}
                            role="button"
-                           aria-pressed={activeTab === 'content'}
+                           aria-pressed={activeTab === 'learning'}
                            onKeyDown={(e) => {
                              if (e.key === 'Enter' || e.key === ' ') {
                                e.preventDefault();
-                              navigate('/admin?tab=content');
+                               setActiveTab('learning');
+                               navigate('/admin?tab=learning');
                              }
                            }}
                          >
@@ -1289,14 +1278,19 @@ export default function AdminDashboard() {
 
                          {/* Dictionary */}
                          <div 
-                           onClick={() => navigate('/dictionary')}
-                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02]`}
+                           onClick={() => {
+                             setActiveTab('content');
+                             navigate('/admin?tab=content');
+                           }}
+                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'content' ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-900/20' : ''}`}
                            tabIndex={0}
                            role="button"
+                           aria-pressed={activeTab === 'content'}
                            onKeyDown={(e) => {
                              if (e.key === 'Enter' || e.key === ' ') {
                                e.preventDefault();
-                               navigate('/dictionary');
+                               setActiveTab('content');
+                               navigate('/admin?tab=content');
                              }
                            }}
                          >
@@ -1311,84 +1305,17 @@ export default function AdminDashboard() {
                            </div>
                          </div>
 
-                         {/* Quizzes */}
-                         <div 
-                           onClick={() => setShowQuizManagement(true)}
-                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02]`}
-                           tabIndex={0}
-                           role="button"
-                           onKeyDown={(e) => {
-                             if (e.key === 'Enter' || e.key === ' ') {
-                               e.preventDefault();
-                               setShowQuizManagement(true);
-                             }
-                           }}
-                         >
-                           <div className="flex items-center space-x-3 mb-3">
-                             <PuzzlePieceIcon className="w-6 h-6 text-purple-500" />
-                             <h4 className="font-semibold">Quizzes</h4>
-                           </div>
-                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'} mb-3`}>Create and manage assessments</p>
-                           <div className="flex justify-between text-sm">
-                             <span>{contentItems.filter(item => item.type === 'quiz').length} quizzes</span>
-                             <span className="text-yellow-500">Active</span>
-                           </div>
-                         </div>
 
-                         {/* Skills Management */}
-                         <div 
-                           onClick={() => setShowSkillManagement(true)}
-                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02]`}
-                           tabIndex={0}
-                           role="button"
-                           onKeyDown={(e) => {
-                             if (e.key === 'Enter' || e.key === ' ') {
-                               e.preventDefault();
-                               setShowSkillManagement(true);
-                             }
-                           }}
-                         >
-                           <div className="flex items-center space-x-3 mb-3">
-                             <StarIcon className="w-6 h-6 text-indigo-500" />
-                             <h4 className="font-semibold">Skills & Lessons</h4>
-                           </div>
-                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'} mb-3`}>Manage Duolingo-style learning skills</p>
-                           <div className="flex justify-between text-sm">
-                             <span>0 skills</span>
-                             <span className="text-indigo-500">New</span>
-                           </div>
-                         </div>
 
                 
 
-                         {/* User Support */}
-                        <div 
-                          onClick={() => setActiveTab('support')}
-                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'support' ? 'ring-2 ring-pink-500 bg-pink-50 dark:bg-pink-900/20' : ''}`}
-                           tabIndex={0}
-                           role="button"
-                           aria-pressed={activeTab === 'support'}
-                           onKeyDown={(e) => {
-                             if (e.key === 'Enter' || e.key === ' ') {
-                               e.preventDefault();
-                              setActiveTab('support');
-                             }
-                           }}
-                         >
-                           <div className="flex items-center space-x-3 mb-3">
-                             <ChatBubbleLeftIcon className="w-6 h-6 text-pink-500" />
-                             <h4 className="font-semibold">User Support</h4>
-                           </div>
-                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'} mb-3`}>Handle user queries and tickets</p>
-                           <div className="flex justify-between text-sm">
-                             <span>{userQueries.filter(q => q.status === 'open').length} open</span>
-                             <span className="text-blue-500">Active</span>
-                           </div>
-                         </div>
 
                          {/* Analytics */}
-                        <div 
-                          onClick={() => navigate('/admin?tab=analytics')}
+                         <div 
+                           onClick={() => {
+                             setActiveTab('analytics');
+                             navigate('/admin?tab=analytics');
+                           }}
                            className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'analytics' ? 'ring-2 ring-red-500 bg-red-50 dark:bg-red-900/20' : ''}`}
                            tabIndex={0}
                            role="button"
@@ -1396,7 +1323,8 @@ export default function AdminDashboard() {
                            onKeyDown={(e) => {
                              if (e.key === 'Enter' || e.key === ' ') {
                                e.preventDefault();
-                              navigate('/admin?tab=analytics');
+                               setActiveTab('analytics');
+                               navigate('/admin?tab=analytics');
                              }
                            }}
                          >
@@ -1475,32 +1403,20 @@ export default function AdminDashboard() {
                      {/* Quick Actions */}
                      <div className={`p-6 rounded-lg border ${border} mb-8`}>
                        <h3 className="text-xl font-bold mb-4">Quick Actions</h3>
-                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                       <button 
-                         onClick={() => navigate('/admin?tab=content')}
-                          className={`p-4 border rounded-lg transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'content' ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
-                          tabIndex={0}
-                          aria-pressed={activeTab === 'content'}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                             navigate('/admin?tab=content');
-                            }
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button 
+                          onClick={() => {
+                            setActiveTab('users');
+                            navigate('/admin?tab=users');
                           }}
-                        >
-                           <DocumentTextIcon className="w-6 h-6 text-blue-500 mb-2" />
-                           <p className="font-semibold">Manage Signs</p>
-                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>View and edit sign language content</p>
-                         </button>
-                       <button 
-                         onClick={() => navigate('/admin?tab=users')}
                           className={`p-4 border rounded-lg transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'users' ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-900/20' : darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
                           tabIndex={0}
                           aria-pressed={activeTab === 'users'}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
-                             navigate('/admin?tab=users');
+                              setActiveTab('users');
+                              navigate('/admin?tab=users');
                             }
                           }}
                         >
@@ -1508,37 +1424,25 @@ export default function AdminDashboard() {
                            <p className="font-semibold">Manage Users</p>
                           <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Add and manage users in your section</p>
                          </button>
-                       <button 
-                         onClick={() => navigate('/admin?tab=subscriptions')}
+                        <button 
+                          onClick={() => {
+                            setActiveTab('subscriptions');
+                            navigate('/admin?tab=subscriptions');
+                          }}
                           className={`p-4 border rounded-lg transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'subscriptions' ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
                           tabIndex={0}
                           aria-pressed={activeTab === 'subscriptions'}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
-                             navigate('/admin?tab=subscriptions');
+                              setActiveTab('subscriptions');
+                              navigate('/admin?tab=subscriptions');
                             }
                           }}
                         >
                            <StarIcon className="w-6 h-6 text-blue-500 mb-2" />
                            <p className="font-semibold">Subscription Management</p>
                           <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Manage user subscriptions and billing</p>
-                         </button>
-                       <button 
-                         onClick={() => navigate('/admin?tab=analytics')}
-                          className={`p-4 border rounded-lg transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'analytics' ? 'ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-900/20' : darkMode ? 'hover:bg-[#1F2937]' : 'hover:bg-gray-50'}`}
-                          tabIndex={0}
-                          aria-pressed={activeTab === 'analytics'}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                             navigate('/admin?tab=analytics');
-                            }
-                          }}
-                        >
-                           <ChartPieIcon className="w-6 h-6 text-purple-500 mb-2" />
-                           <p className="font-semibold">View Analytics</p>
-                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Check section performance</p>
                          </button>
                        </div>
                      </div>
@@ -1548,6 +1452,11 @@ export default function AdminDashboard() {
                 {/* Content Management Tab */}
                 {activeTab === 'content' && (
                   <ContentManagement />
+                )}
+
+                {/* Learning Modules Tab */}
+                {activeTab === 'learning' && (
+                  <LearningModulesManagement />
                 )}
 
                 {/* User Management Tab */}
@@ -1634,42 +1543,67 @@ export default function AdminDashboard() {
                                 {(() => {
                                   const isSelf = currentUser && currentUser._id === userItem._id;
                                   const isTargetSuper = userItem.role === 'super_admin';
-                                  const canAdminDelete = currentUser?.role === 'admin' && userItem.role === 'user';
-                                  const canSuperDelete = currentUser?.role === 'super_admin' && (userItem.role === 'user' || userItem.role === 'admin');
-                                  const canDelete = !isSelf && !isTargetSuper && (canAdminDelete || canSuperDelete);
+                                  const canAdminToggle = currentUser?.role === 'admin' && userItem.role === 'user';
+                                  const canSuperToggle = currentUser?.role === 'super_admin' && (userItem.role === 'user' || userItem.role === 'admin');
+                                  const canToggle = !isSelf && !isTargetSuper && (canAdminToggle || canSuperToggle);
 
-                                  const handleDeleteUser = async () => {
-                                    if (!canDelete) return;
-                                    if (!confirm(`Soft delete ${userItem.name || userItem.email}?`)) return;
+                                  const handleToggleUserStatus = async () => {
+                                    if (!canToggle) return;
+                                    const action = userItem.isActive ? 'deactivate' : 'activate';
+                                    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${userItem.name || userItem.email}?`)) return;
+                                    
                                     try {
-                                      const res = await fetch(`http://localhost:5000/api/admin/users/${userItem._id}`, {
-                                        method: 'DELETE',
+                                      const res = await fetch(`http://localhost:5000/api/admin/users/${userItem._id}/toggle-status`, {
+                                        method: 'PATCH',
                                         headers: {
-                                          'Authorization': `Bearer ${token}`,
-                                          'If-Updated-At': userItem.updatedAt || ''
-                                        }
+                                          'Content-Type': 'application/json',
+                                          'Authorization': `Bearer ${token}`
+                                        },
+                                        body: JSON.stringify({ isActive: !userItem.isActive })
                                       });
+                                      
                                       const data = await res.json().catch(() => ({}));
                                       if (!res.ok) {
-                                        alert(data.message || 'Failed to delete user');
+                                        alert(data.message || `Failed to ${action} user`);
                                         return;
                                       }
-                                      // Optimistically remove from list
-                                      setUsers(prev => prev.filter(u => u._id !== userItem._id));
+                                      
+                                      // Update the user in the list
+                                      setUsers(prev => prev.map(u => 
+                                        u._id === userItem._id 
+                                          ? { ...u, isActive: !userItem.isActive }
+                                          : u
+                                      ));
+                                      
+                                      alert(`User ${action}d successfully`);
                                     } catch (e) {
-                                      console.error('Delete failed', e);
-                                      alert('Delete failed');
+                                      console.error('Toggle failed', e);
+                                      alert(`${action.charAt(0).toUpperCase() + action.slice(1)} failed`);
                                     }
                                   };
 
                                   return (
                                     <button
-                                      onClick={handleDeleteUser}
-                                      disabled={!canDelete}
-                                      className={`inline-flex items-center px-3 py-1 rounded text-sm ${canDelete ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
-                                      title={canDelete ? 'Soft delete user' : 'Action not allowed'}
+                                      onClick={handleToggleUserStatus}
+                                      disabled={!canToggle}
+                                      className={`inline-flex items-center px-3 py-1 rounded text-sm ${
+                                        canToggle 
+                                          ? userItem.isActive 
+                                            ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                                            : 'bg-green-500 hover:bg-green-600 text-white'
+                                          : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                      }`}
+                                      title={canToggle ? (userItem.isActive ? 'Deactivate user' : 'Activate user') : 'Action not allowed'}
                                     >
-                                      <TrashIcon className="w-4 h-4 mr-1" /> Delete
+                                      {userItem.isActive ? (
+                                        <>
+                                          <XCircleIcon className="w-4 h-4 mr-1" /> Deactivate
+                                        </>
+                                      ) : (
+                                        <>
+                                          <CheckCircleIcon className="w-4 h-4 mr-1" /> Activate
+                                        </>
+                                      )}
                                     </button>
                                   );
                                 })()}
@@ -2484,25 +2418,6 @@ export default function AdminDashboard() {
         </Modal>
       )}
 
-      {/* Skill Management Modal */}
-      {showSkillManagement && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-[#1A1A1A] rounded-lg w-full max-w-7xl h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-600">
-              <h2 className="text-2xl font-bold">Skills & Lessons Management</h2>
-              <button
-                onClick={() => setShowSkillManagement(false)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              >
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="h-full overflow-y-auto">
-              <AdminSkillManagement />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Enhanced Scroll to Top Button */}
       {showScrollTop && (

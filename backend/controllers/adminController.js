@@ -33,17 +33,17 @@ export const getManagedUsers = async (req, res) => {
     const currentUser = req.user;
     let query = {};
     
-    // If admin, show all regular users (active)
+    // If admin, show all regular users (both active and inactive)
     if (currentUser.role === 'admin') {
-      query = { role: 'user', isActive: true };
+      query = { role: 'user' }; // Show both active and inactive users
     } else if (currentUser.role === 'super_admin') {
-      // Super admin sees admins and users (active)
-      query = { role: { $in: ['user', 'admin'] }, isActive: true };
+      // Super admin sees admins and users (both active and inactive)
+      query = { role: { $in: ['user', 'admin'] } };
     } else {
       query = { _id: null }; // no access
     }
     
-    const users = await User.find(query).select('-password');
+    const users = await User.find(query).select('-password').sort({ isActive: -1, name: 1 });
     
     res.status(200).json({
       success: true,
@@ -237,6 +237,91 @@ export const updateUser = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'User updated successfully',
+      data: user
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Toggle user active status (Admin and Super Admin)
+// @route   PATCH /api/admin/users/:id/toggle-status
+// @access  Private (Admin, Super Admin)
+export const toggleUserStatus = async (req, res) => {
+  try {
+    const { isActive } = req.body;
+    const currentUser = req.user;
+    
+    const user = await User.findById(req.params.id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Prevent users from toggling their own status
+    if (user._id.toString() === currentUser._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You cannot change your own status'
+      });
+    }
+    
+    // Check permissions
+    if (currentUser.role === 'admin') {
+      // Admin can only manage users assigned to them
+      if (user.managedBy?.toString() !== currentUser._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only manage users assigned to you'
+        });
+      }
+      // Admin cannot manage other admins or super admins
+      if (user.role !== 'user') {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only manage regular users'
+        });
+      }
+    } else if (currentUser.role === 'super_admin') {
+      // Super admin can manage users and admins, but not other super admins
+      if (user.role === 'super_admin') {
+        return res.status(403).json({
+          success: false,
+          message: 'Cannot manage other super admins'
+        });
+      }
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: 'Insufficient permissions'
+      });
+    }
+    
+    // Update user status
+    const before = user.toObject();
+    user.isActive = isActive;
+    await user.save();
+    
+    // Log the action
+    await AuditLog.create({
+      actorId: currentUser._id,
+      action: isActive ? 'activate_user' : 'deactivate_user',
+      onModel: 'User',
+      targetId: user._id,
+      before,
+      after: user.toObject()
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: `User ${isActive ? 'activated' : 'deactivated'} successfully`,
       data: user
     });
   } catch (error) {

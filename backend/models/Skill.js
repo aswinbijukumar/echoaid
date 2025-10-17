@@ -14,7 +14,7 @@ const skillSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['basics', 'alphabet', 'phrases', 'family', 'activities', 'advanced'],
+    enum: ['basics', 'alphabet', 'numbers', 'phrases', 'family', 'activities', 'advanced'],
     required: true
   },
   level: {
@@ -27,6 +27,69 @@ const skillSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  // Learning Module Structure
+  moduleType: {
+    type: String,
+    enum: ['flashcards', 'quiz', 'mixed'],
+    default: 'flashcards'
+  },
+  // Visual Flashcards Structure
+  flashcards: [{
+    word: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    meaning: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    imagePath: {
+      type: String,
+      required: true
+    },
+    videoPath: {
+      type: String
+    },
+    audioPath: {
+      type: String
+    },
+    difficulty: {
+      type: String,
+      enum: ['beginner', 'intermediate', 'advanced'],
+      default: 'beginner'
+    }
+  }],
+  // Quiz Mode Structure
+  quizQuestions: [{
+    questionType: {
+      type: String,
+      enum: ['image-to-word', 'word-to-image', 'audio-to-image'],
+      required: true
+    },
+    question: {
+      type: String,
+      required: true
+    },
+    correctAnswer: {
+      type: String,
+      required: true
+    },
+    options: [{
+      type: String,
+      required: true
+    }],
+    imagePath: {
+      type: String
+    },
+    audioPath: {
+      type: String
+    },
+    explanation: {
+      type: String
+    }
+  }],
   prerequisites: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Skill'

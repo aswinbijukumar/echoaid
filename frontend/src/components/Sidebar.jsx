@@ -36,6 +36,7 @@ export default function Sidebar({ handleLogout }) {
   const adminLinks = [
     { to: '/admin?tab=overview', label: 'DASHBOARD OVERVIEW', icon: ChartBarIcon },
     { to: '/admin?tab=content', label: 'SIGN MANAGEMENT', icon: DocumentTextIcon },
+    { to: '/admin?tab=learning', label: 'LEARNING MODULES', icon: AcademicCapIcon },
     { to: '/admin?tab=users', label: 'USER MANAGEMENT', icon: UsersIcon },
     { to: '/admin?tab=subscriptions', label: 'SUBSCRIPTION MANAGEMENT', icon: StarIcon },
     { to: '/admin?tab=analytics', label: 'SECTION ANALYTICS', icon: ChartPieIcon },
@@ -99,9 +100,9 @@ export default function Sidebar({ handleLogout }) {
                 key={to}
                 to={to}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex items-center space-x-3 p-3 rounded-lg font-semibold transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 ${extraSpacing}
+                className={`flex items-center space-x-3 p-3 rounded-lg font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 ${extraSpacing}
                   ${isActive
-                    ? 'bg-green-500 text-white shadow-md'
+                    ? 'bg-green-500 text-white shadow-lg'
                     : darkMode
                       ? 'text-white hover:bg-[#23272F] focus:bg-[#23272F]'
                       : 'text-gray-900 hover:bg-gray-200 focus:bg-gray-200'}`}

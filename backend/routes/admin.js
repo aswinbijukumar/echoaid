@@ -11,7 +11,8 @@ import {
   deleteUser,
   createUser,
   getAdminDashboard,
-  getUserStats
+  getUserStats,
+  toggleUserStatus
 } from '../controllers/adminController.js';
 import { protect, superAdminOnly, adminAndSuperAdmin, canManageUsers, canViewAnalytics } from '../middleware/roleAuth.js';
 
@@ -36,6 +37,7 @@ router.get('/users', adminAndSuperAdmin, canManageUsers, getManagedUsers);
 router.post('/users', adminAndSuperAdmin, canManageUsers, createUser);
 router.get('/users/:id', adminAndSuperAdmin, canManageUsers, getUserById);
 router.put('/users/:id', adminAndSuperAdmin, canManageUsers, updateUser);
+router.patch('/users/:id/toggle-status', adminAndSuperAdmin, canManageUsers, toggleUserStatus);
 router.delete('/users/:id', adminAndSuperAdmin, canManageUsers, deleteUser);
 
 export default router; 

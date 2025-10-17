@@ -17,6 +17,9 @@ import subscriptionRoutes from './routes/subscription.js';
 import adminSubscriptionRoutes from './routes/adminSubscription.js';
 import curriculumRoutes from './routes/curriculum.js';
 import skillRoutes from './routes/skills.js';
+import adminSkillsRoutes from './routes/adminSkills.js';
+import uploadRoutes from './routes/upload.js';
+import ttsRoutes from './routes/tts.js';
 import { getAllCategories, getCategoryById, createSignWithVariants } from './controllers/contentController.js';
 import { errorHandler } from './utils/errorHandler.js';
 import { protect, adminAndSuperAdmin, canManageContent } from './middleware/roleAuth.js';
@@ -46,6 +49,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB Connected'))
@@ -65,6 +71,9 @@ app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/admin/subscriptions', adminSubscriptionRoutes);
 app.use('/api/curriculum', curriculumRoutes);
 app.use('/api/curriculum/skills', skillRoutes);
+app.use('/api/admin/skills', adminSkillsRoutes);
+app.use('/api/admin/upload', uploadRoutes);
+app.use('/api/admin/tts', ttsRoutes);
 
 // Public aliases for categories so user Dictionary can access them without auth
 app.get('/api/content/categories', getAllCategories);

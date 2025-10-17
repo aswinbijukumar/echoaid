@@ -299,29 +299,43 @@ export default function ContentManagement() {
     
     const formData = new FormData();
     
-    // Only append fields that have values (not empty strings)
-    if (editForm.word && editForm.word.trim()) {
+    // Always send all fields that have been modified or are required
+    // This allows for partial updates while maintaining data integrity
+    
+    // Word field - always send if it has content
+    if (editForm.word !== undefined && editForm.word.trim() !== '') {
       formData.append('word', editForm.word.trim());
     }
-    if (editForm.category && editForm.category.trim()) {
-      formData.append('category', editForm.category.trim());
+    
+    // Category field - send if changed from original or if explicitly set
+    if (editForm.category !== undefined && editForm.category !== '') {
+      formData.append('category', editForm.category);
     }
-    if (editForm.difficulty && editForm.difficulty.trim()) {
-      formData.append('difficulty', editForm.difficulty.trim());
+    
+    // Difficulty field - send if changed from original or if explicitly set
+    if (editForm.difficulty !== undefined && editForm.difficulty !== '') {
+      formData.append('difficulty', editForm.difficulty);
     }
-    if (editForm.description && editForm.description.trim()) {
+    
+    // Description field - send if it has content (can be empty to clear)
+    if (editForm.description !== undefined) {
       formData.append('description', editForm.description.trim());
     }
-    if (editForm.usage && editForm.usage.trim()) {
+    
+    // Usage field - send if it has content (can be empty to clear)
+    if (editForm.usage !== undefined) {
       formData.append('usage', editForm.usage.trim());
     }
-    if (editForm.tags && editForm.tags.trim()) {
+    
+    // Tags field - send if it has content (can be empty to clear)
+    if (editForm.tags !== undefined) {
       formData.append('tags', editForm.tags.trim());
     }
     
-    // Handle boolean value properly
+    // Status field - always send the current value
     formData.append('isActive', editForm.isActive.toString());
 
+    // File uploads - only send if new files are selected
     if (editFiles.image) {
       formData.append('image', editFiles.image);
     }
@@ -393,7 +407,7 @@ export default function ContentManagement() {
       difficulty: sign.difficulty || '',
       description: sign.description || '',
       usage: sign.usage || '',
-      tags: sign.tags || '',
+      tags: Array.isArray(sign.tags) ? sign.tags.join(', ') : (sign.tags || ''),
       isActive: sign.isActive !== undefined ? sign.isActive : true
     });
     setEditFiles({ image: null, video: null });
@@ -1488,12 +1502,25 @@ export default function ContentManagement() {
       {/* Edit Sign Modal */}
       {showEditModal && selectedSign && (
         <Modal isOpen={showEditModal} onClose={() => { setShowEditModal(false); setSelectedSign(null); }} title="Edit Sign" className="bg-transparent border border-white/20 backdrop-blur-sm max-w-4xl w-full mx-4">
+          <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+              <h3 className="text-blue-400 font-semibold">Quick Edit Mode</h3>
+            </div>
+            <p className="text-sm text-gray-300">
+              You can edit any field below. Only the fields you change will be updated. 
+              Leave fields unchanged to keep their current values.
+            </p>
+          </div>
           <form onSubmit={handleEditSign} className="space-y-6">
             {/* Word Field - Full Width */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-3">
                 Word
                 <span className="text-xs text-gray-400 ml-2">({editForm.word.length}/50 characters)</span>
+                {editForm.word !== selectedSign.word && (
+                  <span className="ml-2 text-xs text-green-400">✓ Will be updated</span>
+                )}
               </label>
               <input
                 type="text"
@@ -1502,12 +1529,21 @@ export default function ContentManagement() {
                   const value = e.target.value.slice(0, 50);
                   setEditForm({...editForm, word: value});
                 }}
-                className="w-full bg-transparent border border-white/20 text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200"
+                className={`w-full bg-transparent border text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200 ${
+                  editForm.word !== selectedSign.word 
+                    ? 'border-green-500/50 bg-green-500/5' 
+                    : 'border-white/20'
+                }`}
                 placeholder="Enter the sign word (e.g., Hello, Thank you, or single letters like a, b, c)"
               />
               {editForm.word.length > 50 && (
                 <div className="mt-2 text-xs text-red-400">
                   Word must be less than 50 characters
+                </div>
+              )}
+              {editForm.word !== selectedSign.word && (
+                <div className="mt-2 text-xs text-gray-400">
+                  Current: "{selectedSign.word}" → New: "{editForm.word}"
                 </div>
               )}
             </div>
@@ -1516,41 +1552,59 @@ export default function ContentManagement() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-3">
-                  Category <span className="text-yellow-400">⚠</span>
+                  Category
+                  {editForm.category !== selectedSign.category && editForm.category !== '' && (
+                    <span className="ml-2 text-xs text-green-400">✓ Will be updated</span>
+                  )}
                 </label>
                 <select
                   value={editForm.category}
                   onChange={(e) => setEditForm({...editForm, category: e.target.value})}
-                  className="w-full bg-transparent border border-white/20 text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200"
+                  className={`w-full bg-transparent border text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200 ${
+                    editForm.category !== selectedSign.category && editForm.category !== ''
+                      ? 'border-green-500/50 bg-green-500/5' 
+                      : 'border-white/20'
+                  }`}
                 >
-                  <option value="" className="bg-gray-800 text-gray-400">Keep current category</option>
+                  <option value="" className="bg-gray-800 text-gray-400">Keep current: {selectedSign.category}</option>
                   {categories.map(category => (
                     <option key={category._id} value={category.slug} className="bg-gray-800 text-white">
                       {category.name}
                     </option>
                   ))}
                 </select>
-                {editForm.category && (
-                  <div className="mt-2 text-xs text-green-400">✓ Category updated</div>
+                {editForm.category !== selectedSign.category && editForm.category !== '' && (
+                  <div className="mt-2 text-xs text-gray-400">
+                    Current: "{selectedSign.category}" → New: "{editForm.category}"
+                  </div>
                 )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-3">
-                  Difficulty <span className="text-yellow-400">⚠</span>
+                  Difficulty
+                  {editForm.difficulty !== selectedSign.difficulty && editForm.difficulty !== '' && (
+                    <span className="ml-2 text-xs text-green-400">✓ Will be updated</span>
+                  )}
                 </label>
                 <select
                   value={editForm.difficulty}
                   onChange={(e) => setEditForm({...editForm, difficulty: e.target.value})}
-                  className="w-full bg-transparent border border-white/20 text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200"
+                  className={`w-full bg-transparent border text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200 ${
+                    editForm.difficulty !== selectedSign.difficulty && editForm.difficulty !== ''
+                      ? 'border-green-500/50 bg-green-500/5' 
+                      : 'border-white/20'
+                  }`}
                 >
-                  <option value="" className="bg-gray-800 text-gray-400">Keep current difficulty</option>
+                  <option value="" className="bg-gray-800 text-gray-400">Keep current: {selectedSign.difficulty}</option>
                   <option value="Beginner" className="bg-gray-800 text-white">Beginner - Basic signs</option>
                   <option value="Intermediate" className="bg-gray-800 text-white">Intermediate - Moderate complexity</option>
                   <option value="Advanced" className="bg-gray-800 text-white">Advanced - Complex signs</option>
                 </select>
-                {editForm.difficulty && (
-                  <div className="mt-2 text-xs text-green-400">✓ Difficulty updated</div>
+                {editForm.difficulty !== selectedSign.difficulty && editForm.difficulty !== '' && (
+                  <div className="mt-2 text-xs text-gray-400">
+                    Current: "{selectedSign.difficulty}" → New: "{editForm.difficulty}"
+                  </div>
                 )}
               </div>
             </div>
@@ -1560,6 +1614,9 @@ export default function ContentManagement() {
               <label className="block text-sm font-medium text-gray-300 mb-3">
                 Description
                 <span className="text-xs text-gray-400 ml-2">({editForm.description.length}/500 characters)</span>
+                {editForm.description !== selectedSign.description && (
+                  <span className="ml-2 text-xs text-green-400">✓ Will be updated</span>
+                )}
               </label>
               <textarea
                 value={editForm.description}
@@ -1568,16 +1625,22 @@ export default function ContentManagement() {
                   setEditForm({...editForm, description: value});
                 }}
                 rows="4"
-                className="w-full bg-transparent border border-white/20 text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200 resize-none"
+                className={`w-full bg-transparent border text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200 resize-none ${
+                  editForm.description !== selectedSign.description 
+                    ? 'border-green-500/50 bg-green-500/5' 
+                    : 'border-white/20'
+                }`}
                 placeholder="Describe the sign, its usage, or context (optional)"
               />
-              {editForm.description.length > 0 && (
+              {editForm.description.length > 500 && (
+                <div className="mt-2 text-xs text-red-400">
+                  Description must be less than 500 characters
+                </div>
+              )}
+              {editForm.description !== selectedSign.description && (
                 <div className="mt-2 text-xs text-gray-400">
-                  {editForm.description.length > 500 ? (
-                    <span className="text-red-400">Description must be less than 500 characters</span>
-                  ) : (
-                    <span className="text-green-400">✓ Valid description</span>
-                  )}
+                  {selectedSign.description ? `Current: "${selectedSign.description}"` : 'Current: (empty)'} → 
+                  {editForm.description ? ` New: "${editForm.description}"` : ' New: (empty)'}
                 </div>
               )}
             </div>
@@ -1588,6 +1651,9 @@ export default function ContentManagement() {
                 <label className="block text-sm font-medium text-gray-300 mb-3">
                   Usage Context
                   <span className="text-xs text-gray-400 ml-2">({editForm.usage?.length || 0}/200 characters)</span>
+                  {editForm.usage !== selectedSign.usage && (
+                    <span className="ml-2 text-xs text-green-400">✓ Will be updated</span>
+                  )}
                 </label>
                 <input
                   type="text"
@@ -1596,24 +1662,45 @@ export default function ContentManagement() {
                     const value = e.target.value.slice(0, 200);
                     setEditForm({...editForm, usage: value});
                   }}
-                  className="w-full bg-transparent border border-white/20 text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200"
+                  className={`w-full bg-transparent border text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200 ${
+                    editForm.usage !== selectedSign.usage 
+                      ? 'border-green-500/50 bg-green-500/5' 
+                      : 'border-white/20'
+                  }`}
                   placeholder="When to use this sign (e.g., Greeting, Formal setting)"
                 />
+                {editForm.usage !== selectedSign.usage && (
+                  <div className="mt-2 text-xs text-gray-400">
+                    {selectedSign.usage ? `Current: "${selectedSign.usage}"` : 'Current: (empty)'} → 
+                    {editForm.usage ? ` New: "${editForm.usage}"` : ' New: (empty)'}
+                  </div>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-3">
-                  Status <span className="text-yellow-400">⚠</span>
+                  Status
+                  {editForm.isActive !== selectedSign.isActive && (
+                    <span className="ml-2 text-xs text-green-400">✓ Will be updated</span>
+                  )}
                 </label>
                 <select
                   value={editForm.isActive}
                   onChange={(e) => setEditForm({...editForm, isActive: e.target.value === 'true'})}
-                  className="w-full bg-transparent border border-white/20 text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200"
+                  className={`w-full bg-transparent border text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200 ${
+                    editForm.isActive !== selectedSign.isActive 
+                      ? 'border-green-500/50 bg-green-500/5' 
+                      : 'border-white/20'
+                  }`}
                 >
                   <option value={true} className="bg-gray-800 text-white">Active</option>
                   <option value={false} className="bg-gray-800 text-white">Inactive</option>
                 </select>
-                <div className="mt-2 text-xs text-gray-400">Current status will be maintained if not changed</div>
+                {editForm.isActive !== selectedSign.isActive && (
+                  <div className="mt-2 text-xs text-gray-400">
+                    Current: {selectedSign.isActive ? 'Active' : 'Inactive'} → New: {editForm.isActive ? 'Active' : 'Inactive'}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1622,14 +1709,27 @@ export default function ContentManagement() {
               <label className="block text-sm font-medium text-gray-300 mb-3">
                 Tags
                 <span className="text-xs text-gray-400 ml-2">(comma-separated)</span>
+                {editForm.tags !== (Array.isArray(selectedSign.tags) ? selectedSign.tags.join(', ') : selectedSign.tags || '') && (
+                  <span className="ml-2 text-xs text-green-400">✓ Will be updated</span>
+                )}
               </label>
               <input
                 type="text"
                 value={editForm.tags || ''}
                 onChange={(e) => setEditForm({...editForm, tags: e.target.value})}
-                className="w-full bg-transparent border border-white/20 text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200"
+                className={`w-full bg-transparent border text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200 ${
+                  editForm.tags !== (Array.isArray(selectedSign.tags) ? selectedSign.tags.join(', ') : selectedSign.tags || '')
+                    ? 'border-green-500/50 bg-green-500/5' 
+                    : 'border-white/20'
+                }`}
                 placeholder="greeting, formal, common (optional)"
               />
+              {editForm.tags !== (Array.isArray(selectedSign.tags) ? selectedSign.tags.join(', ') : selectedSign.tags || '') && (
+                <div className="mt-2 text-xs text-gray-400">
+                  Current: "{Array.isArray(selectedSign.tags) ? selectedSign.tags.join(', ') : selectedSign.tags || '(empty)'}" → 
+                  New: "{editForm.tags || '(empty)'}"
+                </div>
+              )}
             </div>
 
             {/* File Upload Section */}
@@ -1697,22 +1797,53 @@ export default function ContentManagement() {
               </div>
             </div>
 
-            {/* Form Validation Summary */}
+            {/* Changes Summary */}
             <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-              <h4 className="text-lg font-semibold text-white mb-4">Edit Validation Summary</h4>
-              <div className="grid grid-cols-1 gap-4 text-sm">
-                <div className="flex items-center space-x-3">
-                  {editForm.description.length <= 500 ? (
-                    <span className="text-green-400 text-lg">✓</span>
-                  ) : (
-                    <span className="text-red-400 text-lg">✗</span>
-                  )}
-                  <span className="text-gray-300">Description (max 500 characters) - Only validation rule</span>
-                </div>
+              <h4 className="text-lg font-semibold text-white mb-4">Changes Summary</h4>
+              <div className="space-y-3">
+                {(() => {
+                  const changes = [];
+                  if (editForm.word !== selectedSign.word) changes.push('Word');
+                  if (editForm.category !== selectedSign.category && editForm.category !== '') changes.push('Category');
+                  if (editForm.difficulty !== selectedSign.difficulty && editForm.difficulty !== '') changes.push('Difficulty');
+                  if (editForm.description !== selectedSign.description) changes.push('Description');
+                  if (editForm.usage !== selectedSign.usage) changes.push('Usage');
+                  if (editForm.tags !== (Array.isArray(selectedSign.tags) ? selectedSign.tags.join(', ') : selectedSign.tags || '')) changes.push('Tags');
+                  if (editForm.isActive !== selectedSign.isActive) changes.push('Status');
+                  if (editFiles.image) changes.push('Image');
+                  if (editFiles.video) changes.push('Video');
+                  
+                  if (changes.length === 0) {
+                    return (
+                      <div className="flex items-center space-x-3">
+                        <span className="text-gray-400 text-lg">ℹ</span>
+                        <span className="text-gray-300">No changes detected. All fields will remain unchanged.</span>
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-green-400 text-lg">✓</span>
+                        <span className="text-gray-300">The following fields will be updated:</span>
+                      </div>
+                      <div className="ml-8">
+                        <div className="flex flex-wrap gap-2">
+                          {changes.map((change, index) => (
+                            <span key={index} className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm border border-green-500/30">
+                              {change}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
-              <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                <p className="text-xs text-green-400">
-                  ✅ <strong>Flexible Edit Mode:</strong> You can update any field or leave them unchanged. Only description has a character limit. All other fields are completely optional and can be single characters like "a", "b", "c".
+              <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <p className="text-xs text-blue-400">
+                  💡 <strong>Partial Update:</strong> Only the fields you've changed will be updated. Unchanged fields will keep their current values.
                 </p>
               </div>
             </div>
