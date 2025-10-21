@@ -34,7 +34,11 @@ export default function AdminSkillManagement() {
     category: 'basics',
     order: 1,
     xpReward: 20,
-    exercises: []
+    level: 0,
+    isActive: true,
+    moduleType: 'mixed',
+    flashcards: [],
+    quizQuestions: []
   });
 
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
@@ -69,7 +73,7 @@ export default function AdminSkillManagement() {
   const fetchSkills = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/curriculum/skills`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/skills`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -138,7 +142,11 @@ export default function AdminSkillManagement() {
 
   const handleAddSkill = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/curriculum/skills`, {
+      if (!validateMediaRule()) {
+        alert('For alphabet/numbers, flashcards must include images; for phrases/sentences and similar, use videoPath on flashcards.');
+        return;
+      }
+      const response = await fetch(`${API_BASE_URL}/api/admin/skills`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -151,8 +159,11 @@ export default function AdminSkillManagement() {
         await fetchSkills();
         setShowAddModal(false);
         resetForm();
+        alert('Skill created successfully!');
       } else {
-        console.error('Failed to add skill');
+        const errorData = await response.json();
+        console.error('Failed to add skill:', errorData);
+        alert(`Failed to create skill: ${errorData.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error adding skill:', error);
@@ -161,7 +172,11 @@ export default function AdminSkillManagement() {
 
   const handleEditSkill = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/curriculum/skills/${selectedSkill._id}`, {
+      if (!validateMediaRule()) {
+        alert('For alphabet/numbers, flashcards must include images; for phrases/sentences and similar, use videoPath on flashcards.');
+        return;
+      }
+      const response = await fetch(`${API_BASE_URL}/api/admin/skills/${selectedSkill._id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -187,7 +202,7 @@ export default function AdminSkillManagement() {
     if (!confirm('Are you sure you want to delete this skill?')) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/curriculum/skills/${skillId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/skills/${skillId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -211,7 +226,11 @@ export default function AdminSkillManagement() {
       category: 'basics',
       order: 1,
       xpReward: 20,
-      exercises: []
+      level: 0,
+      isActive: true,
+      moduleType: 'mixed',
+      flashcards: [],
+      quizQuestions: []
     });
   };
 
@@ -223,38 +242,38 @@ export default function AdminSkillManagement() {
       category: skill.category,
       order: skill.order,
       xpReward: skill.xpReward,
-      exercises: skill.exercises || []
+      level: skill.level || 0,
+      isActive: skill.isActive !== undefined ? skill.isActive : true,
+      moduleType: skill.moduleType || 'mixed',
+      flashcards: skill.flashcards || [],
+      quizQuestions: skill.quizQuestions || []
     });
     setShowEditModal(true);
   };
 
-  const addExercise = () => {
-    setFormData(prev => ({
-      ...prev,
-      exercises: [...prev.exercises, {
-        type: 'sign-recognition',
-        question: '',
-        correctAnswer: '',
-        explanation: '',
-        points: 10
-      }]
-    }));
-  };
+  // Flashcards editor helpers
+  const addFlashcard = () => setFormData(prev => ({ ...prev, flashcards: [...(prev.flashcards||[]), { word: '', meaning: '', imagePath: '', videoPath: '', audioPath: '', difficulty: 'beginner' }] }));
+  const removeFlashcard = (i) => setFormData(prev => ({ ...prev, flashcards: prev.flashcards.filter((_,idx)=> idx!==i) }));
+  const updateFlashcard = (i, field, value) => setFormData(prev => ({ ...prev, flashcards: prev.flashcards.map((c,idx)=> idx===i? { ...c, [field]: value } : c) }));
 
-  const removeExercise = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      exercises: prev.exercises.filter((_, i) => i !== index)
-    }));
-  };
+  // Quiz editor helpers
+  const addQuizQuestion = () => setFormData(prev => ({ ...prev, quizQuestions: [...(prev.quizQuestions||[]), { questionType: 'word-to-image', question: '', correctAnswer: '', options: ['', ''], mediaUrl: '' }] }));
+  const removeQuizQuestion = (i) => setFormData(prev => ({ ...prev, quizQuestions: prev.quizQuestions.filter((_,idx)=> idx!==i) }));
+  const updateQuizQuestion = (i, field, value) => setFormData(prev => ({ ...prev, quizQuestions: prev.quizQuestions.map((q,idx)=> idx===i? { ...q, [field]: value } : q) }));
+  const updateQuizOption = (qi, oi, value) => setFormData(prev => ({ ...prev, quizQuestions: prev.quizQuestions.map((q,idx)=> idx===qi? { ...q, options: q.options.map((o,ox)=> ox===oi? value: o) } : q) }));
+  const addQuizOption = (qi) => setFormData(prev => ({ ...prev, quizQuestions: prev.quizQuestions.map((q,idx)=> idx===qi? { ...q, options: [...q.options, ''] } : q) }));
+  const removeQuizOption = (qi, oi) => setFormData(prev => ({ ...prev, quizQuestions: prev.quizQuestions.map((q,idx)=> idx===qi? { ...q, options: q.options.filter((_,ox)=> ox!==oi) } : q) }));
 
-  const updateExercise = (index, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      exercises: prev.exercises.map((exercise, i) => 
-        i === index ? { ...exercise, [field]: value } : exercise
-      )
-    }));
+  // Validate category media rule (alphabet/numbers => image flashcards; others => video)
+  const validateMediaRule = () => {
+    const cat = formData.category;
+    const isImgCat = cat === 'alphabet' || cat === 'numbers';
+    const cards = formData.flashcards || [];
+    for (const card of cards) {
+      if (isImgCat) { if (!card.imagePath) return false; }
+      else { if (!card.videoPath) return false; }
+    }
+    return true;
   };
 
   const filteredSkills = skills.filter(skill => {
@@ -483,67 +502,89 @@ export default function AdminSkillManagement() {
                 />
               </div>
 
-              {/* Exercises */}
+              {/* Module Type */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Module Type</label>
+                <select
+                  value={formData.moduleType}
+                  onChange={(e)=> setFormData(prev=> ({ ...prev, moduleType: e.target.value }))}
+                  className={`w-full px-3 py-2 border ${border} rounded-lg ${inputBg} ${text}`}
+                >
+                  <option value="flashcards">Flashcards</option>
+                  <option value="quiz">Quiz</option>
+                  <option value="mixed">Mixed</option>
+                </select>
+              </div>
+
+              {/* Flashcards Editor */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <label className="block text-sm font-medium">Exercises</label>
-                  <button
-                    onClick={addExercise}
-                    className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
-                  >
-                    Add Exercise
-                  </button>
+                  <label className="block text-sm font-medium">Flashcards</label>
+                  <button onClick={addFlashcard} className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600">Add Card</button>
                 </div>
-
                 <div className="space-y-3">
-                  {formData.exercises.map((exercise, index) => (
-                    <div key={index} className={`p-3 border ${border} rounded-lg`}>
+                  {(formData.flashcards||[]).map((card, idx)=> (
+                    <div key={idx} className={`p-3 border ${border} rounded-lg`}>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Exercise {index + 1}</span>
-                        <button
-                          onClick={() => removeExercise(index)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
+                        <span className="text-sm font-medium">Card {idx+1}</span>
+                        <button onClick={()=> removeFlashcard(idx)} className="text-red-500 hover:text-red-700"><TrashIcon className="w-4 h-4" /></button>
                       </div>
-
                       <div className="grid grid-cols-2 gap-2 mb-2">
-                        <select
-                          value={exercise.type}
-                          onChange={(e) => updateExercise(index, 'type', e.target.value)}
-                          className={`px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm`}
-                        >
-                          {exerciseTypes.map(type => (
-                            <option key={type.value} value={type.value}>{type.label}</option>
-                          ))}
-                        </select>
-
-                        <input
-                          type="number"
-                          value={exercise.points}
-                          onChange={(e) => updateExercise(index, 'points', parseInt(e.target.value))}
-                          className={`px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm`}
-                          placeholder="Points"
-                          min="1"
-                        />
+                        <input value={card.word} onChange={(e)=> updateFlashcard(idx,'word', e.target.value)} className={`px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm`} placeholder="Word"/>
+                        <input value={card.meaning} onChange={(e)=> updateFlashcard(idx,'meaning', e.target.value)} className={`px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm`} placeholder="Meaning"/>
                       </div>
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        <input value={card.imagePath||''} onChange={(e)=> updateFlashcard(idx,'imagePath', e.target.value)} className={`px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm`} placeholder="Image URL"/>
+                        <input value={card.videoPath||''} onChange={(e)=> updateFlashcard(idx,'videoPath', e.target.value)} className={`px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm`} placeholder="Video URL"/>
+                        <input value={card.audioPath||''} onChange={(e)=> updateFlashcard(idx,'audioPath', e.target.value)} className={`px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm`} placeholder="Audio URL (optional)"/>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select value={card.difficulty||'beginner'} onChange={(e)=> updateFlashcard(idx,'difficulty', e.target.value)} className={`px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm`}>
+                          <option value="beginner">beginner</option>
+                          <option value="intermediate">intermediate</option>
+                          <option value="advanced">advanced</option>
+                        </select>
+                        <input value={card.tips||''} onChange={(e)=> updateFlashcard(idx,'tips', e.target.value)} className={`px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm`} placeholder="Tip (optional)"/>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-2">Alphabet/Numbers: prefer images. Phrases/Sentences: prefer videos.</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-                      <input
-                        type="text"
-                        value={exercise.question}
-                        onChange={(e) => updateExercise(index, 'question', e.target.value)}
-                        className={`w-full px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm mb-2`}
-                        placeholder="Question"
-                      />
-
-                      <input
-                        type="text"
-                        value={exercise.correctAnswer}
-                        onChange={(e) => updateExercise(index, 'correctAnswer', e.target.value)}
-                        className={`w-full px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm`}
-                        placeholder="Correct Answer"
-                      />
+              {/* Quiz Editor */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium">Quiz Questions</label>
+                  <button onClick={addQuizQuestion} className="bg-purple-500 text-white px-3 py-1 rounded text-sm hover:bg-purple-600">Add Question</button>
+                </div>
+                <div className="space-y-3">
+                  {(formData.quizQuestions||[]).map((q, qIdx)=> (
+                    <div key={qIdx} className={`p-3 border ${border} rounded-lg`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Question {qIdx+1}</span>
+                        <button onClick={()=> removeQuizQuestion(qIdx)} className="text-red-500 hover:text-red-700"><TrashIcon className="w-4 h-4" /></button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <select value={q.questionType||'word-to-image'} onChange={(e)=> updateQuizQuestion(qIdx,'questionType', e.target.value)} className={`px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm`}>
+                          <option value="word-to-image">word-to-image</option>
+                          <option value="image-to-word">image-to-word</option>
+                          <option value="audio-to-image">audio-to-image</option>
+                          <option value="true-false">true-false</option>
+                        </select>
+                        <input value={q.mediaUrl||''} onChange={(e)=> updateQuizQuestion(qIdx,'mediaUrl', e.target.value)} className={`px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm`} placeholder="Media URL (optional)"/>
+                      </div>
+                      <input value={q.question} onChange={(e)=> updateQuizQuestion(qIdx,'question', e.target.value)} className={`w-full px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm mb-2`} placeholder="Question"/>
+                      <div className="space-y-1">
+                        {(q.options||[]).map((opt, oi)=> (
+                          <div key={oi} className="flex items-center space-x-2">
+                            <input value={opt} onChange={(e)=> updateQuizOption(qIdx, oi, e.target.value)} className={`flex-1 px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm`} placeholder={`Option ${oi+1}`}/>
+                            <button onClick={()=> removeQuizOption(qIdx, oi)} className="text-red-500 hover:text-red-700 text-xs px-2">Remove</button>
+                          </div>
+                        ))}
+                        <button onClick={()=> addQuizOption(qIdx)} className="text-blue-600 text-xs hover:underline">Add option</button>
+                      </div>
+                      <input value={q.correctAnswer} onChange={(e)=> updateQuizQuestion(qIdx,'correctAnswer', e.target.value)} className={`w-full mt-2 px-2 py-1 border ${border} rounded ${inputBg} ${text} text-sm`} placeholder="Correct Answer"/>
                     </div>
                   ))}
                 </div>

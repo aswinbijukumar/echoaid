@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTheme } from '../hooks/useTheme';
+import { API_BASE_URL } from '../constants/api';
 import audioGenerator from '../utils/audioGenerator';
 import {
   ArrowRightIcon,
@@ -25,6 +26,19 @@ export default function Flashcard({
 }) {
   const { darkMode } = useTheme();
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showAdditionalImages, setShowAdditionalImages] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // Function to construct proper image URL
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    // If it's already a full URL (including Cloudinary), return as is
+    if (imagePath.startsWith('http')) return imagePath;
+    // If it's a Cloudinary URL, return as is
+    if (imagePath.includes('cloudinary.com')) return imagePath;
+    // Otherwise, construct the full URL for local files
+    return `${API_BASE_URL}${imagePath}`;
+  };
 
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
   const text = darkMode ? 'text-white' : 'text-[#23272F]';
@@ -35,18 +49,32 @@ export default function Flashcard({
     setIsPlaying(true);
     
     try {
-      // If there's a pre-recorded audio file, use it
-      if (card.audioPath) {
+      // Priority 1: Use admin-generated audio if available
+      if (card.generatedAudio?.audioText) {
+        console.log('Playing admin-generated audio:', card.generatedAudio.audioText);
+        await audioGenerator.generateAudio(card.generatedAudio.audioText, {
+          rate: 0.6, // Even slower for learning instructions
+          pitch: 1.0,
+          volume: 1.0
+        });
+        setIsPlaying(false);
+      }
+      // Priority 2: If there's a pre-recorded audio file, use it
+      else if (card.audioPath) {
+        console.log('Playing pre-recorded audio:', card.audioPath);
         const audio = new Audio(card.audioPath);
         audio.play();
         audio.onended = () => setIsPlaying(false);
         audio.onerror = () => {
+          console.log('Audio file failed, falling back to TTS');
           setIsPlaying(false);
           // Fallback to TTS if audio file fails
           generateTTS();
         };
-      } else {
-        // Generate TTS audio for the word
+      } 
+      // Priority 3: Generate TTS audio for the word
+      else {
+        console.log('Generating TTS audio for:', card.word);
         await generateTTS();
       }
     } catch (error) {
@@ -69,25 +97,32 @@ export default function Flashcard({
     }
   };
 
-  const getDifficultyColor = (difficulty) => {
-    switch (difficulty) {
-      case 'beginner': return 'bg-green-500';
-      case 'intermediate': return 'bg-yellow-500';
-      case 'advanced': return 'bg-red-500';
-      default: return 'bg-gray-500';
+  const stopAudio = () => {
+    // Stop any playing audio
+    setIsPlaying(false);
+    // Stop TTS if it's playing
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
     }
+    // Stop any HTML audio elements
+    const audioElements = document.querySelectorAll('audio');
+    audioElements.forEach(audio => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
   };
 
+
   return (
-    <div className={`w-full max-w-2xl mx-auto ${bg}`}>
+    <div className="w-full max-w-2xl mx-auto bg-transparent">
       {/* Progress Bar */}
       {showProgress && (
         <div className="mb-6">
-          <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400 mb-2">
+          <div className="flex justify-between text-sm text-gray-400 mb-2">
             <span>Card {currentIndex + 1} of {totalCards}</span>
             <span>{Math.round(((currentIndex + 1) / totalCards) * 100)}% Complete</span>
           </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+          <div className="w-full bg-white/10 rounded-full h-2">
             <div 
               className="bg-green-500 h-2 rounded-full transition-all duration-300"
               style={{ width: `${((currentIndex + 1) / totalCards) * 100}%` }}
@@ -97,13 +132,7 @@ export default function Flashcard({
       )}
 
       {/* Flashcard */}
-      <div className={`relative ${cardBg} rounded-2xl shadow-xl border ${border} overflow-hidden`}>
-        {/* Difficulty Badge */}
-        <div className="absolute top-4 right-4 z-10">
-          <span className={`px-3 py-1 rounded-full text-xs font-medium text-white ${getDifficultyColor(card.difficulty)}`}>
-            {card.difficulty}
-          </span>
-        </div>
+      <div className="relative bg-white/5 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 overflow-hidden">
 
         {/* Card Content */}
         <div className="aspect-[4/3] relative">
@@ -112,11 +141,31 @@ export default function Flashcard({
             <div className="h-full flex flex-col items-center justify-center p-8">
               <div className="w-full h-full flex items-center justify-center mb-6">
                 {card.imagePath ? (
-                  <img 
-                    src={card.imagePath} 
-                    alt={card.word}
-                    className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
-                  />
+                  <div className="relative w-full h-full">
+                    <img 
+                      src={getImageUrl(card.imagePath)} 
+                      alt={card.word}
+                      className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                      onError={(e) => {
+                        console.log('Image failed to load:', card.imagePath);
+                        e.target.style.display = 'none';
+                        // Show fallback text
+                        const fallback = document.createElement('div');
+                        fallback.className = 'w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-lg';
+                        fallback.textContent = 'Image not available';
+                        e.target.parentNode.appendChild(fallback);
+                      }}
+                    />
+                    {/* Additional Images Indicator */}
+                    {card.additionalImages && card.additionalImages.length > 0 && (
+                      <button
+                        onClick={() => setShowAdditionalImages(true)}
+                        className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full hover:bg-blue-600 transition-colors"
+                      >
+                        +{card.additionalImages.length} more
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <div className="w-32 h-32 bg-gray-300 dark:bg-gray-600 rounded-lg flex items-center justify-center">
                     <span className="text-gray-500 dark:text-gray-400 text-sm">No Image</span>
@@ -140,19 +189,36 @@ export default function Flashcard({
                   {card.word}
                 </h2>
                 
-                {card.audioPath && (
+                {/* Audio Controls - Always show for admin-generated audio */}
+                <div className="mb-4 flex items-center space-x-3">
                   <button
                     onClick={playAudio}
                     disabled={isPlaying}
-                    className="mb-4 p-3 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors disabled:opacity-50"
+                    className="p-3 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center space-x-2"
                   >
                     {isPlaying ? (
-                      <PlayIcon className="w-6 h-6" />
+                      <>
+                        <PlayIcon className="w-6 h-6 animate-pulse" />
+                        <span className="text-sm">Playing...</span>
+                      </>
                     ) : (
-                      <SpeakerWaveIcon className="w-6 h-6" />
+                      <>
+                        <SpeakerWaveIcon className="w-6 h-6" />
+                        <span className="text-sm">Listen</span>
+                      </>
                     )}
                   </button>
-                )}
+                  
+                  {/* Replay Button */}
+                  <button
+                    onClick={playAudio}
+                    disabled={isPlaying}
+                    className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors disabled:opacity-50"
+                    title="Replay audio"
+                  >
+                    <SpeakerWaveIcon className="w-5 h-5" />
+                  </button>
+                </div>
                 
                 <p className="text-lg text-gray-600 dark:text-gray-300">
                   {card.meaning}
@@ -169,7 +235,21 @@ export default function Flashcard({
                 </button>
                 
                 <button
-                  onClick={onComplete}
+                  onClick={() => {
+                    console.log('Got it! button clicked');
+                    // Stop any playing audio first
+                    stopAudio();
+                    // Mark this card as completed
+                    if (onComplete) {
+                      console.log('Calling onComplete...');
+                      onComplete();
+                    }
+                    // Move to next card if not the last one
+                    if (!isLast && onNext) {
+                      console.log('Moving to next card...');
+                      onNext();
+                    }
+                  }}
                   className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center space-x-2"
                 >
                   <CheckCircleIcon className="w-4 h-4" />
@@ -224,6 +304,57 @@ export default function Flashcard({
           <ArrowRightIcon className="w-4 h-4" />
         </button>
       </div>
+      
+      {/* Additional Images Modal */}
+      {showAdditionalImages && card.additionalImages && card.additionalImages.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 max-w-2xl mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Additional Images</h3>
+              <button
+                onClick={() => setShowAdditionalImages(false)}
+                className="text-white hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <img 
+                src={getImageUrl(card.additionalImages[currentImageIndex])} 
+                alt={`Additional ${currentImageIndex + 1}`}
+                className="w-full h-64 object-contain rounded-lg"
+                onError={(e) => {
+                  console.log('Additional image failed to load:', card.additionalImages[currentImageIndex]);
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setCurrentImageIndex(Math.max(0, currentImageIndex - 1))}
+                disabled={currentImageIndex === 0}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              
+              <span className="text-white">
+                {currentImageIndex + 1} of {card.additionalImages.length}
+              </span>
+              
+              <button
+                onClick={() => setCurrentImageIndex(Math.min(card.additionalImages.length - 1, currentImageIndex + 1))}
+                disabled={currentImageIndex === card.additionalImages.length - 1}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -116,11 +116,35 @@ export const createSkill = async (req, res) => {
     // Validate flashcards if provided
     if (flashcards && flashcards.length > 0) {
       for (const card of flashcards) {
-        if (!card.word || !card.meaning || !card.imagePath) {
+        if (!card.word || !card.meaning) {
           return res.status(400).json({
             success: false,
-            message: 'Each flashcard must have word, meaning, and imagePath'
+            message: 'Each flashcard must have word and meaning'
           });
+        }
+        
+        // Category-specific validation
+        if (category === 'alphabet' || category === 'numbers') {
+          if (!card.imagePath) {
+            return res.status(400).json({
+              success: false,
+              message: 'Alphabet and numbers categories require imagePath for each flashcard'
+            });
+          }
+        } else if (category === 'phrases') {
+          if (!card.videoPath) {
+            return res.status(400).json({
+              success: false,
+              message: 'Phrases category requires videoPath for each flashcard'
+            });
+          }
+        } else {
+          // Other categories - media is optional for partial updates
+          // Only validate if both imagePath and videoPath are explicitly provided and empty
+          if (card.imagePath === '' && card.videoPath === '') {
+            // This is allowed for partial updates - admin can add media later
+            console.log(`Flashcard "${card.word}": Media will be added later`);
+          }
         }
       }
     }
@@ -255,11 +279,36 @@ export const updateSkill = async (req, res) => {
     // Validate flashcards if provided
     if (flashcards !== undefined && flashcards.length > 0) {
       for (const card of flashcards) {
-        if (!card.word || !card.meaning || !card.imagePath) {
+        if (!card.word || !card.meaning) {
           return res.status(400).json({
             success: false,
-            message: 'Each flashcard must have word, meaning, and imagePath'
+            message: 'Each flashcard must have word and meaning'
           });
+        }
+        
+        // Category-specific validation
+        const currentCategory = category !== undefined ? category : skill.category;
+        if (currentCategory === 'alphabet' || currentCategory === 'numbers') {
+          if (!card.imagePath) {
+            return res.status(400).json({
+              success: false,
+              message: 'Alphabet and numbers categories require imagePath for each flashcard'
+            });
+          }
+        } else if (currentCategory === 'phrases') {
+          if (!card.videoPath) {
+            return res.status(400).json({
+              success: false,
+              message: 'Phrases category requires videoPath for each flashcard'
+            });
+          }
+        } else {
+          // Other categories - media is optional for partial updates
+          // Only validate if both imagePath and videoPath are explicitly provided and empty
+          if (card.imagePath === '' && card.videoPath === '') {
+            // This is allowed for partial updates - admin can add media later
+            console.log(`Flashcard "${card.word}": Media will be added later`);
+          }
         }
       }
     }

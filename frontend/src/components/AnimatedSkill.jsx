@@ -124,6 +124,12 @@ export default function AnimatedSkill({ skill, onSkillClick, userLevel, isComple
         }`}
         onClick={handleClick}
       >
+        {/* Level badge */}
+        {isUnlocked && (
+          <div className="absolute top-2 left-2 text-[11px] px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+            {skill.level >= 3 ? 'Hard' : skill.level === 2 ? 'Medium' : 'Easy'}
+          </div>
+        )}
         {/* Skill Icon */}
         <div className="relative mb-4">
           <div className={`${skillColor} p-4 rounded-xl shadow-lg transition-all duration-300 ${

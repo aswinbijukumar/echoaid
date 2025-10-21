@@ -1,13 +1,17 @@
-const DETECT_URL = 'http://localhost:8001/detect';
+// Route via backend so we can auth, log attempts, and unify thresholds
+const PRACTICE_RECOGNIZE_URL = 'http://localhost:5000/api/practice/recognize';
 
-export async function detectImageFromBlob(imageBlob) {
+export async function detectImageFromBlob(imageBlob, { signId } = {}) {
   try {
     console.log('[detect] sending blob', { size: imageBlob?.size });
   } catch {}
   const form = new FormData();
-  form.append('file', imageBlob, 'frame.jpg');
-  const res = await fetch(DETECT_URL, {
+  form.append('image', imageBlob, 'frame.jpg');
+  if (signId) form.append('signId', signId);
+  const token = localStorage.getItem('token');
+  const res = await fetch(PRACTICE_RECOGNIZE_URL, {
     method: 'POST',
+    headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
     body: form
   });
   if (!res.ok) throw new Error('Detection failed');
@@ -20,7 +24,7 @@ export async function detectImageFromBlob(imageBlob) {
 }
 
 // New function to handle data URLs (base64 images)
-export async function detectImageFromDataUrl(dataUrl) {
+export async function detectImageFromDataUrl(dataUrl, { signId } = {}) {
   try {
     console.log('[detect] sending dataURL', { length: dataUrl?.length });
     
@@ -29,10 +33,12 @@ export async function detectImageFromDataUrl(dataUrl) {
     const blob = await response.blob();
     
     const form = new FormData();
-    form.append('file', blob, 'frame.jpg');
-    
-    const res = await fetch(DETECT_URL, {
+    form.append('image', blob, 'frame.jpg');
+    if (signId) form.append('signId', signId);
+    const token = localStorage.getItem('token');
+    const res = await fetch(PRACTICE_RECOGNIZE_URL, {
       method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
       body: form
     });
     

@@ -48,8 +48,13 @@ import Sidebar from '../components/Sidebar';
 import Modal from '../components/Modal';
 import ContentManagement from '../components/ContentManagement';
 import LearningModulesManagement from '../components/LearningModulesManagement';
+import QuizGenerator from '../components/QuizGenerator';
+import AdminQuizManagement from '../components/AdminQuizManagement';
+ 
+import MessagesNotification from '../components/MessagesNotification';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import AdminSubscriptionManagement from '../components/AdminSubscriptionManagement';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { Bar, Pie } from 'react-chartjs-2';
 
@@ -262,10 +267,10 @@ export default function AdminDashboard() {
   // Handle URL parameters for tab navigation
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab && ['overview', 'content', 'learning', 'users', 'subscriptions', 'analytics'].includes(tab)) {
+    const allowed = ['overview', 'content', 'learning', 'users', 'subscriptions', 'analytics', 'quizzes'];
+    if (tab && allowed.includes(tab)) {
       setActiveTab(tab);
     } else if (!tab) {
-      // Default to overview when no tab parameter is present
       setActiveTab('overview');
     }
   }, [searchParams]);
@@ -1092,6 +1097,7 @@ export default function AdminDashboard() {
           </div>
           
           <div className="flex items-center space-x-4">
+            <MessagesNotification />
             <TopBarUserAvatar size={8} showName={false} />
           </div>
         </div>
@@ -1276,6 +1282,35 @@ export default function AdminDashboard() {
                            </div>
                          </div>
 
+                         {/* Quiz Generator */}
+                         <div 
+                           onClick={() => {
+                             setActiveTab('quiz-generator');
+                             navigate('/admin?tab=quiz-generator');
+                           }}
+                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'quiz-generator' ? 'ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-900/20' : ''}`}
+                           tabIndex={0}
+                           role="button"
+                           aria-pressed={activeTab === 'quiz-generator'}
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter' || e.key === ' ') {
+                               e.preventDefault();
+                               setActiveTab('quiz-generator');
+                               navigate('/admin?tab=quiz-generator');
+                             }
+                           }}
+                         >
+                           <div className="flex items-center space-x-3 mb-3">
+                             <PuzzlePieceIcon className="w-6 h-6 text-purple-500" />
+                             <h4 className="font-semibold">Quiz Generator</h4>
+                           </div>
+                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'} mb-3`}>Auto-generate quizzes from learning modules</p>
+                           <div className="flex justify-between text-sm">
+                             <span>Auto-generated</span>
+                             <span className="text-purple-500">Smart</span>
+                           </div>
+                         </div>
+
                          {/* Dictionary */}
                          <div 
                            onClick={() => {
@@ -1310,7 +1345,36 @@ export default function AdminDashboard() {
                 
 
 
-                         {/* Analytics */}
+                        {/* Manage Quizzes */}
+                        <div 
+                          onClick={() => {
+                            setActiveTab('quizzes');
+                            navigate('/admin?tab=quizzes');
+                          }}
+                          className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'quizzes' ? 'ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-900/20' : ''}`}
+                          tabIndex={0}
+                          role="button"
+                          aria-pressed={activeTab === 'quizzes'}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setActiveTab('quizzes');
+                              navigate('/admin?tab=quizzes');
+                            }
+                          }}
+                        >
+                          <div className="flex items-center space-x-3 mb-3">
+                            <PuzzlePieceIcon className="w-6 h-6 text-purple-500" />
+                            <h4 className="font-semibold">Manage Quizzes</h4>
+                          </div>
+                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'} mb-3`}>Create and manage quizzes</p>
+                          <div className="flex justify-between text-sm">
+                            <span>Quizzes</span>
+                            <span className="text-green-500">Active</span>
+                          </div>
+                        </div>
+
+                        {/* Analytics */}
                          <div 
                            onClick={() => {
                              setActiveTab('analytics');
@@ -1457,6 +1521,16 @@ export default function AdminDashboard() {
                 {/* Learning Modules Tab */}
                 {activeTab === 'learning' && (
                   <LearningModulesManagement />
+                )}
+
+                {/* Quiz Generator Tab */}
+                {activeTab === 'quiz-generator' && (
+                  <QuizGenerator />
+                )}
+
+                {/* Manage Quizzes Tab */}
+                {activeTab === 'quizzes' && (
+                  <AdminQuizManagement />
                 )}
 
                 {/* User Management Tab */}
@@ -1668,7 +1742,9 @@ export default function AdminDashboard() {
                     <div className="flex items-center justify-between">
                       <h3 className="text-xl font-bold">Subscription Management</h3>
                     </div>
-                    <AdminSubscriptionManagement />
+                    <ErrorBoundary>
+                      <AdminSubscriptionManagement />
+                    </ErrorBoundary>
                   </div>
                 )}
 

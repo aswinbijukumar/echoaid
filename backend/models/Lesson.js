@@ -11,6 +11,10 @@ const lessonSchema = new mongoose.Schema({
     type: String,
     maxlength: [300, 'Description cannot be more than 300 characters']
   },
+  shortDescription: {
+    type: String,
+    maxlength: [150, 'Short description cannot be more than 150 characters']
+  },
   unit: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Unit',
@@ -29,7 +33,7 @@ const lessonSchema = new mongoose.Schema({
     type: Number, // in minutes
     default: 10
   },
-  objectives: [{
+  learningObjectives: [{
     type: String,
     maxlength: [200, 'Objective cannot be more than 200 characters']
   }],
@@ -38,32 +42,13 @@ const lessonSchema = new mongoose.Schema({
     ref: 'Sign'
   }],
   exercises: [{
-    type: {
-      type: String,
-      enum: ['sign-recognition', 'sign-production', 'translation', 'matching', 'fill-blank'],
-      required: true
-    },
-    question: {
-      type: String,
-      required: true
-    },
-    options: [{
-      text: String,
-      isCorrect: Boolean,
-      explanation: String
-    }],
-    correctAnswer: String,
-    explanation: String,
-    points: {
-      type: Number,
-      default: 10
-    },
-    mediaUrl: String,
-    targetSign: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Sign'
-    }
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Exercise'
   }],
+  totalExercises: {
+    type: Number,
+    default: 0
+  },
   prerequisites: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Lesson'
@@ -76,15 +61,34 @@ const lessonSchema = new mongoose.Schema({
     minAccuracy: {
       type: Number,
       default: 0
+    },
+    minXP: {
+      type: Number,
+      default: 0
     }
   },
   xpReward: {
     type: Number,
     default: 20
   },
+  coverImage: {
+    type: String
+  },
+  thumbnail: {
+    type: String
+  },
   isActive: {
     type: Boolean,
     default: true
+  },
+  isPublished: {
+    type: Boolean,
+    default: false
+  },
+  stats: {
+    totalCompletions: { type: Number, default: 0 },
+    averageScore: { type: Number, default: 0 },
+    averageTimeSpent: { type: Number, default: 0 }
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -97,7 +101,7 @@ const lessonSchema = new mongoose.Schema({
 
 // Index for efficient queries
 lessonSchema.index({ unit: 1, order: 1 });
-lessonSchema.index({ level: 1 });
-lessonSchema.index({ isActive: 1 });
+lessonSchema.index({ level: 1, isActive: 1, isPublished: 1 });
+lessonSchema.index({ createdBy: 1 });
 
 export default mongoose.model('Lesson', lessonSchema);

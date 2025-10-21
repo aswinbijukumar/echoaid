@@ -2,6 +2,8 @@ import Skill from '../models/Skill.js';
 import UserSkillProgress from '../models/UserSkillProgress.js';
 import User from '../models/User.js';
 import Sign from '../models/Sign.js';
+import Quiz from '../models/Quiz.js';
+import QuizAttempt from '../models/QuizAttempt.js';
 
 // Get all skills with user progress
 export const getSkills = async (req, res) => {
@@ -10,17 +12,32 @@ export const getSkills = async (req, res) => {
     const skills = await Skill.find({ isActive: true })
       .populate('signs', 'word category difficulty imagePath videoPath')
       .populate('targetSign', 'word category difficulty imagePath videoPath')
-      .sort({ category: 1, order: 1 });
+      .sort({ level: 1, order: 1 }); // Sort by level first, then by order
 
     // Get user progress
     const userProgress = await UserSkillProgress.findOne({ user: userId });
     
-    const skillsWithProgress = skills.map(skill => {
+    // Get completed skill IDs for unlocking logic
+    const completedSkillIds = userProgress?.skills
+      ?.filter(sp => sp.isCompleted)
+      ?.map(sp => sp.skill.toString()) || [];
+    
+    // Debug: Log skills data (remove in production)
+    console.log('Skills data:', skills.map(s => ({ 
+      title: s.title, 
+      level: s.level, 
+      order: s.order,
+      skillLevel: s.level 
+    })));
+    console.log('Completed skill IDs:', completedSkillIds);
+    
+    const skillsWithProgress = await Promise.all(skills.map(async (skill, index) => {
       const skillProgress = userProgress?.skills.find(
         sp => sp.skill.toString() === skill._id.toString()
       );
       
-      const isUnlocked = checkSkillUnlock(skill, userProgress);
+      // Enhanced unlock logic: handle levels and order properly
+      const isUnlocked = await checkSkillUnlockLogic(skill, skills, completedSkillIds, userProgress, userId);
       const isCompleted = skillProgress?.isCompleted || false;
       const level = skillProgress?.level || 0;
       
@@ -28,7 +45,9 @@ export const getSkills = async (req, res) => {
         ...skill.toObject(),
         isCompleted,
         isUnlocked,
-        level,
+        userLevel: level, // User's progress level
+        skillLevel: skill.level, // Original skill level
+        level: skill.level, // Use admin-set level, not user progress level
         progress: (level / 5) * 100,
         completedAt: skillProgress?.completedAt,
         lastPracticed: skillProgress?.lastPracticed,
@@ -37,7 +56,7 @@ export const getSkills = async (req, res) => {
         correctAnswers: skillProgress?.correctAnswers || 0,
         streak: skillProgress?.streak || 0
       };
-    });
+    }));
 
     res.status(200).json({
       success: true,
@@ -126,11 +145,11 @@ export const completeSkillLesson = async (req, res) => {
       skillProgress.totalXP += xpEarned;
       skillProgress.lastPracticed = new Date();
       
-      // Level up if enough XP
-      if (skillProgress.totalXP >= skill.xpReward * (skillProgress.level + 1)) {
-        skillProgress.level = Math.min(5, skillProgress.level + 1);
-        skillProgress.isCompleted = skillProgress.level >= 5;
-        skillProgress.completedAt = skillProgress.isCompleted ? new Date() : null;
+      // Mark as completed immediately when user finishes the module
+      if (!skillProgress.isCompleted) {
+        skillProgress.isCompleted = true;
+        skillProgress.completedAt = new Date();
+        skillProgress.level = 1; // Set to level 1 when completed
       }
       
       // Update streak
@@ -143,9 +162,9 @@ export const completeSkillLesson = async (req, res) => {
       userProgress.skills.push({
         skill: skillId,
         level: 1,
-        isCompleted: false,
+        isCompleted: true, // Mark as completed immediately
         isUnlocked: true,
-        completedAt: null,
+        completedAt: new Date(), // Set completion date
         lastPracticed: new Date(),
         totalXP: xpEarned,
         attempts: 1,
@@ -161,14 +180,36 @@ export const completeSkillLesson = async (req, res) => {
 
     await userProgress.save();
 
+    // Check for overall user level up
+    const user = await User.findById(userId);
+    const currentUserLevel = user.learningStats?.level || 0;
+    const newUserLevel = Math.floor(userProgress.daily.progress / 1000); // Level up every 1000 XP
+    const userLevelUp = newUserLevel > currentUserLevel;
+
     // Update User model learning stats
     await User.findByIdAndUpdate(userId, {
       $set: {
         'learningStats.totalXP': userProgress.daily.progress,
         'learningStats.streak': userProgress.streak,
-        'learningStats.lastActiveDate': userProgress.lastActiveDate
+        'learningStats.lastActiveDate': userProgress.lastActiveDate,
+        'learningStats.level': newUserLevel
       }
     });
+
+    // Check if this is the last module in the current level
+    const currentLevel = skill.level;
+    const allSkillsInLevel = await Skill.find({ 
+      level: currentLevel, 
+      isActive: true 
+    }).sort({ order: 1 });
+    
+    const completedSkillsInLevel = allSkillsInLevel.filter(s => 
+      userProgress.skills.some(sp => 
+        sp.skill.toString() === s._id.toString() && sp.isCompleted
+      )
+    );
+    
+    const isLastModuleInLevel = completedSkillsInLevel.length === allSkillsInLevel.length;
 
     res.status(200).json({
       success: true,
@@ -181,7 +222,20 @@ export const completeSkillLesson = async (req, res) => {
         heartsUsed,
         newLevel: userProgress.skills[existingSkillIndex]?.level || 1,
         totalXP: userProgress.daily.progress,
-        streak: userProgress.streak
+        streak: userProgress.streak,
+        isLastModuleInLevel,
+        currentLevel,
+        completedInLevel: completedSkillsInLevel.length,
+        totalInLevel: allSkillsInLevel.length,
+        user: {
+          levelUp: userLevelUp,
+          newLevel: newUserLevel,
+          learningStats: {
+            totalXP: userProgress.daily.progress,
+            streak: userProgress.streak,
+            level: newUserLevel
+          }
+        }
       }
     });
   } catch (error) {
@@ -194,21 +248,88 @@ export const completeSkillLesson = async (req, res) => {
 };
 
 // Helper functions
-const checkSkillUnlock = (skill, userProgress) => {
-  if (!userProgress) return skill.order === 1;
+// Check if user has passed the quiz for a specific level
+const checkLevelQuizPassed = async (userId, level) => {
+  try {
+    // Find the quiz for this level
+    const quiz = await Quiz.findOne({
+      title: `Level ${level} Mastery Quiz`,
+      isActive: true
+    });
+
+    if (!quiz) {
+      console.log(`No quiz found for Level ${level}`);
+      return false;
+    }
+
+    // Check if user has passed this quiz
+    const passedAttempt = await QuizAttempt.findOne({
+      user: userId,
+      quiz: quiz._id,
+      score: { $gte: quiz.passingScore }
+    });
+
+    console.log(`Level ${level} quiz passed:`, !!passedAttempt);
+    return !!passedAttempt;
+  } catch (error) {
+    console.error('Error checking level quiz:', error);
+    return false;
+  }
+};
+
+const checkSkillUnlockLogic = async (skill, allSkills, completedSkillIds, userProgress, userId) => {
+  console.log('Checking unlock for skill:', skill.title, 'Level:', skill.level, 'Order:', skill.order);
   
-  // Check prerequisites
-  const completedSkillIds = userProgress.skills
-    .filter(sp => sp.isCompleted)
-    .map(sp => sp.skill.toString());
+  // First skill in the entire system (Level 0, Order 1) is always unlocked
+  if (skill.order === 1 && skill.level === 0) {
+    console.log('First skill unlocked:', skill.title);
+    return true;
+  }
   
-  const hasPrerequisites = skill.prerequisites.every(prereq => 
-    completedSkillIds.includes(prereq.toString())
-  );
+  if (!userProgress) {
+    console.log('No user progress, skill locked:', skill.title);
+    return false;
+  }
   
-  // Check level and XP requirements
-  const meetsLevel = userProgress.skills.some(sp => sp.level >= skill.unlockRequirements.minLevel);
-  const meetsXP = userProgress.daily.progress >= skill.unlockRequirements.minXP;
+  // Get all skills in the same level, sorted by order
+  const sameLevelSkills = allSkills.filter(s => s.level === skill.level).sort((a, b) => a.order - b.order);
+  const currentSkillIndex = sameLevelSkills.findIndex(s => s._id.toString() === skill._id.toString());
   
-  return hasPrerequisites && (meetsLevel || meetsXP);
+  console.log('Same level skills:', sameLevelSkills.map(s => ({ title: s.title, order: s.order })));
+  console.log('Current skill index:', currentSkillIndex);
+  
+  // If this is the first skill in its level, check if previous level is completed
+  if (currentSkillIndex === 0) {
+    // For Level 0, first skill is already unlocked (handled above)
+    if (skill.level === 0) {
+      console.log('Level 0 first skill should be unlocked:', skill.title);
+      return true;
+    }
+    
+    // For other levels, check if all skills in previous level are completed
+    const previousLevelSkills = allSkills.filter(s => s.level === skill.level - 1);
+    const allPreviousLevelCompleted = previousLevelSkills.every(s => 
+      completedSkillIds.includes(s._id.toString())
+    );
+    
+    // Also check if user has passed the quiz for the previous level
+    const previousLevelQuizPassed = await checkLevelQuizPassed(userId, skill.level - 1);
+    
+    console.log('Previous level skills:', previousLevelSkills.map(s => ({ title: s.title, completed: completedSkillIds.includes(s._id.toString()) })));
+    console.log('All previous level completed:', allPreviousLevelCompleted);
+    console.log('Previous level quiz passed:', previousLevelQuizPassed);
+    
+    return allPreviousLevelCompleted && previousLevelQuizPassed;
+  }
+  
+  // For other skills in the same level, check if previous skill in order is completed
+  if (currentSkillIndex > 0) {
+    const previousSkill = sameLevelSkills[currentSkillIndex - 1];
+    const isPreviousCompleted = completedSkillIds.includes(previousSkill._id.toString());
+    console.log('Previous skill in same level:', previousSkill.title, 'Completed:', isPreviousCompleted);
+    return isPreviousCompleted;
+  }
+  
+  console.log('Skill locked:', skill.title);
+  return false;
 };

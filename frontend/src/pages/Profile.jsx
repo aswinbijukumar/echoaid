@@ -66,6 +66,9 @@ export default function Profile() {
   const border = darkMode ? 'border-gray-600' : 'border-gray-300';
   const sidebarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
   const statusBarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
+  const textPrimary = darkMode ? 'text-white' : 'text-[#23272F]';
+  const textSecondary = darkMode ? 'text-gray-300' : 'text-gray-600';
+  const hoverBg = darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
 
   // Mock user data - in real app, this would come from user context/API
   const achievements = [
@@ -345,6 +348,7 @@ export default function Profile() {
                         { id: 'overview', label: 'Overview', icon: UserCircleIcon },
                         { id: 'security', label: 'Security & Sessions', icon: ShieldCheckIcon },
                         { id: 'subscription', label: 'Subscription', icon: CreditCardIcon },
+                        { id: 'support', label: 'Support & Messages', icon: ChatBubbleLeftRightIcon },
                         { id: 'achievements', label: 'Achievements', icon: TrophyIcon }
                       ].map((tab) => (
                         <button
@@ -519,6 +523,94 @@ export default function Profile() {
                           </button>
                         </div>
                         <SubscriptionStatus />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Support & Messages Tab */}
+                  {activeTab === 'support' && (
+                    <div className="space-y-6">
+                      <div className={`p-6 rounded-lg border ${border}`}>
+                        <h2 className="text-xl font-bold mb-4">Support & Messages</h2>
+                        <p className={`text-gray-600 dark:text-gray-400 mb-6`}>
+                          Contact our support team for assistance with your account, learning progress, or any questions you may have.
+                        </p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Send Message Card */}
+                          <div className={`p-6 rounded-lg border ${border} ${cardBg}`}>
+                            <div className="flex items-center space-x-3 mb-4">
+                              <div className={`p-2 rounded-lg ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100/50'}`}>
+                                <PlusIcon className="h-6 w-6 text-blue-600" />
+                              </div>
+                              <div>
+                                <h3 className={`text-lg font-semibold ${text}`}>Send Message</h3>
+                                <p className={`text-sm ${textSecondary}`}>Contact support team</p>
+                              </div>
+                            </div>
+                            <p className={`text-sm ${textSecondary} mb-4`}>
+                              Send a message to our support team for any questions, issues, or feedback.
+                            </p>
+                            <Link
+                              to="/messages"
+                              className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                            >
+                              <ChatBubbleLeftRightIcon className="h-4 w-4" />
+                              <span>Send Message</span>
+                            </Link>
+                          </div>
+
+                          {/* View Messages Card */}
+                          <div className={`p-6 rounded-lg border ${border} ${cardBg}`}>
+                            <div className="flex items-center space-x-3 mb-4">
+                              <div className={`p-2 rounded-lg ${darkMode ? 'bg-green-500/20' : 'bg-green-100/50'}`}>
+                                <EyeIcon className="h-6 w-6 text-green-600" />
+                              </div>
+                              <div>
+                                <h3 className={`text-lg font-semibold ${text}`}>Message History</h3>
+                                <p className={`text-sm ${textSecondary}`}>View your messages</p>
+                              </div>
+                            </div>
+                            <p className={`text-sm ${textSecondary} mb-4`}>
+                              View your message history, replies from support, and track the status of your inquiries.
+                            </p>
+                            <Link
+                              to="/messages"
+                              className="inline-flex items-center space-x-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+                            >
+                              <EyeIcon className="h-4 w-4" />
+                              <span>View Messages</span>
+                            </Link>
+                          </div>
+                        </div>
+
+                        {/* Quick Help Section */}
+                        <div className={`mt-8 p-6 rounded-lg border ${border} ${darkMode ? 'bg-yellow-900/20' : 'bg-yellow-50'}`}>
+                          <h3 className={`text-lg font-semibold ${text} mb-3`}>Quick Help</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="flex items-center space-x-3">
+                              <AcademicCapIcon className="h-5 w-5 text-blue-500" />
+                              <div>
+                                <p className={`font-medium ${text}`}>Learning Issues</p>
+                                <p className={`text-sm ${textSecondary}`}>Problems with lessons or progress</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <CreditCardIcon className="h-5 w-5 text-green-500" />
+                              <div>
+                                <p className={`font-medium ${text}`}>Billing & Subscription</p>
+                                <p className={`text-sm ${textSecondary}`}>Payment and subscription questions</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <Cog6ToothIcon className="h-5 w-5 text-purple-500" />
+                              <div>
+                                <p className={`font-medium ${text}`}>Technical Support</p>
+                                <p className={`text-sm ${textSecondary}`}>App bugs and technical issues</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}

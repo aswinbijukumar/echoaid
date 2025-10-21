@@ -4,7 +4,11 @@ import {
   getSubscriptions,
   getSubscriptionStats,
   updateSubscriptionStatus,
-  getSubscriptionAnalytics
+  getSubscriptionAnalytics,
+  getRevenueData,
+  getPaymentHistory,
+  exportSubscriptionData,
+  generateRevenueReport
 } from '../controllers/adminSubscriptionController.js';
 
 const router = express.Router();
@@ -21,6 +25,18 @@ router.get('/stats', getSubscriptionStats);
 
 // Get subscription analytics
 router.get('/analytics', getSubscriptionAnalytics);
+
+// Get revenue data and analytics
+router.get('/revenue', getRevenueData);
+
+// Get payment history
+router.get('/payments', getPaymentHistory);
+
+// Export subscription data
+router.get('/export/:type', exportSubscriptionData);
+
+// Generate revenue report
+router.post('/reports/:reportType', generateRevenueReport);
 
 // Update subscription status
 router.patch('/:userId/status', updateSubscriptionStatus);

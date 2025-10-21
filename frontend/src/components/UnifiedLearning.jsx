@@ -22,7 +22,7 @@ const API_BASE_URL = 'http://localhost:5000/api';
 
 export default function UnifiedLearning() {
   const { darkMode } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, token } = useAuth();
   
   // State management
   const [currentView, setCurrentView] = useState('dictionary'); // 'dictionary', 'learning'
@@ -33,12 +33,7 @@ export default function UnifiedLearning() {
   const [selectedSign, setSelectedSign] = useState(null);
   const [userProgress, setUserProgress] = useState({});
   const [loading, setLoading] = useState(true);
-  const [userStats, setUserStats] = useState({
-    streak: 0,
-    xp: 0,
-    signsLearned: 0,
-    accuracy: 0
-  });
+  const [userStats, setUserStats] = useState({ streak: 0, xp: 0 });
 
   // Theme variables
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
@@ -164,15 +159,11 @@ export default function UnifiedLearning() {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <FireIcon className="w-5 h-5 text-orange-400" />
-              <span className="font-semibold">{userStats.streak}</span>
+              <span className="font-semibold">{user?.learningStats?.streak || 0}</span>
             </div>
             <div className="flex items-center space-x-2">
               <SparklesIcon className="w-5 h-5 text-blue-400" />
-              <span className="font-semibold">{userStats.xp}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <HeartIcon className="w-5 h-5 text-red-400" />
-              <span className="font-semibold">5</span>
+              <span className="font-semibold">{user?.learningStats?.totalXP || 0}</span>
             </div>
             <div className="flex items-center space-x-2">
               <UserCircleIcon className="w-8 h-8 text-gray-300" />

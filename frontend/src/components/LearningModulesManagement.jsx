@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContextConstants';
+import { API_BASE_URL } from '../constants/api';
 import audioGenerator from '../utils/audioGenerator';
+import ErrorBoundary from './ErrorBoundary';
 import Modal from './Modal';
 import {
   AcademicCapIcon,
@@ -57,15 +59,15 @@ export default function LearningModulesManagement() {
   // File upload states
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [submittingForm, setSubmittingForm] = useState(false);
-  const [currentFlashcardIndex, setCurrentFlashcardIndex] = useState(0);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  
+  // Audio generation states
+  const [generatingAudio, setGeneratingAudio] = useState({});
+  const [playingAudio, setPlayingAudio] = useState(null);
 
-  // Theme variables
-  const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
-  const text = darkMode ? 'text-white' : 'text-[#23272F]';
-  const border = darkMode ? 'border-gray-600' : 'border-gray-300';
-  const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
-  const inputBg = darkMode ? 'bg-[#1F2937]' : 'bg-white';
+  // Theme variables - Transparent dark theme
+  const border = darkMode ? 'border-white/20' : 'border-gray-300';
+  const cardBg = darkMode ? 'bg-white/5 backdrop-blur-sm' : 'bg-gray-50';
+  const inputBg = darkMode ? 'bg-white/10 backdrop-blur-sm' : 'bg-white';
 
   // Categories for learning modules
   const categories = [
@@ -80,14 +82,10 @@ export default function LearningModulesManagement() {
   ];
 
   // Fetch skills from API
-  useEffect(() => {
-    fetchSkills();
-  }, []);
-
-  const fetchSkills = async () => {
+  const fetchSkills = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/admin/skills', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/skills`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -110,6 +108,41 @@ export default function LearningModulesManagement() {
     } finally {
       setLoading(false);
     }
+  }, [token]);
+
+  // Fetch skills on component mount
+  useEffect(() => {
+    fetchSkills();
+  }, [fetchSkills]);
+
+  // Test upload endpoint
+  const testUploadEndpoint = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/upload/test`);
+      const data = await response.json();
+      console.log('Upload test response:', data);
+      setSuccess('Upload endpoint is working!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Upload test error:', error);
+      setError('Upload endpoint test failed');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  // Test Cloudinary configuration
+  const testCloudinaryConfig = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/upload/debug`);
+      const data = await response.json();
+      console.log('Cloudinary debug response:', data);
+      setSuccess(`Cloudinary config: ${JSON.stringify(data, null, 2)}`);
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (error) {
+      console.error('Cloudinary debug error:', error);
+      setError('Cloudinary debug failed');
+      setTimeout(() => setError(''), 3000);
+    }
   };
 
   // Filter skills based on search and category
@@ -119,6 +152,16 @@ export default function LearningModulesManagement() {
     const matchesCategory = selectedCategory === 'all' || skill.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  // Check if order already exists within the same level
+  const checkOrderExists = (order, level, excludeId = null) => {
+    return skills.some(skill => 
+      skill.order === order && 
+      skill.level === level &&
+      skill._id !== excludeId && 
+      skill.isActive !== false
+    );
+  };
 
   // Handle form submission
   const handleSubmit = async (e) => {
@@ -183,6 +226,19 @@ export default function LearningModulesManagement() {
       return;
     }
 
+    if (formData.level < 0) {
+      setError('Level must be 0 or higher');
+      setTimeout(() => setError(''), 5000);
+      return;
+    }
+
+    // Check if order already exists within the same level
+    if (checkOrderExists(formData.order, formData.level, selectedSkill?._id)) {
+      setError(`Order ${formData.order} already exists in Level ${formData.level}. Please choose a different order number.`);
+      setTimeout(() => setError(''), 5000);
+      return;
+    }
+
     // Validate flashcards
     for (let i = 0; i < formData.flashcards.length; i++) {
       const card = formData.flashcards[i];
@@ -196,11 +252,19 @@ export default function LearningModulesManagement() {
         setTimeout(() => setError(''), 5000);
         return;
       }
-      if (!card.imagePath && !card.videoPath) {
-        setError(`Flashcard ${i + 1}: At least one image or video is required`);
-        setTimeout(() => setError(''), 5000);
-        return;
+      // Category-specific media rules for level-up consistency (optional for creation)
+      const cat = formData.category;
+      const needsImage = ['alphabet', 'numbers'].includes(cat);
+      const needsVideo = ['phrases'].includes(cat);
+      
+      // Only warn, don't block creation - users can add media later
+      if (needsImage && !card.imagePath) {
+        console.warn(`Flashcard ${i + 1}: Image recommended for ${cat} modules`);
       }
+      if (needsVideo && !card.videoPath) {
+        console.warn(`Flashcard ${i + 1}: Video recommended for ${cat} modules`);
+      }
+      // Media is optional for partial updates - no warnings needed
     }
 
     // Validate quiz questions
@@ -227,18 +291,64 @@ export default function LearningModulesManagement() {
         return;
       }
     }
+
+    // Level-based content requirements (for a sensible level-up path)
+    const lvl = parseInt(formData.level || 0);
+    if (lvl <= 1) {
+      if ((formData.flashcards || []).length < 1) {
+        setError('Levels 0–1 require at least 1 flashcard to teach basics.');
+        setTimeout(() => setError(''), 5000);
+        return;
+      }
+    } else if (lvl <= 3) {
+      const hasEnough = ((formData.flashcards || []).length >= 1) || ((formData.quizQuestions || []).length >= 1);
+      if (!hasEnough) {
+        setError('Levels 2–3 require either 1+ flashcards or 1+ quiz questions.');
+        setTimeout(() => setError(''), 5000);
+        return;
+      }
+    } else {
+      if ((formData.quizQuestions || []).length < 1) {
+        setError('Levels 4+ require at least 1 quiz question for mastery.');
+        setTimeout(() => setError(''), 5000);
+        return;
+      }
+    }
     
     setSubmittingForm(true);
     
+    console.log('Submitting form with data:', formData);
+    
     try {
+      console.log('Selected skill for API call:', selectedSkill);
+      console.log('Selected skill _id:', selectedSkill?._id);
+      
       const url = selectedSkill 
-        ? `http://localhost:5000/api/admin/skills/${selectedSkill._id}`
-        : 'http://localhost:5000/api/admin/skills';
+        ? `${API_BASE_URL}/api/admin/skills/${selectedSkill._id}`
+        : `${API_BASE_URL}/api/admin/skills`;
       
       const method = selectedSkill ? 'PUT' : 'POST';
       
       // For edit mode, only send modified fields (partial update)
       const dataToSend = selectedSkill ? getModifiedFields() : formData;
+      
+      console.log('Making API call to:', url);
+      console.log('Method:', method);
+      console.log('Data to send:', dataToSend);
+      
+      // Debug: Log flashcards data specifically
+      if (dataToSend.flashcards) {
+        console.log('Flashcards being sent:', dataToSend.flashcards);
+        dataToSend.flashcards.forEach((card, index) => {
+          console.log(`Card ${index} (${card.word}):`, {
+            word: card.word,
+            meaning: card.meaning,
+            image: card.image,
+            video: card.video,
+            additionalVideos: card.additionalVideos
+          });
+        });
+      }
       
       const response = await fetch(url, {
         method,
@@ -249,8 +359,12 @@ export default function LearningModulesManagement() {
         body: JSON.stringify(dataToSend)
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('Response data:', data);
         if (data.success) {
           setSuccess(selectedSkill ? 'Learning module updated successfully!' : 'Learning module created successfully!');
           setShowAddModal(false);
@@ -265,6 +379,7 @@ export default function LearningModulesManagement() {
         }
       } else {
         const errorData = await response.json();
+        console.error('API Error:', errorData);
         setError(errorData.message || 'Failed to save learning module');
         setTimeout(() => setError(''), 5000);
       }
@@ -296,20 +411,108 @@ export default function LearningModulesManagement() {
     setUploadingFiles(false);
   };
 
+  // Utility function to safely clean data and prevent React object rendering errors
+  const safeCleanData = (data) => {
+    if (data === null || data === undefined) return '';
+    if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean') return data;
+    if (Array.isArray(data)) {
+      return data.map(item => safeCleanData(item));
+    }
+    if (typeof data === 'object') {
+      const cleaned = {};
+      Object.keys(data).forEach(key => {
+        if (key === '_id' || key === '__v') return; // Skip MongoDB fields
+        cleaned[key] = safeCleanData(data[key]);
+      });
+      return cleaned;
+    }
+    return String(data);
+  };
+
   // Open edit modal
   const openEditModal = (skill) => {
+    // Preserve the original skill with _id for API calls, but clean the data for form
     setSelectedSkill(skill);
+    
+    // Use safe cleaning to prevent React object rendering errors
+    const cleanSkill = safeCleanData(skill);
+    
+    // Clean flashcards to remove MongoDB _id fields and ensure proper structure
+    const cleanFlashcards = (cleanSkill.flashcards || []).map(card => {
+      // Ensure card is an object and clean it
+      if (typeof card !== 'object' || card === null) {
+        return {
+          word: '',
+          meaning: '',
+          imagePath: '',
+          additionalImages: [],
+          videoPath: '',
+          audioPath: '',
+          customAudioText: '',
+          generatedAudio: null
+        };
+      }
+      
+      // Remove any MongoDB-specific fields
+      const cleanCard = { ...card };
+      delete cleanCard._id;
+      delete cleanCard.__v;
+      
+      return {
+        word: String(cleanCard.word || ''),
+        meaning: String(cleanCard.meaning || ''),
+        imagePath: String(cleanCard.imagePath || ''),
+        additionalImages: Array.isArray(cleanCard.additionalImages) ? cleanCard.additionalImages.map(img => String(img || '')) : [],
+        videoPath: String(cleanCard.videoPath || ''),
+        audioPath: String(cleanCard.audioPath || ''),
+        customAudioText: String(cleanCard.customAudioText || ''),
+        generatedAudio: cleanCard.generatedAudio && typeof cleanCard.generatedAudio === 'object' ? {
+          text: String(cleanCard.generatedAudio.text || ''),
+          audioText: String(cleanCard.generatedAudio.audioText || '')
+        } : null
+      };
+    });
+    
+    // Clean quiz questions as well
+    const cleanQuizQuestions = (skill.quizQuestions || []).map(question => {
+      if (typeof question !== 'object' || question === null) {
+        return {
+          questionType: 'image-to-word',
+          question: '',
+          correctAnswer: '',
+          options: ['', '', '', ''],
+          imagePath: '',
+          audioPath: '',
+          explanation: ''
+        };
+      }
+      
+      const cleanQuestion = { ...question };
+      delete cleanQuestion._id;
+      delete cleanQuestion.__v;
+      
+      return {
+        questionType: String(cleanQuestion.questionType || 'image-to-word'),
+        question: String(cleanQuestion.question || ''),
+        correctAnswer: String(cleanQuestion.correctAnswer || ''),
+        options: Array.isArray(cleanQuestion.options) ? cleanQuestion.options.map(opt => String(opt || '')) : ['', '', '', ''],
+        imagePath: String(cleanQuestion.imagePath || ''),
+        audioPath: String(cleanQuestion.audioPath || ''),
+        explanation: String(cleanQuestion.explanation || '')
+      };
+    });
+
     setFormData({
-      title: skill.title || '',
-      description: skill.description || '',
-      category: skill.category || 'basics',
-      order: skill.order || 1,
-      xpReward: skill.xpReward || 20,
-      level: skill.level || 0,
-      isActive: skill.isActive !== undefined ? skill.isActive : true,
-      moduleType: skill.moduleType || 'flashcards',
-      flashcards: skill.flashcards || [],
-      quizQuestions: skill.quizQuestions || []
+      title: String(cleanSkill.title || ''),
+      description: String(cleanSkill.description || ''),
+      category: String(cleanSkill.category || 'basics'),
+      order: Number(cleanSkill.order || 1),
+      xpReward: Number(cleanSkill.xpReward || 20),
+      level: Number(cleanSkill.level || 0),
+      isActive: Boolean(cleanSkill.isActive !== undefined ? cleanSkill.isActive : true),
+      moduleType: String(cleanSkill.moduleType || 'flashcards'),
+      flashcards: Array.isArray(cleanFlashcards) ? cleanFlashcards : [],
+      quizQuestions: Array.isArray(cleanQuizQuestions) ? cleanQuizQuestions : []
     });
     setError('');
     setSuccess('');
@@ -319,6 +522,12 @@ export default function LearningModulesManagement() {
   // Check if a field has been modified
   const isFieldModified = (fieldName) => {
     if (!selectedSkill) return false;
+    
+    // For arrays, do deep comparison
+    if (Array.isArray(formData[fieldName]) && Array.isArray(selectedSkill[fieldName])) {
+      return JSON.stringify(formData[fieldName]) !== JSON.stringify(selectedSkill[fieldName]);
+    }
+    
     return formData[fieldName] !== selectedSkill[fieldName];
   };
 
@@ -328,20 +537,75 @@ export default function LearningModulesManagement() {
     
     const modifiedFields = {};
     Object.keys(formData).forEach(key => {
-      if (formData[key] !== selectedSkill[key]) {
+      // For arrays, do deep comparison
+      if (Array.isArray(formData[key]) && Array.isArray(selectedSkill[key])) {
+        // Special handling for flashcards array
+        if (key === 'flashcards') {
+          // Compare each flashcard individually
+          const hasChanges = formData.flashcards.some((card, index) => {
+            const originalCard = selectedSkill.flashcards[index];
+            if (!originalCard) return true; // New card
+            
+            // Compare basic fields
+            if (card.word !== originalCard.word || 
+                card.meaning !== originalCard.meaning ||
+                card.image !== originalCard.image ||
+                card.video !== originalCard.video) {
+              return true;
+            }
+            
+            // Compare additionalVideos arrays
+            const currentVideos = card.additionalVideos || [];
+            const originalVideos = originalCard.additionalVideos || [];
+            
+            console.log(`Comparing additionalVideos for card "${card.word}":`);
+            console.log('Current videos:', currentVideos);
+            console.log('Original videos:', originalVideos);
+            
+            if (currentVideos.length !== originalVideos.length) {
+              console.log('Video count changed:', currentVideos.length, 'vs', originalVideos.length);
+              return true;
+            }
+            
+            // Compare video paths
+            for (let i = 0; i < currentVideos.length; i++) {
+              if (currentVideos[i] !== originalVideos[i]) {
+                console.log(`Video ${i} changed:`, currentVideos[i], 'vs', originalVideos[i]);
+                return true;
+              }
+            }
+            
+            return false;
+          });
+          
+          if (hasChanges) {
+            modifiedFields[key] = formData[key];
+          }
+        } else {
+          // For other arrays, use JSON comparison
+          if (JSON.stringify(formData[key]) !== JSON.stringify(selectedSkill[key])) {
+            modifiedFields[key] = formData[key];
+          }
+        }
+      } else if (formData[key] !== selectedSkill[key]) {
         modifiedFields[key] = formData[key];
       }
     });
+    
+    console.log('Modified fields detected:', modifiedFields);
     return modifiedFields;
   };
 
   // File upload functions
-  const uploadFile = async (file, type) => {
+  const uploadFile = async (file) => {
     const uploadFormData = new FormData();
     uploadFormData.append('file', file);
 
     try {
-      const response = await fetch('http://localhost:5000/api/admin/upload', {
+      console.log('Uploading file to:', `${API_BASE_URL}/api/admin/upload`);
+      console.log('File details:', { name: file.name, type: file.type, size: file.size });
+      
+      const response = await fetch(`${API_BASE_URL}/api/admin/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -349,16 +613,26 @@ export default function LearningModulesManagement() {
         body: uploadFormData
       });
 
+      console.log('Upload response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Upload response data:', data);
         if (data.success) {
-          return data.filePath;
+          return data.filePath || data.url || data.path;
         } else {
           throw new Error(data.message || 'Upload failed');
         }
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Upload failed');
+        let errorMessage = `Upload failed with status ${response.status}`;
+        try {
+          const errorData = await response.json();
+          console.error('Upload error response:', errorData);
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          console.error('Could not parse error response:', parseError);
+        }
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -395,7 +669,9 @@ export default function LearningModulesManagement() {
         throw new Error('Invalid file type. Only images, videos, and audio files are allowed.');
       }
 
-      const filePath = await uploadFile(file, type);
+      console.log('Uploading file:', file.name, 'Type:', file.type, 'Size:', file.size);
+      const filePath = await uploadFile(file);
+      console.log('File uploaded successfully:', filePath);
       
       if (formData.moduleType === 'flashcards' || formData.moduleType === 'mixed') {
         const updatedFlashcards = [...formData.flashcards];
@@ -404,13 +680,14 @@ export default function LearningModulesManagement() {
             word: '', 
             meaning: '', 
             imagePath: '', 
+            additionalImages: [],
             videoPath: '', 
-            audioPath: '', 
-            difficulty: 'beginner' 
+            audioPath: '' 
           };
         }
         updatedFlashcards[index][field] = filePath;
-        setFormData({ ...formData, flashcards: updatedFlashcards });
+        setFormData(prev => ({ ...prev, flashcards: updatedFlashcards }));
+        console.log('Updated flashcards:', updatedFlashcards);
       } 
       
       if (formData.moduleType === 'quiz' || formData.moduleType === 'mixed') {
@@ -427,7 +704,8 @@ export default function LearningModulesManagement() {
           };
         }
         updatedQuestions[index][field] = filePath;
-        setFormData({ ...formData, quizQuestions: updatedQuestions });
+        setFormData(prev => ({ ...prev, quizQuestions: updatedQuestions }));
+        console.log('Updated quiz questions:', updatedQuestions);
       }
 
       setSuccess('File uploaded successfully!');
@@ -441,11 +719,25 @@ export default function LearningModulesManagement() {
     }
   };
 
-  // Generate audio using TTS for flashcard
-  const generateAudioForCard = async (index) => {
-    const card = formData.flashcards[index];
-    if (!card.word.trim()) {
-      setError('Please enter a word first');
+
+  const playGeneratedAudio = async (text) => {
+    try {
+      await audioGenerator.generateAudio(text, {
+        rate: 0.7, // Slower for learning
+        pitch: 1.0,
+        volume: 1.0
+      });
+    } catch (err) {
+      console.error('Error playing audio:', err);
+      setError('Failed to play audio');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const generateAudioForQuestion = async (index) => {
+    const question = formData.quizQuestions[index];
+    if (!question.question.trim()) {
+      setError('Please enter a question first');
       setTimeout(() => setError(''), 3000);
       return;
     }
@@ -454,26 +746,91 @@ export default function LearningModulesManagement() {
       setUploadingFiles(true);
       
       // Generate TTS audio
-      await audioGenerator.generateAudio(card.word, {
+      await audioGenerator.generateAudio(question.question, {
         rate: 0.7, // Slower for learning
         pitch: 1.0,
         volume: 1.0
       });
 
-      // For now, we'll use a placeholder path since we can't save TTS to file in browser
-      // In a real implementation, you'd send this to backend to generate and save audio file
-      const updatedFlashcards = [...formData.flashcards];
-      updatedFlashcards[index].audioPath = 'tts-generated'; // Placeholder
-      setFormData({ ...formData, flashcards: updatedFlashcards });
+      // Mark as TTS generated
+      const updatedQuestions = [...formData.quizQuestions];
+      updatedQuestions[index].audioPath = 'tts-generated';
+      setFormData({ ...formData, quizQuestions: updatedQuestions });
 
-      setSuccess(`Audio generated for "${card.word}"`);
+      setSuccess(`Audio generated for question "${question.question}"`);
       setTimeout(() => setSuccess(''), 3000);
-    } catch (error) {
+    } catch (err) {
+      console.error('Error generating audio:', err);
       setError('Failed to generate audio');
       setTimeout(() => setError(''), 3000);
     } finally {
       setUploadingFiles(false);
     }
+  };
+
+  // Audio generation functions for flashcards
+  const generateAudioForFlashcard = async (flashcardIndex, text) => {
+    if (!text.trim()) {
+      setError('Please enter text to generate audio');
+      return;
+    }
+
+    try {
+      setGeneratingAudio(prev => ({ ...prev, [flashcardIndex]: true }));
+      
+      // Generate audio using browser TTS
+      await audioGenerator.generateAudio(text);
+      
+      // Store the text for playback (we'll use browser TTS for playback too)
+      setFormData(prev => ({
+        ...prev,
+        flashcards: prev.flashcards.map((card, index) => 
+          index === flashcardIndex 
+            ? { ...card, generatedAudio: { text: text.trim(), audioText: text.trim() } }
+            : card
+        )
+      }));
+      
+      setSuccess('Audio generated successfully!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Audio generation error:', error);
+      setError('Failed to generate audio. Please try again.');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setGeneratingAudio(prev => ({ ...prev, [flashcardIndex]: false }));
+    }
+  };
+
+  const playAudio = async (audioText) => {
+    try {
+      // Stop any currently playing audio
+      if (playingAudio) {
+        speechSynthesis.cancel();
+      }
+      
+      // Use browser TTS to play the audio
+      await audioGenerator.generateAudio(audioText);
+      setPlayingAudio(true);
+      
+      // Reset playing state after a delay (TTS doesn't have onend event easily accessible)
+      setTimeout(() => setPlayingAudio(null), audioText.length * 100); // Rough estimate
+    } catch (error) {
+      console.error('Audio play error:', error);
+      setError('Failed to play audio');
+      setPlayingAudio(null);
+    }
+  };
+
+  const removeAudioFromFlashcard = (flashcardIndex) => {
+    setFormData(prev => ({
+      ...prev,
+      flashcards: prev.flashcards.map((card, index) => 
+        index === flashcardIndex 
+          ? { ...card, generatedAudio: null }
+          : card
+      )
+    }));
   };
 
   // Delete skill
@@ -483,7 +840,7 @@ export default function LearningModulesManagement() {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/skills/${skill._id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/skills/${skill._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -544,23 +901,39 @@ export default function LearningModulesManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <ErrorBoundary>
+      <div className={`min-h-screen ${darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-50'} p-6`}>
+        <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center justify-between p-6 rounded-2xl ${cardBg} border ${border}`}>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Learning Modules Management</h2>
-          <p className="text-gray-600 dark:text-gray-300">Manage Duolingo-style learning skills and progression</p>
+          <h2 className="text-2xl font-bold text-white">Learning Modules Management</h2>
+          <p className="text-white/70">Manage Duolingo-style learning skills and progression</p>
         </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowAddModal(true);
-          }}
-          className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-        >
-          <PlusIcon className="w-5 h-5 mr-2" />
-          Add Learning Module
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={testUploadEndpoint}
+            className="inline-flex items-center px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+          >
+            Test Upload
+          </button>
+          <button
+            onClick={testCloudinaryConfig}
+            className="inline-flex items-center px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm"
+          >
+            Debug Cloudinary
+          </button>
+          <button
+            onClick={() => {
+              resetForm();
+              setShowAddModal(true);
+            }}
+            className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+          >
+            <PlusIcon className="w-5 h-5 mr-2" />
+            Add Learning Module
+          </button>
+        </div>
       </div>
 
       {/* Success/Error Messages */}
@@ -576,31 +949,33 @@ export default function LearningModulesManagement() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
-          <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search learning modules..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2 border ${border} rounded-lg ${inputBg} ${text} focus:outline-none focus:ring-2 focus:ring-green-500`}
+      <div className={`p-6 rounded-2xl ${cardBg} border ${border}`}>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/60" />
+              <input
+                type="text"
+                placeholder="Search learning modules..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={`w-full pl-10 pr-4 py-3 border ${border} rounded-2xl ${inputBg} text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200`}
             />
           </div>
         </div>
-        <div className="sm:w-64">
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className={`w-full px-3 py-2 border ${border} rounded-lg ${inputBg} ${text} focus:outline-none focus:ring-2 focus:ring-green-500`}
-          >
-            {categories.map(category => (
-              <option key={category.value} value={category.value}>
-                {category.label}
-              </option>
-            ))}
-          </select>
+          <div className="sm:w-64">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className={`w-full px-4 py-3 border ${border} rounded-2xl ${inputBg} text-white focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200`}
+            >
+              {categories.map(category => (
+                <option key={category.value} value={category.value} className="bg-gray-800 text-white">
+                  {category.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -611,7 +986,7 @@ export default function LearningModulesManagement() {
           const CategoryIcon = categoryInfo.icon;
           
           return (
-            <div key={skill._id} className={`p-6 rounded-lg border ${border} ${cardBg} hover:shadow-lg transition-all duration-200`}>
+            <div key={skill._id} className={`p-6 rounded-2xl border ${border} ${cardBg} hover:bg-white/10 transition-all duration-200 backdrop-blur-sm`}>
               <div className="flex items-start justify-between mb-4">
                 <div className={`${categoryInfo.color} p-3 rounded-full`}>
                   <CategoryIcon className="w-6 h-6 text-white" />
@@ -619,14 +994,14 @@ export default function LearningModulesManagement() {
                 <div className="flex space-x-2">
                   <button
                     onClick={() => openEditModal(skill)}
-                    className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                    className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-lg transition-colors"
                     title="Edit module"
                   >
                     <PencilIcon className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(skill)}
-                    className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                    className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"
                     title="Delete module"
                   >
                     <TrashIcon className="w-4 h-4" />
@@ -634,32 +1009,32 @@ export default function LearningModulesManagement() {
                 </div>
               </div>
               
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              <h3 className="text-lg font-semibold text-white mb-2">
                 {skill.title}
               </h3>
-              <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+              <p className="text-white/70 text-sm mb-4">
                 {skill.description}
               </p>
               
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">Category:</span>
-                  <span className="font-medium">{categoryInfo.label}</span>
+                  <span className="text-white/60">Category:</span>
+                  <span className="font-medium text-white">{categoryInfo.label}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">Order:</span>
-                  <span className="font-medium">{skill.order}</span>
+                  <span className="text-white/60">Order:</span>
+                  <span className="font-medium text-white">{skill.order}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">XP Reward:</span>
-                  <span className="font-medium">{skill.xpReward} XP</span>
+                  <span className="text-white/60">XP Reward:</span>
+                  <span className="font-medium text-white">{skill.xpReward} XP</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">Level:</span>
-                  <span className="font-medium">{skill.level}/5</span>
+                  <span className="text-white/60">Level:</span>
+                  <span className="font-medium text-white">{skill.level}/5</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">Status:</span>
+                  <span className="text-white/60">Status:</span>
                   {getStatusBadge(skill.isActive)}
                 </div>
               </div>
@@ -669,10 +1044,10 @@ export default function LearningModulesManagement() {
       </div>
 
       {filteredSkills.length === 0 && (
-        <div className="text-center py-12">
-          <BookOpenIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No learning modules found</h3>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">
+        <div className={`text-center py-12 p-8 rounded-2xl ${cardBg} border ${border}`}>
+          <BookOpenIcon className="w-16 h-16 text-white/60 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-white mb-2">No learning modules found</h3>
+          <p className="text-white/70 mb-4">
             {searchTerm || selectedCategory !== 'all' 
               ? 'Try adjusting your search or filter criteria.'
               : 'Get started by creating your first learning module.'
@@ -684,7 +1059,7 @@ export default function LearningModulesManagement() {
                 resetForm();
                 setShowAddModal(true);
               }}
-              className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              className="inline-flex items-center px-6 py-3 bg-green-500 text-white rounded-2xl hover:bg-green-600 transition-colors backdrop-blur-sm"
             >
               <PlusIcon className="w-5 h-5 mr-2" />
               Create First Module
@@ -769,34 +1144,6 @@ export default function LearningModulesManagement() {
               )}
             </div>
 
-            {/* Module Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-3">
-                Module Type
-                {showEditModal && isFieldModified('moduleType') && (
-                  <span className="text-xs text-green-400 ml-2">✓ Will be updated</span>
-                )}
-              </label>
-              <select
-                value={formData.moduleType}
-                onChange={(e) => setFormData({...formData, moduleType: e.target.value})}
-                className={`w-full bg-transparent border text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200 ${
-                  showEditModal && isFieldModified('moduleType') 
-                    ? 'border-green-500/50 bg-green-500/5' 
-                    : 'border-white/20'
-                }`}
-                required
-              >
-                <option value="flashcards" className="bg-gray-800 text-white">Visual Flashcards (Learn Mode)</option>
-                <option value="quiz" className="bg-gray-800 text-white">Quiz Mode (Multiple Choice)</option>
-                <option value="mixed" className="bg-gray-800 text-white">Mixed (Flashcards + Quiz)</option>
-              </select>
-              {showEditModal && isFieldModified('moduleType') && (
-                <p className="text-xs text-green-400 mt-1">
-                  Current: "{selectedSkill.moduleType}" → New: "{formData.moduleType}"
-                </p>
-              )}
-            </div>
 
             {/* Category and Order */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -828,10 +1175,19 @@ export default function LearningModulesManagement() {
                   max="100"
                   value={formData.order}
                   onChange={(e) => setFormData({...formData, order: parseInt(e.target.value) || 1})}
-                  className="w-full bg-transparent border border-white/20 text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200"
+                  className={`w-full bg-transparent border rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 backdrop-blur-sm transition-all duration-200 ${
+                    formData.order && checkOrderExists(formData.order, formData.level, selectedSkill?._id)
+                      ? 'border-red-500/50 focus:ring-red-500/50 focus:border-red-500/50'
+                      : 'border-white/20 focus:ring-green-500/50 focus:border-green-500/50'
+                  }`}
                   placeholder="Module order (1-100)"
                   required
                 />
+                {formData.order && checkOrderExists(formData.order, formData.level, selectedSkill?._id) && (
+                  <p className="text-xs text-red-400 mt-1">
+                    ⚠️ Order {formData.order} already exists in Level {formData.level}. Choose a different order number.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -857,18 +1213,15 @@ export default function LearningModulesManagement() {
                 <label className="block text-sm font-medium text-gray-300 mb-3">
                   Level
                 </label>
-                <select
+                <input
+                  type="number"
+                  min="0"
                   value={formData.level}
-                  onChange={(e) => setFormData({...formData, level: parseInt(e.target.value)})}
+                  onChange={(e) => setFormData({...formData, level: parseInt(e.target.value) || 0})}
                   className="w-full bg-transparent border border-white/20 text-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200"
-                >
-                  <option value={0} className="bg-gray-800 text-white">Level 0 (New)</option>
-                  <option value={1} className="bg-gray-800 text-white">Level 1 (Purple)</option>
-                  <option value={2} className="bg-gray-800 text-white">Level 2 (Blue)</option>
-                  <option value={3} className="bg-gray-800 text-white">Level 3 (Green)</option>
-                  <option value={4} className="bg-gray-800 text-white">Level 4 (Red)</option>
-                  <option value={5} className="bg-gray-800 text-white">Level 5 (Orange)</option>
-                </select>
+                  placeholder="Enter level number (0, 1, 2, 3...)"
+                  required
+                />
               </div>
             </div>
 
@@ -902,9 +1255,9 @@ export default function LearningModulesManagement() {
                           word: '',
                           meaning: '',
                           imagePath: '',
+                          additionalImages: [],
                           videoPath: '',
-                          audioPath: '',
-                          difficulty: 'beginner'
+                          audioPath: ''
                         }];
                         setFormData({...formData, flashcards: newFlashcards});
                       }}
@@ -922,7 +1275,38 @@ export default function LearningModulesManagement() {
                     </div>
                   )}
                   
-                  {formData.flashcards.map((card, index) => (
+                  {Array.isArray(formData.flashcards) && formData.flashcards.map((card, index) => {
+                    try {
+                    // Ensure card is a valid object and clean it
+                    if (typeof card !== 'object' || card === null) {
+                      return null;
+                    }
+                    
+                    // Additional safety: remove any MongoDB fields that might have slipped through
+                    const cleanCard = { ...card };
+                    delete cleanCard._id;
+                    delete cleanCard.__v;
+                    
+                    // Ensure all values are strings or arrays, not objects
+                    cleanCard.word = String(cleanCard.word || '');
+                    cleanCard.meaning = String(cleanCard.meaning || '');
+                    cleanCard.imagePath = String(cleanCard.imagePath || '');
+                    cleanCard.videoPath = String(cleanCard.videoPath || '');
+                    cleanCard.audioPath = String(cleanCard.audioPath || '');
+                    cleanCard.customAudioText = String(cleanCard.customAudioText || '');
+                    cleanCard.additionalImages = Array.isArray(cleanCard.additionalImages) ? cleanCard.additionalImages.map(img => String(img || '')) : [];
+                    
+                    // Clean generatedAudio object
+                    if (cleanCard.generatedAudio && typeof cleanCard.generatedAudio === 'object') {
+                      cleanCard.generatedAudio = {
+                        text: String(cleanCard.generatedAudio.text || ''),
+                        audioText: String(cleanCard.generatedAudio.audioText || '')
+                      };
+                    } else {
+                      cleanCard.generatedAudio = null;
+                    }
+                    
+                    return (
                     <div key={index} className="p-4 bg-white/5 rounded-lg border border-white/10">
                       <div className="flex items-center justify-between mb-3">
                         <h5 className="text-sm font-medium text-gray-300">Flashcard {index + 1}</h5>
@@ -943,7 +1327,7 @@ export default function LearningModulesManagement() {
                           <label className="block text-xs text-gray-400 mb-2">Word</label>
                           <input
                             type="text"
-                            value={card.word}
+                            value={cleanCard.word}
                             onChange={(e) => {
                               const updatedFlashcards = [...formData.flashcards];
                               updatedFlashcards[index].word = e.target.value;
@@ -958,7 +1342,7 @@ export default function LearningModulesManagement() {
                           <label className="block text-xs text-gray-400 mb-2">Meaning</label>
                           <input
                             type="text"
-                            value={card.meaning}
+                            value={cleanCard.meaning}
                             onChange={(e) => {
                               const updatedFlashcards = [...formData.flashcards];
                               updatedFlashcards[index].meaning = e.target.value;
@@ -970,7 +1354,7 @@ export default function LearningModulesManagement() {
                         </div>
                         
                         <div>
-                          <label className="block text-xs text-gray-400 mb-2">Sign Image</label>
+                          <label className="block text-xs text-gray-400 mb-2">Sign Image (Primary)</label>
                           <input
                             type="file"
                             accept="image/*"
@@ -981,8 +1365,73 @@ export default function LearningModulesManagement() {
                             }}
                             className="w-full bg-transparent border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
                           />
-                          {card.imagePath && (
-                            <p className="text-xs text-green-400 mt-1">✓ Image uploaded</p>
+                          {cleanCard.imagePath && (
+                            <p className="text-xs text-green-400 mt-1">✓ Primary image uploaded</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-2">Additional Images</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={async (e) => {
+                              if (e.target.files.length > 0) {
+                                const files = Array.from(e.target.files);
+                                const uploadedPaths = [];
+                                
+                                for (const file of files) {
+                                  try {
+                                    const filePath = await uploadFile(file, 'image');
+                                    uploadedPaths.push(filePath);
+                                  } catch (error) {
+                                    console.error('Error uploading additional image:', error);
+                                    setError('Failed to upload some images');
+                                  }
+                                }
+                                
+                                const updatedFlashcards = [...formData.flashcards];
+                                updatedFlashcards[index].additionalImages = [
+                                  ...(updatedFlashcards[index].additionalImages || []),
+                                  ...uploadedPaths
+                                ];
+                                setFormData({...formData, flashcards: updatedFlashcards});
+                              }
+                            }}
+                            className="w-full bg-transparent border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
+                          />
+                          {Array.isArray(cleanCard.additionalImages) && cleanCard.additionalImages.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-xs text-green-400 mb-1">✓ Additional images:</p>
+                              {cleanCard.additionalImages.map((img, imgIndex) => {
+                                // Ensure img is a string, not an object
+                                const imgPath = typeof img === 'string' ? img : (img.path || img.url || '');
+                                return (
+                                  <div key={imgIndex} className="flex items-center justify-between bg-gray-800/30 rounded px-2 py-1 mb-1">
+                                    <div className="flex items-center space-x-2">
+                                      <img 
+                                        src={imgPath} 
+                                        alt={`Additional ${imgIndex + 1}`}
+                                        className="w-8 h-8 object-cover rounded"
+                                      />
+                                      <span className="text-xs text-white">{imgPath.split('/').pop()}</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updatedFlashcards = [...formData.flashcards];
+                                        updatedFlashcards[index].additionalImages = updatedFlashcards[index].additionalImages.filter((_, i) => i !== imgIndex);
+                                        setFormData({...formData, flashcards: updatedFlashcards});
+                                      }}
+                                      className="text-xs text-red-400 hover:text-red-300"
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           )}
                         </div>
                         
@@ -998,31 +1447,97 @@ export default function LearningModulesManagement() {
                             }}
                             className="w-full bg-transparent border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
                           />
-                          {card.videoPath && (
+                          {cleanCard.videoPath && (
                             <p className="text-xs text-green-400 mt-1">✓ Video uploaded</p>
                           )}
                         </div>
                         
                         <div>
-                          <label className="block text-xs text-gray-400 mb-2">Audio Pronunciation</label>
-                          <div className="space-y-2">
-                            <input
-                              type="file"
-                              accept="audio/*"
-                              onChange={(e) => {
-                                if (e.target.files[0]) {
-                                  handleFileUpload(e.target.files[0], 'audio', index, 'audioPath');
+                          <label className="block text-xs text-gray-400 mb-2">Additional Videos</label>
+                          <input
+                            type="file"
+                            accept="video/*"
+                            multiple
+                            onChange={async (e) => {
+                              if (e.target.files.length > 0) {
+                                const files = Array.from(e.target.files);
+                                const uploadedPaths = [];
+                                
+                                for (const file of files) {
+                                  try {
+                                    const filePath = await uploadFile(file, 'video');
+                                    uploadedPaths.push(filePath);
+                                  } catch (error) {
+                                    console.error('Error uploading additional video:', error);
+                                    setError('Failed to upload some videos');
+                                  }
                                 }
-                              }}
-                              className="w-full bg-transparent border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
-                            />
+                                
+                                const updatedFlashcards = [...formData.flashcards];
+                                updatedFlashcards[index].additionalVideos = [
+                                  ...(updatedFlashcards[index].additionalVideos || []),
+                                  ...uploadedPaths
+                                ];
+                                setFormData({...formData, flashcards: updatedFlashcards});
+                                
+                                console.log('Updated flashcards with additional videos:', updatedFlashcards[index]);
+                                console.log('New additionalVideos array:', updatedFlashcards[index].additionalVideos);
+                              }
+                            }}
+                            className="w-full bg-transparent border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
+                          />
+                          {Array.isArray(cleanCard.additionalVideos) && cleanCard.additionalVideos.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-xs text-green-400 mb-1">✓ Additional videos:</p>
+                              {cleanCard.additionalVideos.map((video, videoIndex) => {
+                                return (
+                                  <div key={videoIndex} className="flex items-center justify-between bg-gray-800/20 rounded p-2 mb-1">
+                                    <span className="text-xs text-gray-300 truncate flex-1 mr-2">
+                                      Video {videoIndex + 1}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updatedFlashcards = [...formData.flashcards];
+                                        updatedFlashcards[index].additionalVideos = updatedFlashcards[index].additionalVideos.filter((_, i) => i !== videoIndex);
+                                        setFormData({...formData, flashcards: updatedFlashcards});
+                                      }}
+                                      className="text-red-400 hover:text-red-300 text-xs"
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                        
+                      </div>
+                      
+                      {/* Custom Audio Generation Section */}
+                      <div className="mt-4 p-3 bg-gray-800/20 rounded-lg border border-white/10">
+                        <label className="block text-xs text-gray-400 mb-2">Custom Audio Generation</label>
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={cleanCard.customAudioText || ''}
+                            onChange={(e) => {
+                              const updatedFlashcards = [...formData.flashcards];
+                              updatedFlashcards[index].customAudioText = e.target.value;
+                              setFormData({...formData, flashcards: updatedFlashcards});
+                            }}
+                            placeholder="Enter custom sentence for audio generation..."
+                            className="w-full bg-transparent border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
+                          />
+                          <div className="flex gap-2">
                             <button
                               type="button"
-                              onClick={() => generateAudioForCard(index)}
-                              disabled={!card.word.trim() || uploadingFiles}
-                              className="w-full px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm"
+                            onClick={() => generateAudioForFlashcard(index, cleanCard.customAudioText)}
+                            disabled={generatingAudio[index] || !cleanCard.customAudioText?.trim()}
+                              className="flex-1 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2 text-sm"
                             >
-                              {uploadingFiles ? (
+                              {generatingAudio[index] ? (
                                 <>
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                                   <span>Generating...</span>
@@ -1030,35 +1545,50 @@ export default function LearningModulesManagement() {
                               ) : (
                                 <>
                                   <SpeakerWaveIcon className="w-4 h-4" />
-                                  <span>Auto-Generate Audio</span>
+                                  <span>Generate Audio</span>
                                 </>
                               )}
                             </button>
+                            {cleanCard.generatedAudio && (
+                              <button
+                                type="button"
+                                onClick={() => playAudio(cleanCard.generatedAudio.audioText)}
+                                className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center space-x-1 text-sm"
+                              >
+                                <SpeakerWaveIcon className="w-4 h-4" />
+                                <span>Play</span>
+                              </button>
+                            )}
+                            {cleanCard.generatedAudio && (
+                              <button
+                                type="button"
+                                onClick={() => removeAudioFromFlashcard(index)}
+                                className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center space-x-1 text-sm"
+                              >
+                                <TrashIcon className="w-4 h-4" />
+                                <span>Remove</span>
+                              </button>
+                            )}
                           </div>
-                          {card.audioPath && (
-                            <p className="text-xs text-green-400 mt-1">✓ Audio uploaded</p>
+                          {cleanCard.generatedAudio && (
+                            <div className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded">
+                              <p className="text-xs text-green-300 mb-1">Generated Audio:</p>
+                                <p className="text-xs text-white">{cleanCard.generatedAudio.text}</p>
+                            </div>
                           )}
-                        </div>
-                        
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-2">Difficulty</label>
-                          <select
-                            value={card.difficulty}
-                            onChange={(e) => {
-                              const updatedFlashcards = [...formData.flashcards];
-                              updatedFlashcards[index].difficulty = e.target.value;
-                              setFormData({...formData, flashcards: updatedFlashcards});
-                            }}
-                            className="w-full bg-transparent border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
-                          >
-                            <option value="beginner" className="bg-gray-800 text-white">Beginner</option>
-                            <option value="intermediate" className="bg-gray-800 text-white">Intermediate</option>
-                            <option value="advanced" className="bg-gray-800 text-white">Advanced</option>
-                          </select>
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                    } catch (error) {
+                      console.error('Error rendering flashcard:', error, card);
+                      return (
+                        <div key={index} className="p-4 bg-red-500/10 rounded-lg border border-red-500/20">
+                          <p className="text-red-400 text-sm">Error rendering flashcard {index + 1}</p>
+                        </div>
+                      );
+                    }
+                  })}
                 </div>
               )}
 
@@ -1178,20 +1708,52 @@ export default function LearningModulesManagement() {
                         
                         <div>
                           <label className="block text-xs text-gray-400 mb-2">Media (Image/Audio)</label>
-                          <input
-                            type="file"
-                            accept="image/*,audio/*"
-                            onChange={(e) => {
-                              if (e.target.files[0]) {
-                                const fileType = e.target.files[0].type.startsWith('image/') ? 'image' : 'audio';
-                                const field = fileType === 'image' ? 'imagePath' : 'audioPath';
-                                handleFileUpload(e.target.files[0], fileType, index, field);
-                              }
-                            }}
-                            className="w-full bg-transparent border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
-                          />
+                          <div className="space-y-2">
+                            <input
+                              type="file"
+                              accept="image/*,audio/*"
+                              onChange={(e) => {
+                                if (e.target.files[0]) {
+                                  const fileType = e.target.files[0].type.startsWith('image/') ? 'image' : 'audio';
+                                  const field = fileType === 'image' ? 'imagePath' : 'audioPath';
+                                  handleFileUpload(e.target.files[0], fileType, index, field);
+                                }
+                              }}
+                              className="w-full bg-transparent border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => generateAudioForQuestion(index)}
+                              disabled={!question.question.trim() || uploadingFiles}
+                              className="w-full px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm"
+                            >
+                              {uploadingFiles ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                  <span>Generating...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <SpeakerWaveIcon className="w-4 h-4" />
+                                  <span>Generate Audio from Question</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                           {(question.imagePath || question.audioPath) && (
-                            <p className="text-xs text-green-400 mt-1">✓ Media uploaded</p>
+                            <div className="mt-1 flex items-center space-x-2">
+                              <p className="text-xs text-green-400">✓ Media ready</p>
+                              {question.audioPath === 'tts-generated' && (
+                                <button
+                                  type="button"
+                                  onClick={() => playGeneratedAudio(question.question)}
+                                  className="text-xs bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded transition-colors flex items-center space-x-1"
+                                >
+                                  <SpeakerWaveIcon className="w-3 h-3" />
+                                  <span>Play</span>
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                         
@@ -1233,8 +1795,7 @@ export default function LearningModulesManagement() {
                             meaning: '',
                             imagePath: '',
                             videoPath: '',
-                            audioPath: '',
-                            difficulty: 'beginner'
+                            audioPath: ''
                           }];
                           setFormData({...formData, flashcards: newFlashcards});
                         }}
@@ -1275,12 +1836,37 @@ export default function LearningModulesManagement() {
               <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
                 <h4 className="text-sm font-medium text-green-400 mb-2">Changes Summary:</h4>
                 <ul className="text-xs text-green-300 space-y-1">
-                  {Object.keys(getModifiedFields()).map(field => (
-                    <li key={field} className="flex justify-between">
-                      <span className="capitalize">{field}:</span>
-                      <span>"{selectedSkill[field]}" → "{formData[field]}"</span>
-                    </li>
-                  ))}
+                  {Object.keys(getModifiedFields()).map(field => {
+                    // Safely convert field values to strings to prevent React object rendering errors
+                    const oldValue = selectedSkill[field];
+                    const newValue = formData[field];
+                    
+                    let oldValueStr = '';
+                    let newValueStr = '';
+                    
+                    if (Array.isArray(oldValue)) {
+                      oldValueStr = `Array(${oldValue.length} items)`;
+                    } else if (typeof oldValue === 'object' && oldValue !== null) {
+                      oldValueStr = 'Object';
+                    } else {
+                      oldValueStr = String(oldValue || '');
+                    }
+                    
+                    if (Array.isArray(newValue)) {
+                      newValueStr = `Array(${newValue.length} items)`;
+                    } else if (typeof newValue === 'object' && newValue !== null) {
+                      newValueStr = 'Object';
+                    } else {
+                      newValueStr = String(newValue || '');
+                    }
+                    
+                    return (
+                      <li key={field} className="flex justify-between">
+                        <span className="capitalize">{field}:</span>
+                        <span>"{oldValueStr}" → "{newValueStr}"</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}
@@ -1321,6 +1907,8 @@ export default function LearningModulesManagement() {
           </form>
         </Modal>
       )}
-    </div>
+        </div>
+      </div>
+    </ErrorBoundary>
   );
 }

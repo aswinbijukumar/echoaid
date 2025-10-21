@@ -12,6 +12,15 @@ const unitSchema = new mongoose.Schema({
     required: [true, 'Please provide a unit description'],
     maxlength: [500, 'Description cannot be more than 500 characters']
   },
+  shortDescription: {
+    type: String,
+    maxlength: [200, 'Short description cannot be more than 200 characters']
+  },
+  learningPath: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LearningPath',
+    required: true
+  },
   level: {
     type: String,
     enum: ['Beginner', 'Intermediate', 'Advanced'],
@@ -19,8 +28,7 @@ const unitSchema = new mongoose.Schema({
   },
   order: {
     type: Number,
-    required: true,
-    unique: true
+    required: true
   },
   icon: {
     type: String,
@@ -34,6 +42,14 @@ const unitSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Lesson'
   }],
+  totalLessons: {
+    type: Number,
+    default: 0
+  },
+  totalExercises: {
+    type: Number,
+    default: 0
+  },
   prerequisites: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Unit'
@@ -60,9 +76,24 @@ const unitSchema = new mongoose.Schema({
     type: Number,
     default: 100
   },
+  coverImage: {
+    type: String
+  },
+  thumbnail: {
+    type: String
+  },
   isActive: {
     type: Boolean,
     default: true
+  },
+  isPublished: {
+    type: Boolean,
+    default: false
+  },
+  stats: {
+    totalCompletions: { type: Number, default: 0 },
+    averageScore: { type: Number, default: 0 },
+    averageTimeSpent: { type: Number, default: 0 }
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -74,8 +105,8 @@ const unitSchema = new mongoose.Schema({
 });
 
 // Index for efficient queries
-unitSchema.index({ order: 1 });
-unitSchema.index({ level: 1 });
-unitSchema.index({ isActive: 1 });
+unitSchema.index({ learningPath: 1, order: 1 });
+unitSchema.index({ level: 1, isActive: 1, isPublished: 1 });
+unitSchema.index({ createdBy: 1 });
 
 export default mongoose.model('Unit', unitSchema);

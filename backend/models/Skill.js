@@ -20,8 +20,7 @@ const skillSchema = new mongoose.Schema({
   level: {
     type: Number,
     default: 0,
-    min: 0,
-    max: 5
+    min: 0
   },
   order: {
     type: Number,
@@ -35,6 +34,7 @@ const skillSchema = new mongoose.Schema({
   },
   // Visual Flashcards Structure
   flashcards: [{
+    _id: false,
     word: {
       type: String,
       required: true,
@@ -47,22 +47,29 @@ const skillSchema = new mongoose.Schema({
     },
     imagePath: {
       type: String,
-      required: true
+      default: ''
     },
+    additionalImages: [{
+      type: String
+    }],
     videoPath: {
       type: String
     },
     audioPath: {
       type: String
     },
-    difficulty: {
-      type: String,
-      enum: ['beginner', 'intermediate', 'advanced'],
-      default: 'beginner'
+    generatedAudio: {
+      text: {
+        type: String
+      },
+      audioText: {
+        type: String
+      }
     }
   }],
   // Quiz Mode Structure
   quizQuestions: [{
+    _id: false,
     questionType: {
       type: String,
       enum: ['image-to-word', 'word-to-image', 'audio-to-image'],

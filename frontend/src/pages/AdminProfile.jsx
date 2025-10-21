@@ -18,12 +18,18 @@ import {
   ComputerDesktopIcon,
   DevicePhoneMobileIcon,
   CreditCardIcon,
-  PlusIcon
+  PlusIcon,
+  QrCodeIcon,
+  TrashIcon,
+  ExclamationCircleIcon,
+  InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContextConstants';
 import Sidebar from '../components/Sidebar';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
+import ThemeToggle from '../components/ThemeToggle';
+import MessagesNotification from '../components/MessagesNotification';
 import { useSessionManager } from '../hooks/useSessionManager';
 
 export default function AdminProfile() {
@@ -33,6 +39,24 @@ export default function AdminProfile() {
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [adminProfilePhoto, setAdminProfilePhoto] = useState(null);
   const fileInputRef = useRef(null);
+  
+  // 2FA states
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [show2FASetup, setShow2FASetup] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [twoFactorSecret, setTwoFactorSecret] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [is2FALoading, setIs2FALoading] = useState(false);
+  const [twoFactorError, setTwoFactorError] = useState('');
+  
+  // Session management states
+  const [userSessions, setUserSessions] = useState([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [sessionError, setSessionError] = useState('');
+  
+  // Notification settings
+  const [loginNotifications, setLoginNotifications] = useState(true);
+  const [emailNotifications, setEmailNotifications] = useState(true);
   
   const { user, token, logout } = useAuth();
   const { darkMode } = useTheme();
@@ -61,6 +85,153 @@ export default function AdminProfile() {
       navigate('/login');
     } catch (error) {
       console.error('Logout error:', error);
+    }
+  };
+
+  // 2FA Functions
+  const setup2FA = async () => {
+    setIs2FALoading(true);
+    setTwoFactorError('');
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/2fa/setup', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setQrCodeUrl(data.qrCodeUrl);
+        setTwoFactorSecret(data.secret);
+        setShow2FASetup(true);
+      } else {
+        const error = await response.json();
+        setTwoFactorError(error.message || 'Failed to setup 2FA');
+      }
+    } catch (error) {
+      setTwoFactorError('Network error. Please try again.');
+    } finally {
+      setIs2FALoading(false);
+    }
+  };
+
+  const enable2FA = async () => {
+    if (!verificationCode || verificationCode.length !== 6) {
+      setTwoFactorError('Please enter a valid 6-digit code');
+      return;
+    }
+
+    setIs2FALoading(true);
+    setTwoFactorError('');
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/2fa/enable', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ token: verificationCode })
+      });
+      
+      if (response.ok) {
+        setTwoFactorEnabled(true);
+        setShow2FASetup(false);
+        setVerificationCode('');
+        setQrCodeUrl('');
+        setTwoFactorSecret('');
+      } else {
+        const error = await response.json();
+        setTwoFactorError(error.message || 'Invalid verification code');
+      }
+    } catch (error) {
+      setTwoFactorError('Network error. Please try again.');
+    } finally {
+      setIs2FALoading(false);
+    }
+  };
+
+  const disable2FA = async () => {
+    setIs2FALoading(true);
+    setTwoFactorError('');
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/2fa/disable', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        setTwoFactorEnabled(false);
+      } else {
+        const error = await response.json();
+        setTwoFactorError(error.message || 'Failed to disable 2FA');
+      }
+    } catch (error) {
+      setTwoFactorError('Network error. Please try again.');
+    } finally {
+      setIs2FALoading(false);
+    }
+  };
+
+  // Session Management Functions
+  const fetchUserSessions = async () => {
+    setIsLoadingSessions(true);
+    setSessionError('');
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/sessions', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserSessions(data.sessions || []);
+      } else {
+        setSessionError('Failed to load sessions');
+      }
+    } catch (error) {
+      setSessionError('Network error. Please try again.');
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  };
+
+  const revokeSession = async (sessionId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/auth/sessions/${sessionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        setUserSessions(prev => prev.filter(session => session._id !== sessionId));
+      }
+    } catch (error) {
+      console.error('Error revoking session:', error);
+    }
+  };
+
+  const revokeAllSessions = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/sessions', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        setUserSessions([]);
+      }
+    } catch (error) {
+      console.error('Error revoking all sessions:', error);
     }
   };
 
@@ -135,6 +306,14 @@ export default function AdminProfile() {
     });
   };
 
+  // Load initial data
+  useEffect(() => {
+    if (user) {
+      setTwoFactorEnabled(user.twoFactorEnabled || false);
+    }
+    fetchUserSessions();
+  }, [user, token]);
+
   // Handle click outside photo options
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -168,6 +347,8 @@ export default function AdminProfile() {
               <ClockIcon className="w-5 h-5 text-blue-400" />
               <span className="font-semibold">Session: {formatTimeUntilExpiry()}</span>
             </div>
+            <MessagesNotification />
+            <ThemeToggle />
             <TopBarUserAvatar />
           </div>
         </div>
@@ -335,70 +516,282 @@ export default function AdminProfile() {
                       <div className={`p-6 rounded-lg border ${border}`}>
                         <h2 className="text-xl font-bold mb-4">Security Settings</h2>
                         <div className="space-y-4">
+                          {/* Two-Factor Authentication */}
                           <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                             <div className="flex items-center space-x-3">
                               <KeyIcon className="w-5 h-5 text-blue-500" />
                               <div>
                                 <p className={`font-medium ${textPrimary}`}>Two-Factor Authentication</p>
-                                <p className={`text-sm ${textSecondary}`}>Add an extra layer of security</p>
+                                <p className={`text-sm ${textSecondary}`}>
+                                  {twoFactorEnabled ? 'Enabled - Your account is protected' : 'Add an extra layer of security'}
+                                </p>
+                                {twoFactorEnabled && (
+                                  <div className="flex items-center space-x-1 mt-1">
+                                    <CheckCircleIcon className="w-4 h-4 text-green-500" />
+                                    <span className="text-xs text-green-600 dark:text-green-400">Active</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
-                            <button className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm">
-                              Enable 2FA
-                            </button>
+                            <div className="flex space-x-2">
+                              {twoFactorEnabled ? (
+                                <button 
+                                  onClick={disable2FA}
+                                  disabled={is2FALoading}
+                                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm disabled:opacity-50"
+                                >
+                                  {is2FALoading ? 'Disabling...' : 'Disable 2FA'}
+                                </button>
+                              ) : (
+                                <button 
+                                  onClick={setup2FA}
+                                  disabled={is2FALoading}
+                                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm disabled:opacity-50"
+                                >
+                                  {is2FALoading ? 'Setting up...' : 'Enable 2FA'}
+                                </button>
+                              )}
+                            </div>
                           </div>
+
+                          {/* 2FA Setup Modal */}
+                          {show2FASetup && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                              <div className={`${cardBg} p-6 rounded-lg border ${border} max-w-md w-full mx-4`}>
+                                <div className="flex items-center justify-between mb-4">
+                                  <h3 className={`text-lg font-semibold ${textPrimary}`}>Setup Two-Factor Authentication</h3>
+                                  <button 
+                                    onClick={() => setShow2FASetup(false)}
+                                    className={`${textSecondary} hover:${textPrimary}`}
+                                  >
+                                    <XMarkIcon className="w-5 h-5" />
+                                  </button>
+                                </div>
+                                
+                                <div className="space-y-4">
+                                  <div className="text-center">
+                                    <p className={`text-sm ${textSecondary} mb-3`}>
+                                      Scan this QR code with your authenticator app:
+                                    </p>
+                                    {qrCodeUrl && (
+                                      <div className="flex justify-center mb-4">
+                                        <img src={qrCodeUrl} alt="2FA QR Code" className="w-48 h-48" />
+                                      </div>
+                                    )}
+                                    <p className={`text-xs ${textSecondary}`}>
+                                      Or manually enter this secret: <code className="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">{twoFactorSecret}</code>
+                                    </p>
+                                  </div>
+                                  
+                                  <div>
+                                    <label className={`block text-sm font-medium ${textSecondary} mb-2`}>
+                                      Enter 6-digit code from your app:
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={verificationCode}
+                                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                      className={`w-full px-3 py-2 border ${border} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${bg} ${textPrimary}`}
+                                      placeholder="123456"
+                                      maxLength="6"
+                                    />
+                                  </div>
+                                  
+                                  {twoFactorError && (
+                                    <div className="flex items-center space-x-2 text-red-600 dark:text-red-400">
+                                      <ExclamationCircleIcon className="w-4 h-4" />
+                                      <span className="text-sm">{twoFactorError}</span>
+                                    </div>
+                                  )}
+                                  
+                                  <div className="flex space-x-3">
+                                    <button
+                                      onClick={() => setShow2FASetup(false)}
+                                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      onClick={enable2FA}
+                                      disabled={is2FALoading || verificationCode.length !== 6}
+                                      className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                                    >
+                                      {is2FALoading ? 'Verifying...' : 'Enable 2FA'}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                           
+                          {/* Login Notifications */}
                           <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                             <div className="flex items-center space-x-3">
                               <BellIcon className="w-5 h-5 text-green-500" />
                               <div>
                                 <p className={`font-medium ${textPrimary}`}>Login Notifications</p>
-                                <p className={`text-sm ${textSecondary}`}>Get notified of new logins</p>
+                                <p className={`text-sm ${textSecondary}`}>Get notified of new logins and security events</p>
                               </div>
                             </div>
-                            <button className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors text-sm">
-                              Configure
-                            </button>
+                            <div className="flex items-center space-x-3">
+                              <label className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  checked={loginNotifications}
+                                  onChange={(e) => setLoginNotifications(e.target.checked)}
+                                  className="rounded border-gray-300"
+                                />
+                                <span className={`text-sm ${textSecondary}`}>Enable</span>
+                              </label>
+                            </div>
+                          </div>
+
+                          {/* Email Notifications */}
+                          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                            <div className="flex items-center space-x-3">
+                              <BellIcon className="w-5 h-5 text-purple-500" />
+                              <div>
+                                <p className={`font-medium ${textPrimary}`}>Email Notifications</p>
+                                <p className={`text-sm ${textSecondary}`}>Receive security alerts via email</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <label className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  checked={emailNotifications}
+                                  onChange={(e) => setEmailNotifications(e.target.checked)}
+                                  className="rounded border-gray-300"
+                                />
+                                <span className={`text-sm ${textSecondary}`}>Enable</span>
+                              </label>
+                            </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* Session Information */}
+                      {/* Session Management */}
                       <div className={`p-6 rounded-lg border ${border}`}>
-                        <h2 className="text-xl font-bold mb-4">Current Session</h2>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className={textSecondary}>Session Status</span>
-                            <span className="flex items-center space-x-2">
-                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <div className="flex items-center justify-between mb-4">
+                          <h2 className="text-xl font-bold">Session Management</h2>
+                          <button
+                            onClick={fetchUserSessions}
+                            disabled={isLoadingSessions}
+                            className="px-3 py-1 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center space-x-2"
+                          >
+                            <ArrowPathIcon className={`w-4 h-4 ${isLoadingSessions ? 'animate-spin' : ''}`} />
+                            <span>Refresh</span>
+                          </button>
+                        </div>
+
+                        {/* Current Session Info */}
+                        <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                          <h3 className={`font-semibold ${textPrimary} mb-3 flex items-center space-x-2`}>
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span>Current Session</span>
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            <div className="flex justify-between">
+                              <span className={textSecondary}>Status:</span>
                               <span className="text-green-600 dark:text-green-400 font-medium">Active</span>
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className={textSecondary}>Expires In</span>
-                            <span className={textPrimary}>{formatTimeUntilExpiry()}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className={textSecondary}>Device</span>
-                            <span className={textPrimary}>
-                              <ComputerDesktopIcon className="w-4 h-4 inline mr-1" />
-                              Desktop
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className={textSecondary}>Last Activity</span>
-                            <span className={textPrimary}>Just now</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className={textSecondary}>Expires:</span>
+                              <span className={textPrimary}>{formatTimeUntilExpiry()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className={textSecondary}>Device:</span>
+                              <span className={textPrimary}>
+                                <ComputerDesktopIcon className="w-4 h-4 inline mr-1" />
+                                Desktop
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className={textSecondary}>Last Activity:</span>
+                              <span className={textPrimary}>Just now</span>
+                            </div>
                           </div>
                         </div>
-                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                          <button
-                            onClick={refreshSession}
-                            disabled={isRefreshing}
-                            className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50"
-                          >
-                            <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                            <span>{isRefreshing ? 'Refreshing...' : 'Refresh Session'}</span>
-                          </button>
+
+                        {/* All Sessions */}
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className={`font-semibold ${textPrimary}`}>All Active Sessions</h3>
+                            {userSessions.length > 1 && (
+                              <button
+                                onClick={revokeAllSessions}
+                                className="px-3 py-1 text-sm bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors flex items-center space-x-2"
+                              >
+                                <TrashIcon className="w-4 h-4" />
+                                <span>Revoke All</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {isLoadingSessions ? (
+                            <div className="flex items-center justify-center py-8">
+                              <ArrowPathIcon className="w-6 h-6 animate-spin text-blue-500" />
+                              <span className={`ml-2 ${textSecondary}`}>Loading sessions...</span>
+                            </div>
+                          ) : sessionError ? (
+                            <div className="flex items-center space-x-2 text-red-600 dark:text-red-400 py-4">
+                              <ExclamationCircleIcon className="w-5 h-5" />
+                              <span>{sessionError}</span>
+                            </div>
+                          ) : userSessions.length === 0 ? (
+                            <div className="text-center py-8">
+                              <InformationCircleIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                              <p className={textSecondary}>No active sessions found</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {userSessions.map((session, index) => (
+                                <div key={session._id || index} className={`p-4 rounded-lg border ${border} ${session.isActive ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-gray-50 dark:bg-gray-700/50'}`}>
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-3">
+                                      <div className={`w-3 h-3 rounded-full ${session.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                                      <div>
+                                        <div className="flex items-center space-x-2">
+                                          <span className={`font-medium ${textPrimary}`}>
+                                            {session.deviceInfo?.userAgent?.includes('Mobile') ? 'Mobile' : 'Desktop'}
+                                          </span>
+                                          {session.isActive && (
+                                            <span className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded-full">
+                                              Current
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className={`text-sm ${textSecondary}`}>
+                                          {session.deviceInfo?.ipAddress && (
+                                            <span>IP: {session.deviceInfo.ipAddress}</span>
+                                          )}
+                                          {session.deviceInfo?.userAgent && (
+                                            <span className="ml-2">
+                                              {session.deviceInfo.userAgent.includes('Chrome') ? 'Chrome' : 
+                                               session.deviceInfo.userAgent.includes('Firefox') ? 'Firefox' : 
+                                               session.deviceInfo.userAgent.includes('Safari') ? 'Safari' : 'Browser'}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className={`text-xs ${textSecondary}`}>
+                                          Last activity: {session.lastActivity ? formatDate(session.lastActivity) : 'Unknown'}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {!session.isActive && (
+                                      <button
+                                        onClick={() => revokeSession(session._id)}
+                                        className="px-3 py-1 text-sm bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors flex items-center space-x-1"
+                                      >
+                                        <TrashIcon className="w-3 h-3" />
+                                        <span>Revoke</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -407,6 +800,33 @@ export default function AdminProfile() {
                   {/* Account Settings Tab */}
                   {activeTab === 'account' && (
                     <div className="space-y-6">
+                      {/* Theme Settings */}
+                      <div className={`p-6 rounded-lg border ${border}`}>
+                        <h2 className="text-xl font-bold mb-4">Theme Settings</h2>
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className={`font-medium ${textPrimary}`}>Appearance</p>
+                              <p className={`text-sm ${textSecondary}`}>Choose your preferred theme</p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className={`text-sm ${textSecondary}`}>
+                                Use the theme toggle in the top status bar
+                              </span>
+                            </div>
+                          </div>
+                          <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                            <p className={`text-sm ${textSecondary}`}>
+                              Current theme: <span className="font-medium">{darkMode ? 'Dark' : 'Light'} mode</span>
+                            </p>
+                            <p className={`text-xs ${textSecondary} mt-1`}>
+                              Theme preference is saved automatically and will be applied across all admin pages.
+                              Use the theme toggle button in the top status bar to change themes.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Edit Profile */}
                       <div className={`p-6 rounded-lg border ${border}`}>
                         <h2 className="text-xl font-bold mb-4">Edit Profile</h2>

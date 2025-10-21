@@ -42,7 +42,7 @@ import { useAuth } from '../context/AuthContextConstants';
 import Sidebar from '../components/Sidebar';
 import Modal from '../components/Modal';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
-import AdminSkillManagement from '../components/AdminSkillManagement';
+import LearningModulesManagement from '../components/LearningModulesManagement';
 
 export default function SuperAdminDashboard() {
   const [dashboardData, setDashboardData] = useState(null);
@@ -1243,7 +1243,7 @@ export default function SuperAdminDashboard() {
                   </button>
                 </div>
                 <div className="h-full overflow-y-auto">
-                  <AdminSkillManagement />
+                  <LearningModulesManagement />
                 </div>
               </div>
             </div>

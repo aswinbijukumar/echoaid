@@ -9,6 +9,7 @@ import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import SkillTree from '../components/SkillTree';
 import LessonModal from '../components/LessonModal';
 import LearningModule from '../components/LearningModule';
+import LevelTree from '../components/LevelTree';
 import AnimatedSkill from '../components/AnimatedSkill';
 import {
   AcademicCapIcon,
@@ -53,6 +54,45 @@ export default function Learn() {
     fetchUserProgress();
   }, []);
 
+  // Refresh learning path when user returns from learning modules
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // User returned to the page, refresh learning path
+        console.log('User returned to learn page, refreshing learning path...');
+        fetchLearningPath();
+      }
+    };
+
+    const handleFocus = () => {
+      // User focused on the page, refresh learning path
+      console.log('User focused on learn page, refreshing learning path...');
+      fetchLearningPath();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
+  // Handle module parameter from URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const moduleId = urlParams.get('module');
+    if (moduleId) {
+      // Find the module by ID and open it
+      const module = learningPath.find(m => m._id === moduleId);
+      if (module) {
+        setSelectedSkill(module);
+        setShowLearningModule(true);
+      }
+    }
+  }, [learningPath]);
+
   // Update progress when userStats changes
   useEffect(() => {
     if (userStats && Object.keys(userStats).length > 0) {
@@ -69,7 +109,7 @@ export default function Learn() {
       try {
         const token = localStorage.getItem('token');
         
-        const response = await fetch(`${API_BASE_URL}/api/curriculum/skills`, {
+        const response = await fetch(`${API_BASE_URL}/api/skills`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -512,26 +552,8 @@ export default function Learn() {
                   </div>
                 </div>
 
-                {/* Learning Path - Duolingo Style with Animations */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {learningPath && learningPath.length > 0 ? learningPath.map((skill, index) => (
-                    <AnimatedSkill
-                      key={skill._id}
-                      skill={skill}
-                      onSkillClick={handleUnitClick}
-                      userLevel={userStats.level}
-                      isCompleted={skill.isCompleted}
-                      isUnlocked={skill.isUnlocked}
-                      progress={skill.progress}
-                    />
-                  )) : (
-                    <div className="col-span-full text-center py-8">
-                      <p className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                        No learning content available. Please try again later.
-                      </p>
-                    </div>
-                  )}
-                </div>
+                {/* Level Tree Demo */}
+                <LevelTree />
 
                 {/* Progress Summary */}
                 <div className={`${cardBg} rounded-lg border ${border} p-6 mt-8`}>
@@ -590,6 +612,13 @@ export default function Learn() {
             setDailyGoal(prev => ({
               ...prev,
               completed: Math.min(prev.completed + 1, prev.target)
+            }));
+            // Refresh the learning path to get updated unlocking status
+            fetchLearningPath();
+            // Notify Dashboard to refresh skills data
+            console.log('Dispatching moduleCompleted event...', completedSkill);
+            window.dispatchEvent(new CustomEvent('moduleCompleted', { 
+              detail: { completedSkill } 
             }));
           }}
         />

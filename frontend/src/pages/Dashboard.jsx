@@ -13,7 +13,10 @@ import {
   FireIcon,
   HeartIcon,
   SparklesIcon,
-  StarIcon
+  StarIcon,
+  PlusIcon,
+  EyeIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContextConstants';
@@ -24,6 +27,7 @@ import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import SubscriptionStatus from '../components/SubscriptionStatus';
 import UnitSelector from '../components/UnitSelector';
 import LessonViewer from '../components/LessonViewer';
+import UserMessageForm from '../components/UserMessageForm';
 
 export default function Dashboard() {
   const { stats: userStats } = useUserStats();
@@ -32,9 +36,11 @@ export default function Dashboard() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [categories, setCategories] = useState([]);
   const [recentSigns, setRecentSigns] = useState([]);
+  const [learningModules, setLearningModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'curriculum', 'lesson'
   const [selectedUnit, setSelectedUnit] = useState(null);
+  const [showMessageForm, setShowMessageForm] = useState(false);
   
   const { darkMode } = useTheme();
   const { logout } = useAuth();
@@ -45,11 +51,45 @@ export default function Dashboard() {
   const border = darkMode ? 'border-gray-600' : 'border-gray-300';
   const statusBarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
   const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
+  const textPrimary = darkMode ? 'text-white' : 'text-[#23272F]';
+  const textSecondary = darkMode ? 'text-gray-300' : 'text-gray-600';
+  const hoverBg = darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
 
   // API base URL
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-  // Fetch categories and recent signs
+  // Function to fetch skills data
+  const fetchSkillsData = async () => {
+    try {
+      const skillsResponse = await fetch(`${API_BASE_URL}/api/skills`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const skillsData = await skillsResponse.json();
+      
+      if (skillsData.success && skillsData.data) {
+        console.log('Fetched learning modules:', skillsData.data);
+        // Update learning modules with real data
+        setLearningModules(skillsData.data.map(skill => ({
+          id: skill._id,
+          title: skill.title,
+          description: skill.description,
+          icon: getSkillIcon(skill.category),
+          progress: skill.progress || 0,
+          color: getSkillColor(skill.category),
+          status: getSkillStatus(skill),
+          level: skill.level,
+          isUnlocked: skill.isUnlocked,
+          isCompleted: skill.isCompleted
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching skills data:', error);
+    }
+  };
+
+  // Fetch categories, recent signs, and learning modules
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -78,6 +118,9 @@ export default function Dashboard() {
         if (signsData.signs && signsData.signs.length > 0) {
           setRecentSigns(signsData.signs);
         }
+
+        // Fetch learning modules/skills
+        await fetchSkillsData();
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -87,6 +130,73 @@ export default function Dashboard() {
 
     fetchData();
   }, [API_BASE_URL]);
+
+  // Refresh skills data when user returns from learning modules
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // User returned to the page, refresh skills data
+        console.log('User returned to dashboard, refreshing skills...');
+        fetchSkillsData();
+      }
+    };
+
+    const handleFocus = () => {
+      // User focused on the page, refresh skills data
+      console.log('User focused on dashboard, refreshing skills...');
+      fetchSkillsData();
+    };
+
+    const handleModuleCompleted = (event) => {
+      // Module was completed, refresh skills data
+      console.log('Dashboard received moduleCompleted event:', event.detail);
+      console.log('Refreshing skills data...');
+      fetchSkillsData();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('moduleCompleted', handleModuleCompleted);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('moduleCompleted', handleModuleCompleted);
+    };
+  }, []);
+
+  // Helper functions for skill display
+  const getSkillIcon = (category) => {
+    const iconMap = {
+      'basics': HandRaisedIcon,
+      'alphabet': AcademicCapIcon,
+      'numbers': AcademicCapIcon,
+      'phrases': ChatBubbleLeftRightIcon,
+      'family': UserCircleIcon,
+      'activities': BookOpenIcon,
+      'advanced': PuzzlePieceIcon
+    };
+    return iconMap[category] || BookOpenIcon;
+  };
+
+  const getSkillColor = (category) => {
+    const colorMap = {
+      'basics': 'bg-green-500',
+      'alphabet': 'bg-blue-500',
+      'numbers': 'bg-blue-500',
+      'phrases': 'bg-purple-500',
+      'family': 'bg-pink-500',
+      'activities': 'bg-orange-500',
+      'advanced': 'bg-red-500'
+    };
+    return colorMap[category] || 'bg-gray-500';
+  };
+
+  const getSkillStatus = (skill) => {
+    if (skill.isCompleted) return 'completed';
+    if (skill.isUnlocked) return 'available';
+    return 'locked';
+  };
 
   // Scroll detection
   useEffect(() => {
@@ -109,63 +219,7 @@ export default function Dashboard() {
     advanced: { icon: PuzzlePieceIcon, color: 'bg-red-500' }
   };
 
-  // Sign Language Learning Modules
-  const learningModules = [
-    {
-      id: 1,
-      title: "Basic Hand Signs",
-      description: "Learn fundamental hand gestures",
-      icon: HandRaisedIcon,
-      progress: 80,
-      color: "bg-green-500",
-      status: "completed"
-    },
-    {
-      id: 2,
-      title: "Alphabet & Numbers",
-              description: "Master ISL alphabet and counting",
-      icon: AcademicCapIcon,
-      progress: 60,
-      color: "bg-blue-500",
-      status: "in-progress"
-    },
-    {
-      id: 3,
-      title: "Common Phrases",
-      description: "Essential everyday expressions",
-      icon: ChatBubbleLeftRightIcon,
-      progress: 30,
-      color: "bg-purple-500",
-      status: "locked"
-    },
-    {
-      id: 4,
-      title: "Family & Friends",
-      description: "Signs for relationships",
-      icon: UserCircleIcon,
-      progress: 0,
-      color: "bg-pink-500",
-      status: "locked"
-    },
-    {
-      id: 5,
-      title: "Daily Activities",
-      description: "Routine and activities",
-      icon: BookOpenIcon,
-      progress: 0,
-      color: "bg-orange-500",
-      status: "locked"
-    },
-    {
-      id: 6,
-      title: "Advanced Conversations",
-      description: "Complex communication skills",
-      icon: PuzzlePieceIcon,
-      progress: 0,
-      color: "bg-red-500",
-      status: "locked"
-    }
-  ];
+  // Learning modules will be populated from API
 
 
   const handleLogout = () => {
@@ -193,6 +247,12 @@ export default function Dashboard() {
     setSelectedUnit(null);
   };
 
+  // Manual refresh function for testing
+  const handleRefreshSkills = () => {
+    console.log('Manual refresh triggered...');
+    fetchSkillsData();
+  };
+
   const handleLessonComplete = (data) => {
     console.log('Lesson completed:', data);
     // Show completion notification
@@ -203,11 +263,95 @@ export default function Dashboard() {
   // Show loading screen while data is being fetched or user is not loaded
   if (loading || !userStats) {
     return (
-      <div className={`min-h-screen ${bg} ${text} flex items-center justify-center`}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00CC00] mx-auto mb-4"></div>
-          <p className="text-lg">Loading your dashboard...</p>
+      <div className={`min-h-screen ${bg} ${text} overflow-x-hidden`}>
+        {/* Top Status Bar */}
+        <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64 sticky top-0 z-30`}>
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center space-x-4">
+              {/* Empty space on the left */}
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setShowMessageForm(true)}
+                className="flex items-center space-x-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                title="Send Message to Support"
+              >
+                <ChatBubbleLeftRightIcon className="h-4 w-4" />
+                <span className="hidden sm:inline text-sm font-medium">Support</span>
+              </button>
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-400"></div>
+                <span className="font-semibold">Loading...</span>
+              </div>
+            </div>
+          </div>
         </div>
+
+        <div className="flex">
+          {/* Fixed Left Sidebar - Navigation */}
+          <Sidebar handleLogout={handleLogout} />
+
+          {/* Main Content Area with Left Margin */}
+          <div className={`flex-1 ml-64 ${bg} overflow-hidden`}>
+            <div className="max-w-6xl mx-auto min-h-0">
+              <div className="flex min-h-0">
+                {/* Main Content */}
+                <div className="flex-1 p-6">
+                  {/* Support Section - Always Visible */}
+                  <div className={`${cardBg} rounded-lg border ${border} p-6 mb-6`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className={`p-3 rounded-lg ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100/50'}`}>
+                          <ChatBubbleLeftRightIcon className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className={`text-lg font-semibold ${textPrimary}`}>Need Help?</h3>
+                          <p className={`text-sm ${textSecondary}`}>Contact our support team for assistance</p>
+                        </div>
+                      </div>
+                      <div className="flex space-x-3">
+                        <Link
+                          to="/messages"
+                          className={`px-4 py-2 ${cardBg} border ${border} rounded-lg ${text} ${hoverBg} transition-all duration-200 flex items-center space-x-2`}
+                        >
+                          <EyeIcon className="h-4 w-4" />
+                          <span>View Messages</span>
+                        </Link>
+                        <button
+                          onClick={() => setShowMessageForm(true)}
+                          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-200 flex items-center space-x-2"
+                        >
+                          <PlusIcon className="h-4 w-4" />
+                          <span>Send Message</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Loading Message */}
+                  <div className={`${cardBg} rounded-lg border ${border} p-6 text-center`}>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00CC00] mx-auto mb-4"></div>
+                    <p className={`text-lg ${textPrimary}`}>Loading your dashboard...</p>
+                    <p className={`text-sm ${textSecondary} mt-2`}>Please wait while we fetch your learning progress</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Message Form Modal */}
+        {showMessageForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <UserMessageForm
+                onMessageSent={() => setShowMessageForm(false)}
+                onClose={() => setShowMessageForm(false)}
+              />
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -222,6 +366,14 @@ export default function Dashboard() {
           </div>
           
           <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setShowMessageForm(true)}
+              className="flex items-center space-x-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+              title="Send Message to Support"
+            >
+              <ChatBubbleLeftRightIcon className="w-4 h-4" />
+              <span className="hidden sm:inline text-sm font-medium">Support</span>
+            </button>
             <div className="flex items-center space-x-2">
               <FireIcon className="w-5 h-5 text-orange-400" />
               <span className="font-semibold">{userStats.streak}</span>
@@ -276,77 +428,161 @@ export default function Dashboard() {
                   <SubscriptionStatus />
                 </div>
 
+                {/* Support Section */}
+                <div className={`${cardBg} rounded-lg border ${border} p-6 mb-6`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className={`p-3 rounded-lg ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100/50'}`}>
+                        <ChatBubbleLeftRightIcon className="h-6 w-6 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className={`text-lg font-semibold ${textPrimary}`}>Need Help?</h3>
+                        <p className={`text-sm ${textSecondary}`}>Contact our support team for assistance</p>
+                      </div>
+                    </div>
+                    <div className="flex space-x-3">
+                      <Link
+                        to="/messages"
+                        className={`px-4 py-2 ${cardBg} border ${border} rounded-lg ${text} ${hoverBg} transition-all duration-200 flex items-center space-x-2`}
+                      >
+                        <EyeIcon className="h-4 w-4" />
+                        <span>View Messages</span>
+                      </Link>
+                      <button
+                        onClick={() => setShowMessageForm(true)}
+                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-200 flex items-center space-x-2"
+                      >
+                        <PlusIcon className="h-4 w-4" />
+                        <span>Send Message</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Learning Path */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className={`text-xl font-bold ${textPrimary}`}>Learning Path</h2>
+                    <button
+                      onClick={handleRefreshSkills}
+                      className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-200 flex items-center space-x-2"
+                    >
+                      <ArrowPathIcon className="h-4 w-4" />
+                      <span>Refresh</span>
+                    </button>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                   <div className="space-y-4">
-                    {learningModules.slice(0, 3).map((module) => (
-                      <div
-                        key={module.id}
-                        className={`p-4 rounded-lg border ${border} cursor-pointer hover:shadow-lg transition-all`}
-                      >
-                        <div className="flex items-center space-x-4">
-                          <div className={`${module.color} p-3 rounded-full`}>
-                            <module.icon className="w-6 h-6 text-white" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-lg">{module.title}</h3>
-                            <p className={`text-gray-400 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{module.description}</p>
-                            <div className="mt-2">
-                              <div className="flex justify-between text-sm mb-1">
-                                <span>Progress</span>
-                                <span>{module.progress}%</span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div 
-                                  className={`${module.color} h-2 rounded-full transition-all duration-300`}
-                                  style={{ width: `${module.progress}%` }}
-                                ></div>
-                              </div>
+                    {learningModules.slice(0, 3).map((module) => {
+                      const IconComponent = module.icon;
+                      return (
+                        <div
+                          key={module.id}
+                          className={`p-4 rounded-lg border ${border} cursor-pointer hover:shadow-lg transition-all ${
+                            module.status === 'locked' ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                          onClick={() => {
+                            if (module.status !== 'locked') {
+                              // Navigate to learning module
+                              navigate(`/learn?module=${module.id}`);
+                            }
+                          }}
+                        >
+                          <div className="flex items-center space-x-4">
+                            <div className={`${module.color} p-3 rounded-full`}>
+                              <IconComponent className="w-6 h-6 text-white" />
                             </div>
-                          </div>
-                          {module.status === 'completed' && (
-                            <TrophyIcon className="w-6 h-6 text-yellow-400" />
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="space-y-4">
-                    {learningModules.slice(3, 6).map((module) => (
-                      <div
-                        key={module.id}
-                        className={`p-4 rounded-lg border ${border} cursor-pointer hover:shadow-lg transition-all ${
-                          module.status === 'locked' ? 'opacity-50' : ''
-                        }`}
-                      >
-                        <div className="flex items-center space-x-4">
-                          <div className={`${module.color} p-3 rounded-full`}>
-                            <module.icon className="w-6 h-6 text-white" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-lg">{module.title}</h3>
-                            <p className={`text-gray-400 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{module.description}</p>
-                            {module.status === 'locked' && (
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-lg">{module.title}</h3>
+                              <p className={`text-gray-400 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{module.description}</p>
                               <div className="mt-2">
                                 <div className="flex justify-between text-sm mb-1">
-                                  <span>Locked</span>
-                                  <span>Complete previous modules</span>
+                                  <span>Progress</span>
+                                  <span>{module.progress}%</span>
                                 </div>
                                 <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div className="bg-gray-400 h-2 rounded-full" style={{ width: '0%' }}></div>
+                                  <div 
+                                    className={`${module.color} h-2 rounded-full transition-all duration-300`}
+                                    style={{ width: `${module.progress}%` }}
+                                  ></div>
                                 </div>
+                              </div>
+                            </div>
+                            {module.status === 'completed' && (
+                              <TrophyIcon className="w-6 h-6 text-yellow-400" />
+                            )}
+                            {module.status === 'locked' && (
+                              <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs">🔒</span>
                               </div>
                             )}
                           </div>
-                          {module.status === 'locked' && (
-                            <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
-                              <span className="text-white text-xs">🔒</span>
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
+                  </div>
+
+                  <div className="space-y-4">
+                    {learningModules.slice(3, 6).map((module) => {
+                      const IconComponent = module.icon;
+                      return (
+                        <div
+                          key={module.id}
+                          className={`p-4 rounded-lg border ${border} cursor-pointer hover:shadow-lg transition-all ${
+                            module.status === 'locked' ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                          onClick={() => {
+                            if (module.status !== 'locked') {
+                              // Navigate to learning module
+                              navigate(`/learn?module=${module.id}`);
+                            }
+                          }}
+                        >
+                          <div className="flex items-center space-x-4">
+                            <div className={`${module.color} p-3 rounded-full`}>
+                              <IconComponent className="w-6 h-6 text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-lg">{module.title}</h3>
+                              <p className={`text-gray-400 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{module.description}</p>
+                              {module.status === 'locked' ? (
+                                <div className="mt-2">
+                                  <div className="flex justify-between text-sm mb-1">
+                                    <span>Locked</span>
+                                    <span>Complete previous modules</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div className="bg-gray-400 h-2 rounded-full" style={{ width: '0%' }}></div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="mt-2">
+                                  <div className="flex justify-between text-sm mb-1">
+                                    <span>Progress</span>
+                                    <span>{module.progress}%</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div 
+                                      className={`${module.color} h-2 rounded-full transition-all duration-300`}
+                                      style={{ width: `${module.progress}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            {module.status === 'completed' && (
+                              <TrophyIcon className="w-6 h-6 text-yellow-400" />
+                            )}
+                            {module.status === 'locked' && (
+                              <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs">🔒</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -522,6 +758,18 @@ export default function Dashboard() {
           onBack={handleBackToCurriculum}
           onLessonComplete={handleLessonComplete}
         />
+      )}
+
+      {/* Message Form Modal */}
+      {showMessageForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <UserMessageForm
+              onMessageSent={() => setShowMessageForm(false)}
+              onClose={() => setShowMessageForm(false)}
+            />
+          </div>
+        </div>
       )}
 
     </div>

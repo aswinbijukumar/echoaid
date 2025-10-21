@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
   UserCircleIcon,
@@ -9,7 +9,10 @@ import {
   ArrowLeftIcon,
   ClockIcon,
   TrophyIcon,
-  StarIcon
+  StarIcon,
+  LockClosedIcon,
+  CheckCircleIcon,
+  AcademicCapIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContextConstants';
@@ -21,6 +24,8 @@ import PageHeader from '../components/PageHeader';
 export default function Quiz() {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
+  // const [learningModules, setLearningModules] = useState([]);
+  const [quizRequirements, setQuizRequirements] = useState([]);
   // Use URL param for selected quiz
   const [userStats, setUserStats] = useState({
     streak: 0,
@@ -40,11 +45,6 @@ export default function Quiz() {
   const text = darkMode ? 'text-white' : 'text-[#23272F]';
   const border = darkMode ? 'border-gray-600' : 'border-gray-300';
   const statusBarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
-
-  useEffect(() => {
-    fetchQuizzes();
-    fetchUserStats();
-  }, []);
 
   const fetchQuizzes = async () => {
     try {
@@ -87,16 +87,119 @@ export default function Quiz() {
     }
   };
 
+  const fetchLearningModules = useCallback(async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/skills', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        // setLearningModules(data.data || []);
+        checkQuizRequirements(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching learning modules:', error);
+    }
+  }, []);
+
+  const checkQuizRequirements = (modules) => {
+    // Group modules by level
+    const modulesByLevel = modules.reduce((acc, module) => {
+      const level = module.level || 0;
+      if (!acc[level]) acc[level] = [];
+      acc[level].push(module);
+      return acc;
+    }, {});
+
+    // Check requirements for each level
+    const requirements = Object.keys(modulesByLevel).map(level => {
+      const levelModules = modulesByLevel[level];
+      const completedModules = levelModules.filter(module => module.isCompleted);
+      const totalModules = levelModules.length;
+      const isLevelCompleted = completedModules.length === totalModules;
+      
+      return {
+        level: parseInt(level),
+        totalModules,
+        completedModules: completedModules.length,
+        isLevelCompleted,
+        modules: levelModules
+      };
+    });
+
+    setQuizRequirements(requirements);
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
   const handleQuizComplete = () => {
-    // Update user stats after quiz completion
+    // Update user stats after quiz completion; stay on results view
     fetchUserStats();
-    navigate('/quiz');
+    // Refresh learning modules to update completion status
+    fetchLearningModules();
+    // Do not navigate away; let EnhancedQuiz show results until user clicks Back
   };
+
+  const isQuizUnlocked = (quiz) => {
+    // Check if this is a level mastery quiz
+    const levelMatch = quiz.title.match(/Level (\d+)/);
+    if (levelMatch && quiz.title.includes('Mastery Quiz')) {
+      const requiredLevel = parseInt(levelMatch[1]);
+      
+      if (requiredLevel === 0) {
+        // Level 0 mastery quiz is unlocked if Level 0 modules are completed
+        const level0Req = quizRequirements.find(req => req.level === 0);
+        return level0Req ? level0Req.isLevelCompleted : false;
+      }
+      
+      if (requiredLevel === 1) {
+        // Level 1 mastery quiz is unlocked if BOTH Level 0 AND Level 1 modules are completed
+        const level0Req = quizRequirements.find(req => req.level === 0);
+        const level1Req = quizRequirements.find(req => req.level === 1);
+        
+        const level0Completed = level0Req ? level0Req.isLevelCompleted : false;
+        const level1Completed = level1Req ? level1Req.isLevelCompleted : false;
+        
+        console.log(`🔍 Level 1 Mastery Quiz unlock check: Level 0 completed: ${level0Completed}, Level 1 completed: ${level1Completed}`);
+        return level0Completed && level1Completed;
+      }
+      
+      // For higher levels, check if all previous levels are completed
+      let allPreviousCompleted = true;
+      for (let i = 0; i < requiredLevel; i++) {
+        const levelReq = quizRequirements.find(req => req.level === i);
+        if (!levelReq || !levelReq.isLevelCompleted) {
+          allPreviousCompleted = false;
+          break;
+        }
+      }
+      return allPreviousCompleted;
+    }
+    
+    // For other quizzes, check if they're active
+    return quiz.isActive;
+  };
+
+  const getQuizStatus = (quiz) => {
+    if (!isQuizUnlocked(quiz)) {
+      return 'locked';
+    }
+    
+    // Check if user has completed this quiz
+    // This would need to be implemented with quiz attempt tracking
+    return 'available';
+  };
+
+  useEffect(() => {
+    fetchQuizzes();
+    fetchUserStats();
+    fetchLearningModules();
+  }, [fetchLearningModules]);
 
   // Removed streak-freeze purchase to simplify gamification
 
@@ -253,13 +356,53 @@ export default function Quiz() {
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {quizzes.map((quiz) => (
-                    <div
-                      key={quiz._id}
-                      className={`p-6 rounded-2xl border-2 ${border} hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-105 relative overflow-hidden group`}
-                      onClick={() => navigate(`/quiz/${quiz._id}`)}
-                    >
+                <>
+                  {/* Quiz Requirements Section */}
+                  {quizRequirements.length > 0 && (
+                    <div className="mb-8">
+                      <h3 className="text-xl font-bold mb-4 text-white">Level Progression</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                        {quizRequirements.map((req) => (
+                          <div key={req.level} className={`p-4 rounded-2xl border ${border} ${
+                            req.isLevelCompleted ? 'bg-green-500/10 border-green-500/30' : 'bg-gray-500/10 border-gray-500/30'
+                          }`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-semibold text-white">Level {req.level}</h4>
+                              {req.isLevelCompleted ? (
+                                <CheckCircleIcon className="w-5 h-5 text-green-400" />
+                              ) : (
+                                <LockClosedIcon className="w-5 h-5 text-gray-400" />
+                              )}
+                            </div>
+                            <div className="text-sm text-white/70 mb-2">
+                              {req.completedModules}/{req.totalModules} modules completed
+                            </div>
+                            <div className="w-full bg-gray-700 rounded-full h-2">
+                              <div 
+                                className="bg-green-500 h-2 rounded-full transition-all duration-500"
+                                style={{ width: `${(req.completedModules / req.totalModules) * 100}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Quizzes Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {quizzes.map((quiz) => {
+                      const status = getQuizStatus(quiz);
+                      const isLocked = status === 'locked';
+                      
+                      return (
+                        <div
+                          key={quiz._id}
+                          className={`p-6 rounded-2xl border-2 ${border} ${
+                            isLocked ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-105'
+                          } relative overflow-hidden group`}
+                          onClick={() => !isLocked && navigate(`/quiz/${quiz._id}`)}
+                        >
                       {/* Background Gradient */}
                       <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300 ${
                         quiz.difficulty === 'Beginner' ? 'bg-gradient-to-br from-green-400 to-green-600' :
@@ -271,22 +414,28 @@ export default function Quiz() {
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center space-x-2">
                             <div className={`p-2 rounded-full ${
+                              isLocked ? 'bg-gray-100 dark:bg-gray-700' :
                               quiz.difficulty === 'Beginner' ? 'bg-green-100 dark:bg-green-900' :
                               quiz.difficulty === 'Intermediate' ? 'bg-yellow-100 dark:bg-yellow-900' :
                               'bg-red-100 dark:bg-red-900'
                             }`}>
-                              <PuzzlePieceIcon className={`w-5 h-5 ${
-                                quiz.difficulty === 'Beginner' ? 'text-green-600' :
-                                quiz.difficulty === 'Intermediate' ? 'text-yellow-600' :
-                                'text-red-600'
-                              }`} />
+                              {isLocked ? (
+                                <LockClosedIcon className="w-5 h-5 text-gray-500" />
+                              ) : (
+                                <PuzzlePieceIcon className={`w-5 h-5 ${
+                                  quiz.difficulty === 'Beginner' ? 'text-green-600' :
+                                  quiz.difficulty === 'Intermediate' ? 'text-yellow-600' :
+                                  'text-red-600'
+                                }`} />
+                              )}
                             </div>
                             <span className={`text-sm font-medium px-3 py-1 rounded-full ${
+                              isLocked ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' :
                               quiz.difficulty === 'Beginner' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
                               quiz.difficulty === 'Intermediate' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
                               'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                             }`}>
-                              {quiz.difficulty}
+                              {isLocked ? 'Locked' : quiz.difficulty}
                             </span>
                           </div>
                           <div className="flex items-center space-x-1 text-sm text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">
@@ -341,13 +490,29 @@ export default function Quiz() {
                           <div className="flex items-center space-x-2 text-sm text-gray-500">
                             <span>{quiz.stats?.totalAttempts || 0} attempts</span>
                           </div>
-                          <button className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 transform hover:scale-105 shadow-lg">
-                            Start Quiz
-                          </button>
+                          {isLocked ? (
+                            <div className="flex items-center space-x-2 text-gray-500">
+                              <LockClosedIcon className="w-4 h-4" />
+                              <span className="text-sm">
+                                {quiz.title.includes('Level 1') && quiz.title.includes('Mastery Quiz') 
+                                  ? 'Complete Level 0 & 1 modules' 
+                                  : 'Complete modules to unlock'
+                                }
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 transform hover:scale-105 shadow-lg"
+                              onClick={(e) => { e.stopPropagation(); navigate(`/quiz/${quiz._id}`); }}
+                            >
+                              Start Quiz
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                   
                   {quizzes.length === 0 && (
                     <div className="col-span-full text-center py-12">
@@ -357,6 +522,7 @@ export default function Quiz() {
                     </div>
                   )}
                 </div>
+                </>
               )}
             </div>
           </div>

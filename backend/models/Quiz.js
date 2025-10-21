@@ -48,6 +48,9 @@ const questionSchema = new mongoose.Schema({
   },
   mediaUrl: {
     type: String
+  },
+  videoUrl: {
+    type: String
   }
 });
 

@@ -20,6 +20,8 @@ import skillRoutes from './routes/skills.js';
 import adminSkillsRoutes from './routes/adminSkills.js';
 import uploadRoutes from './routes/upload.js';
 import ttsRoutes from './routes/tts.js';
+import messagesRoutes from './routes/messages.js';
+import quizGeneratorRoutes from './routes/quizGenerator.js';
 import { getAllCategories, getCategoryById, createSignWithVariants } from './controllers/contentController.js';
 import { errorHandler } from './utils/errorHandler.js';
 import { protect, adminAndSuperAdmin, canManageContent } from './middleware/roleAuth.js';
@@ -27,6 +29,15 @@ import fileUpload from 'express-fileupload';
 
 // Load env vars
 dotenv.config({ path: './config.env' });
+
+// Configure Cloudinary
+import { v2 as cloudinary } from 'cloudinary';
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true
+});
 
 const app = express();
 
@@ -39,10 +50,29 @@ app.use(cors({
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:5173',
     'http://localhost:3000',
-    'http://localhost:5173'
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000'
   ],
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200
 }));
+
+// Manual CORS headers as backup
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
 
 // Serve static assets (images, videos, thumbnails) under /assets
 const __filename = fileURLToPath(import.meta.url);
@@ -55,7 +85,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB Connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+  .catch(err => {
+    console.error('MongoDB connection error:', err);
+    console.log('Server will continue without database connection for testing...');
+  });
 
 // Mount routers
 app.use('/api/auth', authRoutes);
@@ -71,13 +104,46 @@ app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/admin/subscriptions', adminSubscriptionRoutes);
 app.use('/api/curriculum', curriculumRoutes);
 app.use('/api/curriculum/skills', skillRoutes);
+app.use('/api/skills', skillRoutes); // Add direct skills route for frontend
 app.use('/api/admin/skills', adminSkillsRoutes);
 app.use('/api/admin/upload', uploadRoutes);
 app.use('/api/admin/tts', ttsRoutes);
+app.use('/api/messages', messagesRoutes);
+app.use('/api/admin/quiz-generator', quizGeneratorRoutes);
 
 // Public aliases for categories so user Dictionary can access them without auth
 app.get('/api/content/categories', getAllCategories);
 app.get('/api/content/categories/:id', getCategoryById);
+
+// Public debug endpoint for upload testing
+app.get('/api/upload/debug', (req, res) => {
+  const config = cloudinary.config();
+  res.json({
+    success: true,
+    message: 'Cloudinary debug info',
+    cloudinary: {
+      hasApiKey: !!config.api_key,
+      hasCloudName: !!config.cloud_name,
+      hasApiSecret: !!config.api_secret,
+      cloudName: config.cloud_name
+    },
+    environment: {
+      hasCloudinaryUrl: !!process.env.CLOUDINARY_URL,
+      hasCloudName: !!process.env.CLOUDINARY_CLOUD_NAME,
+      hasApiKey: !!process.env.CLOUDINARY_API_KEY,
+      hasApiSecret: !!process.env.CLOUDINARY_API_SECRET
+    }
+  });
+});
+
+// Public test endpoint for upload testing
+app.get('/api/upload/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Upload endpoint is working',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Public route for bulk variants (with authentication)
 app.post('/api/content/signs/bulk-variants', 

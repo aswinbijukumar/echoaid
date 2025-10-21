@@ -1,4 +1,4 @@
-import { jsPDF } from 'jspdf';
+// import { jsPDF } from 'jspdf'; // Removed - using PDFKit instead
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -6,6 +6,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export const generateInvoicePDF = (paymentData, userData) => {
+  // Placeholder function - jsPDF removed, using PDFKit instead
+  throw new Error('Invoice PDF generation not implemented - using PDFKit');
+  /*
   const doc = new jsPDF();
   
   // Set font
@@ -112,9 +115,13 @@ export const generateInvoicePDF = (paymentData, userData) => {
     buffer: pdfBuffer,
     fileName: fileName
   };
+  */
 };
 
 export const generateReceiptPDF = (paymentData, userData) => {
+  // Placeholder function - jsPDF removed, using PDFKit instead
+  throw new Error('Receipt PDF generation not implemented - using PDFKit');
+  /*
   const doc = new jsPDF();
   
   // Set font
@@ -200,4 +207,5 @@ export const generateReceiptPDF = (paymentData, userData) => {
     buffer: pdfBuffer,
     fileName: fileName
   };
+  */
 };

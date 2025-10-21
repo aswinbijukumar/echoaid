@@ -97,6 +97,27 @@ export const startQuiz = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Quiz not found' });
     }
 
+  // Check if this is a level mastery quiz and if user has completed required modules
+  if (quiz.title.includes('Level') && quiz.title.includes('Mastery Quiz')) {
+    const levelMatch = quiz.title.match(/Level (\d+)/);
+    if (levelMatch) {
+      const targetLevel = parseInt(levelMatch[1]);
+      const isUnlocked = await checkLevelMasteryQuizUnlock(userId, targetLevel);
+      
+      if (!isUnlocked) {
+        return res.status(403).json({
+          success: false,
+          message: `Complete all Level ${targetLevel} modules to unlock this quiz.`,
+          data: { 
+            requiredLevel: targetLevel,
+            quizTitle: quiz.title,
+            unlockType: 'module_completion'
+          }
+        });
+      }
+    }
+  }
+
   // Simple gating: require prior passes in category for higher difficulties
   if (quiz.difficulty === 'Intermediate' || quiz.difficulty === 'Advanced') {
     const requiredPasses = quiz.difficulty === 'Advanced' ? 3 : 2;
@@ -170,6 +191,13 @@ export const submitQuiz = async (req, res) => {
     const prevUser = await User.findById(userId).lean();
     const prevLevel = prevUser?.learningStats?.level || 1;
 
+    // Prevent duplicate XP on re-clears: if user already has a passed attempt at 100% for this quiz, zero out XP
+    let xpEarnedFinal = results.xpEarned;
+    const priorPerfect = await QuizAttempt.findOne({ userId, quizId, percentage: 100, passed: true }).lean();
+    if (priorPerfect) {
+      xpEarnedFinal = 0;
+    }
+
     // Create quiz attempt record
     const quizAttempt = new QuizAttempt({
       userId,
@@ -181,7 +209,7 @@ export const submitQuiz = async (req, res) => {
       completedAt: new Date(),
       passed: results.percentage >= quiz.passingScore,
       streak: await calculateStreak(userId),
-      xpEarned: results.xpEarned,
+      xpEarned: xpEarnedFinal,
       difficulty: quiz.difficulty,
       category: quiz.category
     });
@@ -195,6 +223,18 @@ export const submitQuiz = async (req, res) => {
     // Update quiz stats
     await updateQuizStats(quizId, results.percentage);
 
+    // Check if this is a level mastery quiz and unlock next level
+    let nextLevelUnlocked = false;
+    if (quiz.title.includes('Level') && quizAttempt.passed) {
+      const levelMatch = quiz.title.match(/Level (\d+)/);
+      if (levelMatch) {
+        const completedLevel = parseInt(levelMatch[1]);
+        console.log(`🎯 Level ${completedLevel} quiz passed, unlocking Level ${completedLevel + 1}`);
+        nextLevelUnlocked = true;
+        // The skill unlocking logic will be handled by the frontend when it refreshes
+      }
+    }
+
     // Fetch updated user stats to return to client for gamification UI
     const updatedUser = await User.findById(userId).lean();
     const learningStats = updatedUser?.learningStats || {};
@@ -207,7 +247,7 @@ export const submitQuiz = async (req, res) => {
         score: results.score,
         percentage: results.percentage,
         passed: quizAttempt.passed,
-        xpEarned: results.xpEarned,
+        xpEarned: xpEarnedFinal,
         streak: quizAttempt.streak,
         feedback: results.feedback,
         perfect: results.perfect,
@@ -215,7 +255,8 @@ export const submitQuiz = async (req, res) => {
         newAchievements,
         timeSpent,
         learningStats,
-        levelUp
+        levelUp,
+        nextLevelUnlocked
       }
     });
   } catch (error) {
@@ -577,6 +618,51 @@ const updateQuizStats = async (quizId, percentage) => {
   quiz.stats.completionRate = Math.round((completedAttempts / allAttempts.length) * 100);
   
   await quiz.save();
+};
+
+// Check if user has completed all modules in a specific level
+const checkLevelMasteryQuizUnlock = async (userId, targetLevel) => {
+  try {
+    console.log(`🔍 Checking Level ${targetLevel} mastery quiz unlock for user ${userId}`);
+    
+    // Get all skills in the target level
+    const skillsInLevel = await Skill.find({ 
+      level: targetLevel, 
+      isActive: true 
+    }).sort({ order: 1 });
+    
+    if (skillsInLevel.length === 0) {
+      console.log(`❌ No skills found for Level ${targetLevel}`);
+      return false;
+    }
+    
+    console.log(`📚 Found ${skillsInLevel.length} skills in Level ${targetLevel}`);
+    
+    // Get user progress
+    const userProgress = await UserSkillProgress.findOne({ user: userId });
+    if (!userProgress) {
+      console.log(`❌ No user progress found for user ${userId}`);
+      return false;
+    }
+    
+    // Check if all skills in the level are completed
+    const completedSkillsInLevel = skillsInLevel.filter(skill => 
+      userProgress.skills.some(sp => 
+        sp.skill.toString() === skill._id.toString() && sp.isCompleted
+      )
+    );
+    
+    const allCompleted = completedSkillsInLevel.length === skillsInLevel.length;
+    
+    console.log(`📊 Level ${targetLevel} completion: ${completedSkillsInLevel.length}/${skillsInLevel.length} skills completed`);
+    console.log(`🔓 Level ${targetLevel} mastery quiz unlocked: ${allCompleted}`);
+    
+    return allCompleted;
+    
+  } catch (error) {
+    console.error('Error checking level mastery quiz unlock:', error);
+    return false;
+  }
 };
 
 // Purchase streak freeze

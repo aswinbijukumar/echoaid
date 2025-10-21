@@ -111,6 +111,10 @@ export const updateQuiz = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
 
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Quiz ID is required' });
+    }
+
     const quiz = await Quiz.findByIdAndUpdate(
       id,
       { ...updateData, updatedAt: new Date() },
@@ -127,6 +131,7 @@ export const updateQuiz = async (req, res) => {
       data: quiz
     });
   } catch (error) {
+    console.error('Quiz update error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -22,6 +22,7 @@ import Practice from './pages/Practice';
 import AdminQuizPage from './pages/AdminQuizPage';
 import Learn from './pages/Learn';
 import Subscription from './pages/Subscription';
+import UserMessages from './pages/UserMessages';
 
 function AppContent() {
   return (
@@ -81,6 +82,11 @@ function AppContent() {
           <Route path="/subscription" element={
             <RoleBasedRoute>
               <Subscription />
+            </RoleBasedRoute>
+          } />
+          <Route path="/messages" element={
+            <RoleBasedRoute>
+              <UserMessages />
             </RoleBasedRoute>
           } />
           <Route path="/accessibility" element={<AccessibilitySettings />} />

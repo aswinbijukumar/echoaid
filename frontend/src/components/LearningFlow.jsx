@@ -13,8 +13,8 @@ export default function LearningFlow({
   const { darkMode } = useTheme();
   const { token } = useAuth();
   
-  // Learning flow states
-  const [currentStep, setCurrentStep] = useState('learn'); // 'learn', 'practice', 'master'
+  // Learning flow states (level-based)
+  const [currentStep, setCurrentStep] = useState('easy'); // 'easy', 'medium', 'hard'
   const [sessionData, setSessionData] = useState({
     attempts: [],
     startTime: new Date(),
@@ -67,48 +67,48 @@ export default function LearningFlow({
 
     setRecognitionResult(result);
     
-    // Auto-advance to next step if score is good
-    if (result.confidence >= 80 && currentStep === 'learn') {
+    // Auto-advance between levels if score is good
+    if (currentStep === 'easy' && result.confidence >= 70) {
       setTimeout(() => {
-        setCurrentStep('practice');
+        setCurrentStep('medium');
       }, 2000);
-    } else if (result.confidence >= 90 && currentStep === 'practice') {
+    } else if (currentStep === 'medium' && result.confidence >= 85) {
       setTimeout(() => {
-        setCurrentStep('master');
+        setCurrentStep('hard');
       }, 2000);
     }
   };
 
   const getStepTitle = () => {
     switch (currentStep) {
-      case 'learn': return 'Learn the Sign';
-      case 'practice': return 'Practice the Sign';
-      case 'master': return 'Master the Sign';
-      default: return 'Learn the Sign';
+      case 'easy': return 'Level 1: Easy';
+      case 'medium': return 'Level 2: Medium';
+      case 'hard': return 'Level 3: Hard';
+      default: return 'Level 1: Easy';
     }
   };
 
   const getStepDescription = () => {
     switch (currentStep) {
-      case 'learn': return 'Watch and understand the sign for ' + selectedSign.word;
-      case 'practice': return 'Practice the sign until you get it right';
-      case 'master': return 'Perfect your sign with advanced practice';
-      default: return 'Learn the sign for ' + selectedSign.word;
+      case 'easy': return 'Start with a simple attempt of ' + selectedSign.word + ' (basic clarity).';
+      case 'medium': return 'Increase accuracy and steadiness for better recognition.';
+      case 'hard': return 'Aim for high precision and consistency (advanced mastery).';
+      default: return 'Start with a simple attempt of ' + selectedSign.word + '.';
     }
   };
 
   const getStepIcon = () => {
     switch (currentStep) {
-      case 'learn': return '👀';
-      case 'practice': return '🤟';
-      case 'master': return '🏆';
-      default: return '👀';
+      case 'easy': return '🟢';
+      case 'medium': return '🟡';
+      case 'hard': return '🔴';
+      default: return '🟢';
     }
   };
 
   const getProgressPercentage = () => {
     const totalSteps = 3;
-    const currentStepIndex = ['learn', 'practice', 'master'].indexOf(currentStep);
+    const currentStepIndex = ['easy', 'medium', 'hard'].indexOf(currentStep);
     return ((currentStepIndex + 1) / totalSteps) * 100;
   };
 
@@ -255,9 +255,9 @@ export default function LearningFlow({
                         </div>
                       </div>
 
-                      {/* Step Navigation */}
+                      {/* Level Navigation */}
                       <div className="flex space-x-2">
-                        {['learn', 'practice', 'master'].map((step, index) => (
+                        {['easy', 'medium', 'hard'].map((step, index) => (
                           <button
                             key={step}
                             onClick={() => handleStepChange(step)}

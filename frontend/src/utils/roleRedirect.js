@@ -24,9 +24,9 @@ export const getRoleBasedRedirect = (userRole, currentPath = '') => {
     return null;
   }
 
-  // Don't redirect from other allowed pages
+  // Don't redirect from other allowed pages (including subpaths like /quiz/:id)
   const allowedPages = ['/profile', '/dictionary', '/quiz', '/practice', '/accessibility', '/subscription'];
-  if (allowedPages.includes(currentPath)) {
+  if (allowedPages.some(prefix => currentPath === prefix || currentPath.startsWith(prefix + '/'))) {
     return null;
   }
 

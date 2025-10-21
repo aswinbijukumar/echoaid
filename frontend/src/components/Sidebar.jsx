@@ -37,10 +37,10 @@ export default function Sidebar({ handleLogout }) {
     { to: '/admin?tab=overview', label: 'DASHBOARD OVERVIEW', icon: ChartBarIcon },
     { to: '/admin?tab=content', label: 'SIGN MANAGEMENT', icon: DocumentTextIcon },
     { to: '/admin?tab=learning', label: 'LEARNING MODULES', icon: AcademicCapIcon },
+    { to: '/admin?tab=quizzes', label: 'MANAGE QUIZZES', icon: PuzzlePieceIcon },
     { to: '/admin?tab=users', label: 'USER MANAGEMENT', icon: UsersIcon },
     { to: '/admin?tab=subscriptions', label: 'SUBSCRIPTION MANAGEMENT', icon: StarIcon },
     { to: '/admin?tab=analytics', label: 'SECTION ANALYTICS', icon: ChartPieIcon },
-    { to: '/admin/quiz', label: 'MANAGE QUIZZES', icon: PuzzlePieceIcon },
     { to: '/profile', label: 'PROFILE', icon: UserCircleIcon },
   ];
 

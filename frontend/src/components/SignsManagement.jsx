@@ -420,7 +420,7 @@ export default function SignsManagement() {
                         {sign.imagePath ? (
                           <img
                             className="h-10 w-10 rounded-lg object-cover"
-                            src={`http://localhost:5000${sign.imagePath}`}
+                            src={`${API_BASE_URL}${sign.imagePath}`}
                             alt={sign.word}
                           />
                         ) : (

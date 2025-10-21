@@ -911,7 +911,7 @@ export default function ContentManagement() {
             <select
               value={filters.category}
               onChange={(e) => setFilters({...filters, category: e.target.value})}
-              className="w-full bg-transparent border border-white/20 text-white rounded-2xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200"
+              className="glass-select w-full bg-transparent border border-white/20 text-white rounded-2xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200"
             >
               <option value="" className="bg-gray-800 text-white">All Categories</option>
               {categories.map(category => (
@@ -927,7 +927,7 @@ export default function ContentManagement() {
             <select
               value={filters.difficulty}
               onChange={(e) => setFilters({...filters, difficulty: e.target.value})}
-              className="w-full bg-transparent border border-white/20 text-white rounded-2xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200"
+              className="glass-select w-full bg-transparent border border-white/20 text-white rounded-2xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200"
             >
               <option value="" className="bg-gray-800 text-white">All Difficulties</option>
               <option value="Beginner" className="bg-gray-800 text-white">Beginner</option>
@@ -941,7 +941,7 @@ export default function ContentManagement() {
             <select
               value={filters.status}
               onChange={(e) => setFilters({...filters, status: e.target.value})}
-              className="w-full bg-transparent border border-white/20 text-white rounded-2xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200"
+              className="glass-select w-full bg-transparent border border-white/20 text-white rounded-2xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm transition-all duration-200"
             >
               <option value="" className="bg-gray-800 text-white">All Status</option>
               <option value="active" className="bg-gray-800 text-white">Active</option>
