@@ -12,7 +12,8 @@ import {
   ChartPieIcon,
   ShieldCheckIcon,
   StarIcon,
-  BoltIcon
+  BoltIcon,
+  ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContextConstants';
@@ -40,26 +41,14 @@ export default function Sidebar({ handleLogout }) {
     { to: '/admin?tab=quizzes', label: 'MANAGE QUIZZES', icon: PuzzlePieceIcon },
     { to: '/admin?tab=users', label: 'USER MANAGEMENT', icon: UsersIcon },
     { to: '/admin?tab=subscriptions', label: 'SUBSCRIPTION MANAGEMENT', icon: StarIcon },
+    { to: '/admin/messages', label: 'MESSAGES', icon: ChatBubbleLeftRightIcon },
     { to: '/admin?tab=analytics', label: 'SECTION ANALYTICS', icon: ChartPieIcon },
-    { to: '/profile', label: 'PROFILE', icon: UserCircleIcon },
-  ];
-
-  // Super Admin links - focuses on user and admin management
-  const superAdminLinks = [
-    { to: '/super-admin', label: 'SUPER ADMIN', icon: ShieldCheckIcon },
-    { to: '/admin?tab=users', label: 'USER MANAGEMENT', icon: UsersIcon },
-    { to: '/admin?tab=subscriptions', label: 'SUBSCRIPTION MANAGEMENT', icon: StarIcon },
-    // Super admin system analytics lives inside the Super Admin page
-    // Keep a simple link to the Super Admin console instead of admin analytics
-    // { to: '/super-admin?tab=analytics', label: 'SYSTEM ANALYTICS', icon: ChartPieIcon },
     { to: '/profile', label: 'PROFILE', icon: UserCircleIcon },
   ];
 
   // Choose links based on user role
   let links = baseLinks;
-  if (user?.role === 'super_admin') {
-    links = superAdminLinks;
-  } else if (user?.role === 'admin') {
+  if (user?.role === 'admin') {
     links = adminLinks;
   }
   return (
@@ -76,7 +65,7 @@ export default function Sidebar({ handleLogout }) {
           <span className="font-black text-xl text-[#00CC00]">EchoAid</span>
         </div>
         <nav className="space-y-2">
-          {links.map(({ to, label, icon: Icon }, idx) => {
+          {links.map(({ to, label, icon: Icon }) => {
             // Enhanced active state detection for admin dashboard tabs
             let isActive = false;
             if (to.includes('?tab=')) {

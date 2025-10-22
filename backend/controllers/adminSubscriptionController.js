@@ -8,9 +8,9 @@ export const getSubscriptions = async (req, res) => {
     const { page = 1, limit = 10, plan, status, search } = req.query;
     const skip = (page - 1) * limit;
 
-    // Build filter object - exclude admin and super_admin users
+    // Build filter object - exclude admin and admin users
     const filter = {
-      role: { $nin: ['admin', 'super_admin'] } // Only show regular users
+      role: { $nin: ['admin', 'admin'] } // Only show regular users
     };
     
     if (plan && plan !== 'all') {
@@ -23,7 +23,7 @@ export const getSubscriptions = async (req, res) => {
 
     if (search) {
       filter.$and = [
-        { role: { $nin: ['admin', 'super_admin'] } },
+        { role: { $nin: ['admin', 'admin'] } },
         {
           $or: [
             { name: { $regex: search, $options: 'i' } },
@@ -68,7 +68,7 @@ export const getSubscriptionStats = async (req, res) => {
     const stats = await User.aggregate([
       {
         $match: {
-          role: { $nin: ['admin', 'super_admin'] } // Only count regular users
+          role: { $nin: ['admin', 'admin'] } // Only count regular users
         }
       },
       {
@@ -204,7 +204,7 @@ export const getSubscriptionAnalytics = async (req, res) => {
     const planAnalytics = await User.aggregate([
       {
         $match: {
-          role: { $nin: ['admin', 'super_admin'] } // Only regular users
+          role: { $nin: ['admin', 'admin'] } // Only regular users
         }
       },
       {
@@ -246,7 +246,7 @@ export const getSubscriptionAnalytics = async (req, res) => {
     const statusAnalytics = await User.aggregate([
       {
         $match: {
-          role: { $nin: ['admin', 'super_admin'] } // Only regular users
+          role: { $nin: ['admin', 'admin'] } // Only regular users
         }
       },
       {
@@ -261,7 +261,7 @@ export const getSubscriptionAnalytics = async (req, res) => {
     const monthlyTrend = await User.aggregate([
       {
         $match: {
-          role: { $nin: ['admin', 'super_admin'] }, // Only regular users
+          role: { $nin: ['admin', 'admin'] }, // Only regular users
           'subscription.subscriptionStartDate': {
             $gte: new Date(Date.now() - 12 * 30 * 24 * 60 * 60 * 1000)
           }
@@ -297,7 +297,7 @@ export const getSubscriptionAnalytics = async (req, res) => {
     const churnAnalytics = await User.aggregate([
       {
         $match: {
-          role: { $nin: ['admin', 'super_admin'] }, // Only regular users
+          role: { $nin: ['admin', 'admin'] }, // Only regular users
           'subscription.status': { $in: ['cancelled', 'expired'] },
           updatedAt: {
             $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -316,7 +316,7 @@ export const getSubscriptionAnalytics = async (req, res) => {
     const conversionAnalytics = await User.aggregate([
       {
         $match: {
-          role: { $nin: ['admin', 'super_admin'] }, // Only regular users
+          role: { $nin: ['admin', 'admin'] }, // Only regular users
           'subscription.status': 'active',
           'subscription.plan': { $ne: 'free' }
         }
@@ -333,7 +333,7 @@ export const getSubscriptionAnalytics = async (req, res) => {
     const arpuAnalytics = await User.aggregate([
       {
         $match: {
-          role: { $nin: ['admin', 'super_admin'] }, // Only regular users
+          role: { $nin: ['admin', 'admin'] }, // Only regular users
           'subscription.status': 'active',
           'subscription.plan': { $ne: 'free' }
         }
@@ -359,7 +359,7 @@ export const getSubscriptionAnalytics = async (req, res) => {
     ]);
 
     // Calculate metrics - exclude admin users
-    const totalUsers = await User.countDocuments({ role: { $nin: ['admin', 'super_admin'] } });
+    const totalUsers = await User.countDocuments({ role: { $nin: ['admin', 'admin'] } });
     const churnedUsers = churnAnalytics[0]?.churnedUsers || 0;
     const convertedUsers = conversionAnalytics[0]?.convertedUsers || 0;
     const totalRevenue = arpuAnalytics[0]?.totalRevenue || 0;
@@ -379,7 +379,7 @@ export const getSubscriptionAnalytics = async (req, res) => {
     const currentMonthRevenue = await User.aggregate([
       {
         $match: {
-          role: { $nin: ['admin', 'super_admin'] },
+          role: { $nin: ['admin', 'admin'] },
           'subscription.status': 'active',
           'subscription.plan': { $ne: 'free' },
           'subscription.subscriptionStartDate': {
@@ -410,7 +410,7 @@ export const getSubscriptionAnalytics = async (req, res) => {
     const lastMonthRevenue = await User.aggregate([
       {
         $match: {
-          role: { $nin: ['admin', 'super_admin'] },
+          role: { $nin: ['admin', 'admin'] },
           'subscription.status': 'active',
           'subscription.plan': { $ne: 'free' },
           'subscription.subscriptionStartDate': {
@@ -444,7 +444,7 @@ export const getSubscriptionAnalytics = async (req, res) => {
 
     // Count new customers this month
     const newCustomers = await User.countDocuments({
-      role: { $nin: ['admin', 'super_admin'] },
+      role: { $nin: ['admin', 'admin'] },
       'subscription.subscriptionStartDate': {
         $gte: new Date(currentYear, currentMonth, 1),
         $lt: new Date(currentYear, currentMonth + 1, 1)
@@ -516,7 +516,7 @@ export const getRevenueData = async (req, res) => {
     const revenueAnalytics = await User.aggregate([
       {
         $match: {
-          role: { $nin: ['admin', 'super_admin'] }, // Only regular users
+          role: { $nin: ['admin', 'admin'] }, // Only regular users
           'subscription.status': 'active',
           'subscription.plan': { $ne: 'free' },
           'subscription.subscriptionStartDate': { $gte: startDate, $lt: endDate }
@@ -586,7 +586,7 @@ export const getRevenueData = async (req, res) => {
     const monthlyTrend = await User.aggregate([
       {
         $match: {
-          role: { $nin: ['admin', 'super_admin'] }, // Only regular users
+          role: { $nin: ['admin', 'admin'] }, // Only regular users
           'subscription.status': 'active',
           'subscription.plan': { $ne: 'free' },
           'subscription.subscriptionStartDate': { $gte: new Date(now.getFullYear() - 1, 0, 1) }
@@ -650,7 +650,7 @@ export const getPaymentHistory = async (req, res) => {
 
     // Build filter for users with payment information - exclude admin users
     const filter = {
-      role: { $nin: ['admin', 'super_admin'] }, // Only regular users
+      role: { $nin: ['admin', 'admin'] }, // Only regular users
       'subscription.paymentMethod': { $ne: 'none' }
     };
 
@@ -717,7 +717,7 @@ export const exportSubscriptionData = async (req, res) => {
     const { format = 'csv' } = req.query;
 
     let filter = {
-      role: { $nin: ['admin', 'super_admin'] } // Only regular users
+      role: { $nin: ['admin', 'admin'] } // Only regular users
     };
     
     if (type === 'active') {
@@ -825,7 +825,7 @@ const getRevenueDataForReport = async (reportType, filters) => {
     const revenueStats = await User.aggregate([
       {
         $match: {
-          role: { $nin: ['admin', 'super_admin'] },
+          role: { $nin: ['admin', 'admin'] },
           'subscription.status': 'active',
           'subscription.plan': { $ne: 'free' }
         }
@@ -854,7 +854,7 @@ const getRevenueDataForReport = async (reportType, filters) => {
     const revenueByPlan = await User.aggregate([
       {
         $match: {
-          role: { $nin: ['admin', 'super_admin'] },
+          role: { $nin: ['admin', 'admin'] },
           'subscription.status': 'active',
           'subscription.plan': { $ne: 'free' }
         }
@@ -883,7 +883,7 @@ const getRevenueDataForReport = async (reportType, filters) => {
     const monthlyTrend = await User.aggregate([
       {
         $match: {
-          role: { $nin: ['admin', 'super_admin'] },
+          role: { $nin: ['admin', 'admin'] },
           'subscription.subscriptionStartDate': {
             $gte: new Date(currentYear, currentMonth - 5, 1)
           }

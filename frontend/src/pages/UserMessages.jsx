@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContextConstants';
-import { useTheme } from '../hooks/useTheme';
 import Sidebar from '../components/Sidebar';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import UserMessageForm from '../components/UserMessageForm';
@@ -22,40 +21,37 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function UserMessages() {
-  const { token, user } = useAuth();
-  const { darkMode } = useTheme();
+  const { token } = useAuth();
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showMessageForm, setShowMessageForm] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState(null);
 
-  // Theme variables
-  const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
-  const text = darkMode ? 'text-white' : 'text-[#23272F]';
-  const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
-  const border = darkMode ? 'border-gray-600' : 'border-gray-300';
-  const textPrimary = darkMode ? 'text-white' : 'text-[#23272F]';
-  const textSecondary = darkMode ? 'text-gray-300' : 'text-gray-600';
-  const hoverBg = darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
+  // Glass theme variables
+  const bg = 'bg-black';
+  const text = 'text-white';
+  const border = 'border-white/20';
+  const textPrimary = 'text-white';
+  const textSecondary = 'text-white/70';
+  const glassEffect = 'backdrop-blur-md bg-white/5 border border-white/10';
+  const glassHover = 'hover:bg-white/10 hover:border-white/20';
 
-  // Category icons
+  // Category icons (matching backend enum)
   const categoryIcons = {
     general: ChatBubbleLeftRightIcon,
     technical: Cog6ToothIcon,
     account: UserCircleIcon,
     billing: CreditCardIcon,
-    content: DocumentTextIcon,
-    bug_report: BugAntIcon,
-    feature_request: LightBulbIcon
+    learning: DocumentTextIcon
   };
 
   // Fetch user messages
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     setIsLoading(true);
     setError('');
     try {
-      const response = await fetch('http://localhost:5000/api/messages', {
+      const response = await fetch('http://localhost:5000/api/messages/user/messages', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -65,19 +61,20 @@ export default function UserMessages() {
         const data = await response.json();
         setMessages(data.data.messages || []);
       } else {
-        setError('Failed to load messages');
+        const errorData = await response.json().catch(() => ({}));
+        setError(`Failed to load messages: ${errorData.message || 'Unknown error'}`);
       }
-    } catch (error) {
+    } catch {
       setError('Network error. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token]);
 
   // Load messages on mount
   useEffect(() => {
     fetchMessages();
-  }, []);
+  }, [fetchMessages]);
 
   // Handle message sent
   const handleMessageSent = () => {
@@ -85,38 +82,36 @@ export default function UserMessages() {
     setShowMessageForm(false);
   };
 
-  // Get status color
+  // Get status color - glass theme (matching backend)
   const getStatusColor = (status) => {
     switch (status) {
-      case 'new': return 'text-blue-600 dark:text-blue-400';
-      case 'read': return 'text-yellow-600 dark:text-yellow-400';
-      case 'replied': return 'text-green-600 dark:text-green-400';
-      case 'resolved': return 'text-green-600 dark:text-green-400';
-      case 'closed': return 'text-gray-600 dark:text-gray-400';
-      default: return 'text-gray-600 dark:text-gray-400';
+      case 'open': return 'text-blue-400';
+      case 'in-progress': return 'text-yellow-400';
+      case 'resolved': return 'text-green-400';
+      case 'closed': return 'text-white/60';
+      default: return 'text-white/60';
     }
   };
 
-  // Get priority color
+  // Get priority color - glass theme
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'urgent': return 'text-red-600 dark:text-red-400';
-      case 'high': return 'text-orange-600 dark:text-orange-400';
-      case 'medium': return 'text-yellow-600 dark:text-yellow-400';
-      case 'low': return 'text-green-600 dark:text-green-400';
-      default: return 'text-gray-600 dark:text-gray-400';
+      case 'urgent': return 'text-red-400';
+      case 'high': return 'text-orange-400';
+      case 'medium': return 'text-yellow-400';
+      case 'low': return 'text-green-400';
+      default: return 'text-white/60';
     }
   };
 
-  // Get status icon
+  // Get status icon - glass theme (matching backend)
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'new': return <ExclamationTriangleIcon className="w-4 h-4 text-blue-500" />;
-      case 'read': return <EyeIcon className="w-4 h-4 text-yellow-500" />;
-      case 'replied': return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
-      case 'resolved': return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
-      case 'closed': return <XMarkIcon className="w-4 h-4 text-gray-500" />;
-      default: return <ClockIcon className="w-4 h-4 text-gray-500" />;
+      case 'open': return <ExclamationTriangleIcon className="w-4 h-4 text-blue-400" />;
+      case 'in-progress': return <EyeIcon className="w-4 h-4 text-yellow-400" />;
+      case 'resolved': return <CheckCircleIcon className="w-4 h-4 text-green-400" />;
+      case 'closed': return <XMarkIcon className="w-4 h-4 text-white/60" />;
+      default: return <ClockIcon className="w-4 h-4 text-white/60" />;
     }
   };
 
@@ -134,8 +129,8 @@ export default function UserMessages() {
 
   return (
     <div className={`min-h-screen ${bg} ${text}`}>
-      {/* Top Status Bar */}
-      <div className={`${bg} border-b ${border} px-6 py-3 pl-64 sticky top-0 z-30`}>
+      {/* Top Status Bar - Glass Theme */}
+      <div className={`${bg} border-b ${border} px-6 py-3 pl-64 sticky top-0 z-30 backdrop-blur-md bg-black/80`}>
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
@@ -154,25 +149,25 @@ export default function UserMessages() {
         {/* Main Content */}
         <div className={`flex-1 ml-64 ${bg}`}>
           <div className="p-6">
-            {/* Header */}
-            <div className={`${cardBg} rounded-lg border ${border} p-6 mb-6`}>
+            {/* Header - Glass Theme */}
+            <div className={`${glassEffect} rounded-xl p-6 mb-6 shadow-2xl`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className={`text-2xl font-bold ${textPrimary}`}>Messages & Support</h1>
-                  <p className={`text-lg ${textSecondary} mt-2`}>Contact our support team and view your message history</p>
+                  <h1 className={`text-3xl font-bold ${textPrimary} mb-2`}>Messages & Support</h1>
+                  <p className={`text-lg ${textSecondary}`}>Contact our support team and view your message history</p>
                 </div>
                 <div className="flex space-x-3">
                   <button
                     onClick={fetchMessages}
                     disabled={isLoading}
-                    className={`px-4 py-2 ${cardBg} border ${border} rounded-lg ${text} ${hoverBg} transition-all duration-200 flex items-center space-x-2`}
+                    className={`px-6 py-3 ${glassEffect} rounded-lg ${text} ${glassHover} transition-all duration-300 flex items-center space-x-2 font-medium`}
                   >
                     <ArrowPathIcon className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                     <span>Refresh</span>
                   </button>
                   <button
                     onClick={() => setShowMessageForm(true)}
-                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-200 flex items-center space-x-2"
+                    className="px-6 py-3 bg-blue-500/80 hover:bg-blue-500 text-white rounded-lg transition-all duration-300 flex items-center space-x-2 font-medium backdrop-blur-md border border-blue-400/30"
                   >
                     <PlusIcon className="h-4 w-4" />
                     <span>New Message</span>
@@ -193,97 +188,109 @@ export default function UserMessages() {
               </div>
             )}
 
-            {/* Messages List */}
-            <div className={`${cardBg} rounded-lg border ${border} p-6`}>
-              <h2 className={`text-xl font-semibold ${textPrimary} mb-4`}>Your Messages</h2>
+            {/* Messages List - Glass Theme */}
+            <div className={`${glassEffect} rounded-xl p-6 shadow-2xl`}>
+              <h2 className={`text-2xl font-bold ${textPrimary} mb-6`}>Your Messages</h2>
 
               {isLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <ArrowPathIcon className="w-6 h-6 animate-spin text-blue-500" />
-                  <span className={`ml-2 ${textSecondary}`}>Loading messages...</span>
+                <div className="flex items-center justify-center py-12">
+                  <ArrowPathIcon className="w-8 h-8 animate-spin text-blue-400" />
+                  <span className={`ml-3 text-lg ${textSecondary}`}>Loading messages...</span>
                 </div>
               ) : error ? (
-                <div className="flex items-center space-x-2 text-red-600 dark:text-red-400 py-4">
-                  <ExclamationTriangleIcon className="w-5 h-5" />
-                  <span>{error}</span>
+                <div className="flex items-center space-x-3 text-red-400 py-6">
+                  <ExclamationTriangleIcon className="w-6 h-6" />
+                  <span className="text-lg">{error}</span>
                 </div>
               ) : messages.length === 0 ? (
-                <div className="text-center py-12">
-                  <ChatBubbleLeftRightIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className={`text-lg font-medium ${textPrimary} mb-2`}>No messages yet</h3>
-                  <p className={`${textSecondary} mb-4`}>Send your first message to our support team</p>
+                <div className="text-center py-16">
+                  <ChatBubbleLeftRightIcon className="w-20 h-20 text-white/40 mx-auto mb-6" />
+                  <h3 className={`text-2xl font-bold ${textPrimary} mb-3`}>No messages yet</h3>
+                  <p className={`text-lg ${textSecondary} mb-6`}>Send your first message to our support team</p>
                   <button
                     onClick={() => setShowMessageForm(true)}
-                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                    className="px-8 py-3 bg-blue-500/80 hover:bg-blue-500 text-white rounded-lg transition-all duration-300 font-medium backdrop-blur-md border border-blue-400/30"
                   >
                     Send Message
                   </button>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {messages.map((message) => {
                     const CategoryIcon = categoryIcons[message.category] || ChatBubbleLeftRightIcon;
                     return (
                       <div
                         key={message._id}
-                        className={`p-4 rounded-lg border ${border} ${hoverBg} cursor-pointer transition-colors`}
+                        className={`p-6 rounded-xl ${glassEffect} ${glassHover} cursor-pointer transition-all duration-300 shadow-lg ${
+                          message.adminReply ? 'ring-2 ring-green-400/30 border-green-400/20' : ''
+                        } ${message.status === 'resolved' ? 'ring-2 ring-green-400/20 border-green-400/10' : ''}`}
                         onClick={() => setSelectedMessage(message)}
                       >
-                        <div className="flex items-start space-x-4">
+                        <div className="flex items-start space-x-6">
                           <div className="flex-shrink-0">
-                            <div className={`p-2 rounded-lg ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100/50'}`}>
-                              <CategoryIcon className="h-5 w-5 text-blue-600" />
+                            <div className={`p-3 rounded-xl bg-blue-500/20 border border-blue-400/30`}>
+                              <CategoryIcon className="h-6 w-6 text-blue-400" />
                             </div>
                           </div>
                           
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className={`text-lg font-medium ${textPrimary} truncate`}>
-                                {message.subject}
-                              </h3>
-                              <div className="flex items-center space-x-2">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center space-x-3">
+                                <h3 className={`text-xl font-bold ${textPrimary} truncate`}>
+                                  {message.subject}
+                                </h3>
+                                {message.adminReply && (
+                                  <span className="px-2 py-1 bg-green-400/20 text-green-400 text-xs font-semibold rounded-full">
+                                    REPLIED
+                                  </span>
+                                )}
+                                {message.status === 'resolved' && (
+                                  <span className="px-2 py-1 bg-green-400/20 text-green-400 text-xs font-semibold rounded-full">
+                                    RESOLVED
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center space-x-3">
                                 {getStatusIcon(message.status)}
-                                <span className={`text-sm font-medium ${getStatusColor(message.status)}`}>
+                                <span className={`text-sm font-semibold ${getStatusColor(message.status)}`}>
                                   {message.status}
                                 </span>
                               </div>
                             </div>
                             
-                            <p className={`text-sm ${textSecondary} mb-3 line-clamp-2`}>
+                            <p className={`text-base ${textSecondary} mb-4 line-clamp-2`}>
                               {message.message}
                             </p>
                             
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-4">
-                                <span className={`text-xs px-2 py-1 rounded-full ${
-                                  darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'
-                                }`}>
+                                <span className={`text-sm px-3 py-1 rounded-full bg-white/10 border border-white/20 text-white/80`}>
                                   {message.category}
                                 </span>
-                                <span className={`text-xs font-medium ${getPriorityColor(message.priority)}`}>
+                                <span className={`text-sm font-semibold ${getPriorityColor(message.priority)}`}>
                                   {message.priority} priority
                                 </span>
                               </div>
-                              <span className={`text-xs ${textSecondary}`}>
+                              <span className={`text-sm ${textSecondary}`}>
                                 {formatDate(message.createdAt)}
                               </span>
                             </div>
 
-                            {message.reply && (
-                              <div className={`mt-3 p-3 rounded-lg ${darkMode ? 'bg-green-900/20 border border-green-800' : 'bg-green-50 border border-green-200'}`}>
-                                <div className="flex items-center space-x-2 mb-2">
-                                  <CheckCircleIcon className="w-4 h-4 text-green-600" />
-                                  <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                            {message.adminReply && (
+                              <div className={`mt-4 p-4 rounded-xl bg-green-500/10 border border-green-400/30 backdrop-blur-md`}>
+                                <div className="flex items-center space-x-3 mb-3">
+                                  <CheckCircleIcon className="w-5 h-5 text-green-400" />
+                                  <span className="text-base font-semibold text-green-400">
                                     Admin Reply
                                   </span>
                                   {message.repliedAt && (
-                                    <span className="text-xs text-green-600 dark:text-green-400">
+                                    <span className="text-sm text-green-400/80">
                                       {formatDate(message.repliedAt)}
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-sm text-green-700 dark:text-green-300">
-                                  {message.reply}
+                                <p className="text-base text-green-300">
+                                  {message.adminReply}
                                 </p>
                               </div>
                             )}
@@ -299,59 +306,59 @@ export default function UserMessages() {
         </div>
       </div>
 
-      {/* Message Detail Modal */}
+      {/* Message Detail Modal - Glass Theme */}
       {selectedMessage && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className={`${cardBg} rounded-lg border ${border} max-w-2xl w-full max-h-[90vh] overflow-y-auto`}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className={`text-xl font-semibold ${textPrimary}`}>Message Details</h3>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`${glassEffect} rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl`}>
+            <div className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className={`text-2xl font-bold ${textPrimary}`}>Message Details</h3>
                 <button
                   onClick={() => setSelectedMessage(null)}
-                  className={`p-2 rounded-lg ${hoverBg} ${textSecondary}`}
+                  className={`p-3 rounded-xl ${glassHover} ${textSecondary} transition-all duration-300`}
                 >
-                  <XMarkIcon className="h-5 w-5" />
+                  <XMarkIcon className="h-6 w-6" />
                 </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
-                  <h4 className={`font-medium ${textPrimary}`}>Subject</h4>
-                  <p className={`${textSecondary}`}>{selectedMessage.subject}</p>
+                  <h4 className={`text-lg font-bold ${textPrimary} mb-2`}>Subject</h4>
+                  <p className={`text-lg ${textSecondary}`}>{selectedMessage.subject}</p>
                 </div>
 
                 <div>
-                  <h4 className={`font-medium ${textPrimary}`}>Message</h4>
-                  <p className={`${textSecondary} whitespace-pre-wrap`}>{selectedMessage.message}</p>
+                  <h4 className={`text-lg font-bold ${textPrimary} mb-3`}>Message</h4>
+                  <p className={`text-base ${textSecondary} whitespace-pre-wrap leading-relaxed`}>{selectedMessage.message}</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <h4 className={`font-medium ${textPrimary}`}>Category</h4>
-                    <p className={`${textSecondary}`}>{selectedMessage.category}</p>
+                    <h4 className={`text-base font-semibold ${textPrimary} mb-2`}>Category</h4>
+                    <p className={`text-base ${textSecondary}`}>{selectedMessage.category}</p>
                   </div>
                   <div>
-                    <h4 className={`font-medium ${textPrimary}`}>Priority</h4>
-                    <p className={`${getPriorityColor(selectedMessage.priority)}`}>{selectedMessage.priority}</p>
+                    <h4 className={`text-base font-semibold ${textPrimary} mb-2`}>Priority</h4>
+                    <p className={`text-base font-semibold ${getPriorityColor(selectedMessage.priority)}`}>{selectedMessage.priority}</p>
                   </div>
                   <div>
-                    <h4 className={`font-medium ${textPrimary}`}>Status</h4>
-                    <p className={`${getStatusColor(selectedMessage.status)}`}>{selectedMessage.status}</p>
+                    <h4 className={`text-base font-semibold ${textPrimary} mb-2`}>Status</h4>
+                    <p className={`text-base font-semibold ${getStatusColor(selectedMessage.status)}`}>{selectedMessage.status}</p>
                   </div>
                   <div>
-                    <h4 className={`font-medium ${textPrimary}`}>Sent</h4>
-                    <p className={`${textSecondary}`}>{formatDate(selectedMessage.createdAt)}</p>
+                    <h4 className={`text-base font-semibold ${textPrimary} mb-2`}>Sent</h4>
+                    <p className={`text-base ${textSecondary}`}>{formatDate(selectedMessage.createdAt)}</p>
                   </div>
                 </div>
 
-                {selectedMessage.reply && (
-                  <div className={`p-4 rounded-lg ${darkMode ? 'bg-green-900/20 border border-green-800' : 'bg-green-50 border border-green-200'}`}>
-                    <h4 className={`font-medium text-green-600 dark:text-green-400 mb-2`}>Admin Reply</h4>
-                    <p className="text-green-700 dark:text-green-300 whitespace-pre-wrap">
-                      {selectedMessage.reply}
+                {selectedMessage.adminReply && (
+                  <div className={`p-6 rounded-xl bg-green-500/10 border border-green-400/30 backdrop-blur-md`}>
+                    <h4 className={`text-lg font-bold text-green-400 mb-3`}>Admin Reply</h4>
+                    <p className="text-base text-green-300 whitespace-pre-wrap leading-relaxed">
+                      {selectedMessage.adminReply}
                     </p>
                     {selectedMessage.repliedAt && (
-                      <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                      <p className="text-sm text-green-400/80 mt-3">
                         Replied on {formatDate(selectedMessage.repliedAt)}
                       </p>
                     )}

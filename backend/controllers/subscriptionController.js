@@ -1,7 +1,10 @@
 import User from '../models/User.js';
+import QuizAttempt from '../models/QuizAttempt.js';
+import UserSkillProgress from '../models/UserSkillProgress.js';
 import sendEmail from '../utils/sendEmail.js';
 import razorpay from '../config/razorpay.js';
 import { generateInvoicePDF, generateReceiptPDF } from '../utils/pdfGenerator.js';
+import logger from '../utils/prettyLogger.js';
 
 // Get user subscription details
 export const getSubscription = async (req, res) => {
@@ -20,7 +23,7 @@ export const getSubscription = async (req, res) => {
       data: user.subscription
     });
   } catch (error) {
-    console.error('Get subscription error:', error);
+    logger.errorWithStack('Get subscription error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -84,7 +87,7 @@ export const updateSubscription = async (req, res) => {
       data: user.subscription
     });
   } catch (error) {
-    console.error('Update subscription error:', error);
+    logger.errorWithStack('Update subscription error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -130,7 +133,7 @@ export const cancelSubscription = async (req, res) => {
       message: 'Subscription cancelled successfully'
     });
   } catch (error) {
-    console.error('Cancel subscription error:', error);
+    logger.errorWithStack('Cancel subscription error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -149,15 +152,18 @@ export const getSubscriptionPlans = async (req, res) => {
         description: 'Perfect for getting started',
         features: [
           'Basic sign language learning',
-          'Limited quizzes (10 per day)',
+          'Limited quizzes (5 per day)',
+          'Limited learning modules (3 per day)',
           'Basic progress tracking',
           'Community support',
           'Mobile app access'
         ],
         limitations: [
-          'Limited to 10 quizzes per day',
+          'Limited to 5 quizzes per day',
+          'Limited to 3 learning modules per day',
           'Basic analytics only',
-          'Standard support'
+          'Standard support',
+          '14-day trial period'
         ],
         color: 'gray',
         popular: false
@@ -225,7 +231,7 @@ export const getSubscriptionPlans = async (req, res) => {
       data: plans
     });
   } catch (error) {
-    console.error('Get subscription plans error:', error);
+    logger.errorWithStack('Get subscription plans error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -256,7 +262,111 @@ export const checkSubscriptionAccess = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Check subscription access error:', error);
+    logger.errorWithStack('Check subscription access error:', error, error, 'CONTROLLER');
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+// Get subscription status and limits
+export const getSubscriptionStatus = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('subscription role');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Admin users have unlimited access
+    if (user.role === 'admin') {
+      return res.status(200).json({
+        success: true,
+        data: {
+          subscription: {
+            plan: 'admin',
+            status: 'active',
+            features: {
+              unlimitedQuizzes: true,
+              advancedAnalytics: true,
+              prioritySupport: true,
+              customProgressTracking: true,
+              offlineMode: true,
+              advancedGamification: true,
+              apiAccess: true,
+              whiteLabel: true
+            }
+          },
+          trialDaysLeft: null,
+          todayUsage: null,
+          isTrialExpired: false,
+          needsUpgrade: false,
+          isAdmin: true
+        }
+      });
+    }
+
+    const subscription = user.subscription;
+    const now = new Date();
+    
+    // Calculate trial days left
+    let trialDaysLeft = 0;
+    if (subscription.status === 'trial' && subscription.trialEndDate) {
+      const trialEnd = new Date(subscription.trialEndDate);
+      const diffTime = trialEnd - now;
+      trialDaysLeft = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    }
+
+    // Get today's usage for trial users
+    let todayUsage = {};
+    if (subscription.status === 'trial') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      // Count today's quiz attempts
+      const quizAttempts = await QuizAttempt.countDocuments({
+        userId: req.user.id,
+        createdAt: { $gte: today, $lt: tomorrow }
+      });
+      
+      // Count today's module completions
+      const userProgress = await UserSkillProgress.findOne({ user: req.user.id });
+      let moduleCompletions = 0;
+      if (userProgress && userProgress.skills) {
+        moduleCompletions = userProgress.skills.filter(skill => 
+          skill.isCompleted && 
+          skill.completedAt && 
+          new Date(skill.completedAt) >= today && 
+          new Date(skill.completedAt) < tomorrow
+        ).length;
+      }
+      
+      todayUsage = {
+        quizAttempts,
+        moduleCompletions,
+        maxQuizAttempts: 5,
+        maxModuleCompletions: 3
+      };
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        subscription,
+        trialDaysLeft,
+        todayUsage,
+        isTrialExpired: subscription.status === 'trial' && trialDaysLeft === 0,
+        needsUpgrade: subscription.status === 'trial' && trialDaysLeft <= 3
+      }
+    });
+  } catch (error) {
+    logger.errorWithStack('Get subscription status error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -331,9 +441,9 @@ const checkFeatureAccess = (subscription, feature) => {
 // Create Razorpay order
 export const createRazorpayOrder = async (req, res) => {
   try {
-    console.log('Creating Razorpay order...');
-    console.log('Request body:', req.body);
-    console.log('User:', req.user);
+    logger.info('Creating Razorpay order...', null, 'CONTROLLER');
+    logger.debug('Request body:', req.body, 'CONTROLLER');
+    logger.debug('User:', req.user, 'CONTROLLER');
     
     const { amount, currency = 'INR', plan, billingCycle } = req.body;
     const userId = req.user.id;
@@ -348,14 +458,14 @@ export const createRazorpayOrder = async (req, res) => {
 
     // Validate Razorpay configuration
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      console.error('Razorpay configuration missing');
+      logger.errorWithStack('Razorpay configuration missing', error, 'CONTROLLER');
       return res.status(500).json({
         success: false,
         message: 'Payment gateway configuration error'
       });
     }
 
-    console.log('Creating order with Razorpay...');
+    logger.info('Creating order with Razorpay...', null, 'CONTROLLER');
     // Create order in Razorpay
     const order = await razorpay.orders.create({
       amount: amount * 100, // Razorpay expects amount in paise
@@ -368,7 +478,7 @@ export const createRazorpayOrder = async (req, res) => {
       }
     });
 
-    console.log('Order created successfully:', order.id);
+    logger.debug('Order created successfully:', order.id, 'CONTROLLER');
 
     res.status(200).json({
       success: true,
@@ -380,7 +490,7 @@ export const createRazorpayOrder = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Create Razorpay order error:', error);
+    logger.errorWithStack('Create Razorpay order error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Failed to create payment order'
@@ -454,11 +564,30 @@ export const verifyRazorpayPayment = async (req, res) => {
       email: user.email
     };
 
-    // Generate invoice and receipt PDFs
-    const invoicePDF = generateInvoicePDF(paymentData, userData);
-    const receiptPDF = generateReceiptPDF(paymentData, userData);
+    // Try to generate PDFs, but don't fail the payment if PDF generation fails
+    let attachments = [];
+    try {
+      const invoicePDF = generateInvoicePDF(paymentData, userData);
+      const receiptPDF = generateReceiptPDF(paymentData, userData);
+      
+      attachments = [
+        {
+          filename: invoicePDF.fileName,
+          content: invoicePDF.buffer,
+          contentType: 'text/plain'
+        },
+        {
+          filename: receiptPDF.fileName,
+          content: receiptPDF.buffer,
+          contentType: 'text/plain'
+        }
+      ];
+    } catch (pdfError) {
+      logger.warning('PDF generation failed, continuing without attachments', { error: pdfError.message }, 'EMAIL');
+      // Continue without PDF attachments - payment verification should not fail
+    }
 
-    // Send confirmation email with PDF attachments
+    // Send confirmation email (with or without PDF attachments)
     await sendEmail({
       email: user.email,
       subject: 'Payment Successful - EchoAid Subscription',
@@ -499,7 +628,7 @@ export const verifyRazorpayPayment = async (req, res) => {
               <ul style="color: #2d5a2d; margin: 10px 0;">
                 <li>Your subscription is now active</li>
                 <li>Access all premium features immediately</li>
-                <li>Download your invoice and receipt (attached)</li>
+                ${attachments.length > 0 ? '<li>Download your invoice and receipt (attached)</li>' : '<li>Your payment receipt is available in your account</li>'}
                 <li>Start learning with unlimited access</li>
               </ul>
             </div>
@@ -525,18 +654,7 @@ export const verifyRazorpayPayment = async (req, res) => {
           </div>
         </div>
       `,
-      attachments: [
-        {
-          filename: invoicePDF.fileName,
-          content: Buffer.from(invoicePDF.buffer),
-          contentType: 'application/pdf'
-        },
-        {
-          filename: receiptPDF.fileName,
-          content: Buffer.from(receiptPDF.buffer),
-          contentType: 'application/pdf'
-        }
-      ]
+      attachments: attachments
     });
 
     res.status(200).json({
@@ -550,10 +668,10 @@ export const verifyRazorpayPayment = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Verify Razorpay payment error:', error);
+    logger.errorWithStack('Verify Razorpay payment error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Failed to verify payment'
     });
   }
-};;
+};

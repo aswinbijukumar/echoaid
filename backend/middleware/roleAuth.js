@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import logger from '../utils/prettyLogger.js';
 import User from '../models/User.js';
 
 // Protect routes - verify token
@@ -9,10 +10,10 @@ export const protect = async (req, res, next) => {
     token = req.headers.authorization.split(' ')[1];
   }
 
-  console.log('Protect middleware - Token present:', !!token);
+  logger.debug('Protect middleware - Token present:', !!token, 'CONTROLLER');
 
   if (!token) {
-    console.log('No token found in request');
+    logger.info('No token found in request', null, 'CONTROLLER');
     return res.status(401).json({
       success: false,
       message: 'Not authorized to access this route'
@@ -22,13 +23,13 @@ export const protect = async (req, res, next) => {
   try {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Token decoded successfully, user ID:', decoded.id);
+    logger.debug('Token decoded successfully, user ID:', decoded.id, 'CONTROLLER');
 
     // Get user from token
     const user = await User.findById(decoded.id).select('-password');
 
     if (!user) {
-      console.log('User not found in database');
+      logger.info('User not found in database', null, 'CONTROLLER');
       return res.status(401).json({
         success: false,
         message: 'User not found'
@@ -36,18 +37,18 @@ export const protect = async (req, res, next) => {
     }
 
     if (!user.isActive) {
-      console.log('User account is deactivated');
+      logger.info('User account is deactivated', null, 'CONTROLLER');
       return res.status(401).json({
         success: false,
         message: 'Account is deactivated'
       });
     }
 
-    console.log('User authenticated successfully:', user.email, 'role:', user.role);
+    logger.debug('User authenticated successfully:', user.email, 'role:', user.role, 'CONTROLLER');
     req.user = user;
     next();
   } catch (error) {
-    console.log('Token verification failed:', error.message);
+    logger.debug('Token verification failed:', error.message, 'CONTROLLER');
     return res.status(401).json({
       success: false,
       message: 'Not authorized to access this route'
@@ -98,10 +99,9 @@ export const checkPermission = (permission) => {
 };
 
 // Super Admin only
-export const superAdminOnly = authorize('super_admin');
 
 // Admin and Super Admin
-export const adminAndSuperAdmin = authorize('admin', 'super_admin');
+export const adminAndSuperAdmin = authorize('admin');
 
 // Check if user can manage specific content
 export const canManageContent = (req, res, next) => {

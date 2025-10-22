@@ -108,13 +108,16 @@ export const createQuiz = async (req, res) => {
 // Update quiz
 export const updateQuiz = async (req, res) => {
   try {
+    console.log('🔄 Quiz update request received:', req.params, req.body);
     const { id } = req.params;
     const updateData = req.body;
 
     if (!id) {
+      console.log('❌ No quiz ID provided');
       return res.status(400).json({ success: false, message: 'Quiz ID is required' });
     }
 
+    console.log('🔍 Looking for quiz with ID:', id);
     const quiz = await Quiz.findByIdAndUpdate(
       id,
       { ...updateData, updatedAt: new Date() },
@@ -122,16 +125,18 @@ export const updateQuiz = async (req, res) => {
     );
 
     if (!quiz) {
+      console.log('❌ Quiz not found with ID:', id);
       return res.status(404).json({ success: false, message: 'Quiz not found' });
     }
 
+    console.log('✅ Quiz updated successfully:', quiz.title);
     res.json({
       success: true,
       message: 'Quiz updated successfully',
       data: quiz
     });
   } catch (error) {
-    console.error('Quiz update error:', error);
+    console.error('❌ Quiz update error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

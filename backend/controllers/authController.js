@@ -8,10 +8,13 @@ import bcrypt from 'bcryptjs'; // Added bcrypt import
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
 import sessionSecurity from '../utils/sessionSecurity.js';
+import logger from '../utils/prettyLogger.js';
 import UserSession from '../models/UserSession.js';
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+import { ENV_CONFIG } from '../config/prettyConfig.js';
+
+const FRONTEND_URL = ENV_CONFIG.FRONTEND_URL;
+const BACKEND_URL = ENV_CONFIG.BACKEND_URL;
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -98,7 +101,7 @@ The EchoAid Team
         tempUserId: tempUserId
       });
     } catch (err) {
-      console.error('Send email error:', err);
+      logger.errorWithStack('Send email error', err, 'EMAIL');
       // Clean up temp data if email fails
       global.tempUsers.delete(tempUserId);
       
@@ -283,14 +286,14 @@ The EchoAid Team
         message: 'New OTP sent successfully'
       });
     } catch (err) {
-      console.error('Send email error:', err);
+      logger.errorWithStack('Send email error', err, 'EMAIL');
       return res.status(500).json({
         success: false,
         message: 'Failed to send OTP. Please try again.'
       });
     }
   } catch (error) {
-    console.error('Resend OTP error:', error);
+    logger.errorWithStack('Resend OTP error', error, 'AUTH');
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -394,7 +397,7 @@ export const login = async (req, res) => {
           plan: 'free',
           status: 'trial',
           trialStartDate: new Date(),
-          trialEndDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          trialEndDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
           features: {}
         }
       }
@@ -592,7 +595,7 @@ The EchoAid Team
         message: 'Email sent'
       });
     } catch (err) {
-      console.error('Send email error:', err);
+      logger.errorWithStack('Send email error', err, 'EMAIL');
       user.resetPasswordToken = undefined;
       user.resetPasswordExpire = undefined;
 
@@ -806,7 +809,7 @@ export const getMe = async (req, res) => {
           plan: 'free',
           status: 'trial',
           trialStartDate: new Date(),
-          trialEndDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          trialEndDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
           features: {}
         }
       }

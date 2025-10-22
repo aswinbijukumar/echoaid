@@ -11,7 +11,6 @@ import TestEmail from './pages/TestEmail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
-import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import RoleBasedProfile from './components/RoleBasedProfile';
 import Dictionary from './pages/Dictionary';
@@ -22,7 +21,11 @@ import Practice from './pages/Practice';
 import AdminQuizPage from './pages/AdminQuizPage';
 import Learn from './pages/Learn';
 import Subscription from './pages/Subscription';
+import Support from './pages/Support';
 import UserMessages from './pages/UserMessages';
+import AdminMessages from './pages/AdminMessages';
+import SimpleTerms from './pages/SimpleTerms';
+import SimplePrivacy from './pages/SimplePrivacy';
 
 function AppContent() {
   return (
@@ -48,13 +51,8 @@ function AppContent() {
             </RoleBasedRoute>
           } />
           <Route path="/admin" element={
-            <RoleBasedRoute allowedRoles={['admin', 'super_admin']}>
+            <RoleBasedRoute allowedRoles={['admin']}>
               <AdminDashboard />
-            </RoleBasedRoute>
-          } />
-          <Route path="/super-admin" element={
-            <RoleBasedRoute allowedRoles={['super_admin']}>
-              <SuperAdminDashboard />
             </RoleBasedRoute>
           } />
           <Route path="/profile" element={<RoleBasedProfile />} />
@@ -70,7 +68,7 @@ function AppContent() {
             </RoleBasedRoute>
           } />
           <Route path="/admin/quiz" element={
-            <RoleBasedRoute allowedRoles={['admin', 'super_admin']}>
+            <RoleBasedRoute allowedRoles={['admin']}>
               <AdminQuizPage />
             </RoleBasedRoute>
           } />
@@ -84,13 +82,25 @@ function AppContent() {
               <Subscription />
             </RoleBasedRoute>
           } />
+          <Route path="/support" element={
+            <RoleBasedRoute>
+              <Support />
+            </RoleBasedRoute>
+          } />
           <Route path="/messages" element={
             <RoleBasedRoute>
               <UserMessages />
             </RoleBasedRoute>
           } />
+          <Route path="/admin/messages" element={
+            <RoleBasedRoute allowedRoles={['admin']}>
+              <AdminMessages />
+            </RoleBasedRoute>
+          } />
           <Route path="/accessibility" element={<AccessibilitySettings />} />
           <Route path="/auth/google/success" element={<GoogleAuthSuccess />} />
+          <Route path="/terms" element={<SimpleTerms />} />
+          <Route path="/privacy" element={<SimplePrivacy />} />
         </Routes>
         <ModernSessionTimeout />
       </Router>

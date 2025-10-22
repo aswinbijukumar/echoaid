@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { modernSessionManager } from '../utils/modernSessionManager.js';
 import { API_BASE_URL } from '../constants/api.js';
 import { AuthContext } from './AuthContextConstants.js';
+import logger from '../utils/prettyLogger.js';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -24,7 +25,7 @@ export function AuthProvider({ children }) {
         });
       }
     } catch (error) {
-      console.error('Logout error:', error);
+      logger.errorWithStack('Logout error', error, 'AUTH');
     } finally {
       setUser(null);
       setToken(null);
@@ -41,7 +42,7 @@ export function AuthProvider({ children }) {
     const checkAuth = async () => {
       if (token) {
         try {
-          console.log('Checking authentication with token:', token.substring(0, 20) + '...');
+          logger.auth('Checking authentication', { tokenPreview: token.substring(0, 20) + '...' }, 'AUTH');
           const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
@@ -50,7 +51,7 @@ export function AuthProvider({ children }) {
           
           if (response.ok) {
             const data = await response.json();
-            console.log('Authentication successful:', data.user);
+            logger.auth('Authentication successful', { user: data.user.name, email: data.user.email }, 'AUTH');
             setUser(data.user);
             // Initialize modern session management for authenticated user
             modernSessionManager.initialize(
@@ -61,7 +62,7 @@ export function AuthProvider({ children }) {
               }
             );
           } else {
-            console.log('Authentication failed:', response.status, response.statusText);
+            logger.warning('Authentication failed', { status: response.status, statusText: response.statusText }, 'AUTH');
             // Token is invalid or expired, remove it
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
@@ -71,7 +72,7 @@ export function AuthProvider({ children }) {
             modernSessionManager.destroy();
           }
         } catch (error) {
-          console.error('Auth check error:', error);
+          logger.errorWithStack('Auth check error', error, 'AUTH');
           // Clear all auth data on error
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
@@ -92,7 +93,7 @@ export function AuthProvider({ children }) {
 
   const login = async (credentials) => {
     try {
-      console.log('Attempting login for:', credentials.email);
+      logger.auth('Attempting login', { email: credentials.email }, 'AUTH');
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
@@ -104,7 +105,7 @@ export function AuthProvider({ children }) {
       const data = await response.json();
 
       if (!response.ok) {
-        console.log('Login failed:', response.status, data);
+        logger.warning('Login failed', { status: response.status, data }, 'AUTH');
         // Check if user needs email verification
         if (data.needsVerification && data.userId) {
           throw new Error('EMAIL_VERIFICATION_REQUIRED');
@@ -112,7 +113,7 @@ export function AuthProvider({ children }) {
         throw new Error(data.message || 'Login failed');
       }
 
-      console.log('Login successful:', data.user);
+      logger.auth('Login successful', { user: data.user.name, email: data.user.email }, 'AUTH');
       setUser(data.user);
       setToken(data.token);
       setRefreshToken(data.refreshToken);
@@ -128,7 +129,7 @@ export function AuthProvider({ children }) {
       );
       return data;
     } catch (error) {
-      console.error('Login error:', error);
+      logger.errorWithStack('Login error', error, 'AUTH');
       throw error;
     }
   };
@@ -194,6 +195,27 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const refreshUser = useCallback(async () => {
+    if (token) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data.user);
+          return data.user;
+        }
+      } catch (error) {
+        logger.errorWithStack('Error refreshing user data', error, 'AUTH');
+      }
+    }
+    return null;
+  }, [token]);
+
   const value = {
     user,
     token,
@@ -204,6 +226,7 @@ export function AuthProvider({ children }) {
     googleAuth,
     forgotPassword,
     logout,
+    refreshUser,
     setToken,
     setRefreshToken,
     setUser

@@ -48,6 +48,7 @@ export default function Learn() {
   const text = darkMode ? 'text-white' : 'text-[#23272F]';
   const border = darkMode ? 'border-gray-600' : 'border-gray-300';
   const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
+  const statusBarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
 
   useEffect(() => {
     fetchLearningPath();
@@ -465,27 +466,26 @@ export default function Learn() {
 
   return (
     <div className={`min-h-screen ${bg} ${text} overflow-x-hidden`}>
-      {/* Top Status Bar */}
-      <div className={`${bg} border-b ${border} px-6 py-3 pl-64 fixed top-0 left-0 right-0 z-30`}>
+      {/* Fixed Top Status Bar - Match Practice and Dictionary pages exactly */}
+      <div className={`fixed top-0 left-0 right-0 z-50 ${statusBarBg} border-b ${border} px-6 py-3 pl-64`}>
         <div className="flex items-center justify-between w-full">
-          <div className="flex items-center space-x-6">
-            {/* Progress Summary */}
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <SparklesIcon className="w-5 h-5 text-blue-400" />
-                <span className="text-sm font-medium">{userStats.totalXP} XP</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <StarIcon className="w-5 h-5 text-yellow-400" />
-                <span className="text-sm font-medium">Lv {userStats.level}</span>
-              </div>
-            </div>
+          <div className="flex items-center space-x-4">
+            {/* Empty space on the left */}
           </div>
           
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <FireIcon className="w-5 h-5 text-orange-400" />
-              <span className="font-semibold">{userStats.streak} day streak</span>
+              <span className="font-semibold">{userStats.streak}</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <SparklesIcon className="w-5 h-5 text-blue-400" />
+              <span className="font-semibold">{userStats.totalXP} XP</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <StarIcon className="w-5 h-5 text-yellow-400" />
+              <span className="font-semibold">Lv {userStats.level}</span>
+              <span className="text-sm text-gray-400">({userStats.xpToNextLevel} to next)</span>
             </div>
             <TopBarUserAvatar size={8} />
           </div>
@@ -496,8 +496,11 @@ export default function Learn() {
         {/* Fixed Left Sidebar - Navigation */}
         <Sidebar handleLogout={handleLogout} />
 
+        {/* Subtle line between sidebar and content */}
+        <div className="fixed left-64 top-0 h-screen w-px bg-gray-300 dark:bg-gray-600 z-40"></div>
+
         {/* Main Content Area */}
-        <div className={`flex-1 ml-64 ${bg} overflow-hidden pt-16`}>
+        <div className={`flex-1 ml-64 ${bg} overflow-hidden pt-20`}>
           <div className="max-w-7xl mx-auto min-h-0">
             <div className="flex min-h-0">
               {/* Main Content */}

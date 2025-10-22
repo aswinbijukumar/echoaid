@@ -1,4 +1,5 @@
 import Unit from '../models/Unit.js';
+import logger from '../utils/prettyLogger.js';
 import Lesson from '../models/Lesson.js';
 import UserProgress from '../models/UserProgress.js';
 import User from '../models/User.js';
@@ -37,7 +38,7 @@ export const getUnits = async (req, res) => {
       data: unitsWithProgress
     });
   } catch (error) {
-    console.error('Get units error:', error);
+    logger.errorWithStack('Get units error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -95,7 +96,7 @@ export const getUnit = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get unit error:', error);
+    logger.errorWithStack('Get unit error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -136,7 +137,7 @@ export const getLesson = async (req, res) => {
       data: lesson
     });
   } catch (error) {
-    console.error('Get lesson error:', error);
+    logger.errorWithStack('Get lesson error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -258,7 +259,7 @@ export const completeLesson = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Complete lesson error:', error);
+    logger.errorWithStack('Complete lesson error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -279,7 +280,7 @@ export const getLessons = async (req, res) => {
       data: lessons
     });
   } catch (error) {
-    console.error('Get lessons error:', error);
+    logger.errorWithStack('Get lessons error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error'

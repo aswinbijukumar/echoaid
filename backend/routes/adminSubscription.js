@@ -13,9 +13,9 @@ import {
 
 const router = express.Router();
 
-// All routes require authentication and admin/super_admin role
+// All routes require authentication and admin role
 router.use(protect);
-router.use(authorize('admin', 'super_admin'));
+router.use(authorize('admin'));
 
 // Get all subscriptions with filtering and pagination
 router.get('/', getSubscriptions);

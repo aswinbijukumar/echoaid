@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import AuditLog from '../models/AuditLog.js';
 import sendEmail from '../utils/sendEmail.js';
+import logger from '../utils/prettyLogger.js';
 
 // @desc    Get all admins (Super Admin only)
 // @route   GET /api/admin/admins
@@ -8,7 +9,7 @@ import sendEmail from '../utils/sendEmail.js';
 export const getAllAdmins = async (req, res) => {
   try {
     const admins = await User.find({ 
-      role: { $in: ['admin', 'super_admin'] } 
+      role: 'admin' 
     }).select('-password');
     
     res.status(200).json({
@@ -36,9 +37,6 @@ export const getManagedUsers = async (req, res) => {
     // If admin, show all regular users (both active and inactive)
     if (currentUser.role === 'admin') {
       query = { role: 'user' }; // Show both active and inactive users
-    } else if (currentUser.role === 'super_admin') {
-      // Super admin sees admins and users (both active and inactive)
-      query = { role: { $in: ['user', 'admin'] } };
     } else {
       query = { _id: null }; // no access
     }
@@ -66,7 +64,7 @@ export const getAdminById = async (req, res) => {
   try {
     const admin = await User.findOne({ 
       _id: req.params.id,
-      role: { $in: ['admin', 'super_admin'] }
+      role: 'admin'
     }).select('-password');
     
     if (!admin) {
@@ -134,7 +132,7 @@ export const updateAdmin = async (req, res) => {
     
     const admin = await User.findOne({ 
       _id: req.params.id,
-      role: { $in: ['admin', 'super_admin'] }
+      role: 'admin'
     });
     
     if (!admin) {
@@ -144,8 +142,8 @@ export const updateAdmin = async (req, res) => {
       });
     }
     
-    // Prevent superadmin from demoting themselves
-    if (admin._id.toString() === req.user.id && role && role !== 'super_admin') {
+    // Prevent admin from demoting themselves
+    if (admin._id.toString() === req.user.id && role) {
       return res.status(400).json({
         success: false,
         message: 'You cannot change your own role'
@@ -153,21 +151,16 @@ export const updateAdmin = async (req, res) => {
     }
     
     // Update admin fields
-    if (role && ['admin', 'super_admin'].includes(role)) admin.role = role;
+    if (role && role === 'admin') admin.role = role;
     if (typeof isActive === 'boolean') admin.isActive = isActive;
     if (assignedSections) admin.assignedSections = assignedSections;
-    // Only super_admin can update permissions of admins
-    if (req.user.role === 'super_admin' && permissions && typeof permissions === 'object') {
-      const allowedPerms = ['manageUsers', 'manageContent', 'manageSystem', 'viewAnalytics', 'moderateForum'];
+    // Admin can update permissions
+    if (permissions && typeof permissions === 'object') {
+      const allowedPerms = ['manageUsers', 'manageContent', 'viewAnalytics', 'moderateForum'];
       admin.permissions = admin.permissions || {};
       for (const key of allowedPerms) {
         if (key in permissions && typeof permissions[key] === 'boolean') {
-          // Never allow enabling manageSystem for non-super admins
-          if (key === 'manageSystem' && admin.role !== 'super_admin') {
-            admin.permissions.manageSystem = false;
-          } else {
-            admin.permissions[key] = permissions[key];
-          }
+          admin.permissions[key] = permissions[key];
         }
       }
     }
@@ -289,9 +282,9 @@ export const toggleUserStatus = async (req, res) => {
           message: 'You can only manage regular users'
         });
       }
-    } else if (currentUser.role === 'super_admin') {
+    } else if (currentUser.role === 'admin') {
       // Super admin can manage users and admins, but not other super admins
-      if (user.role === 'super_admin') {
+      if (user.role === 'admin') {
         return res.status(403).json({
           success: false,
           message: 'Cannot manage other super admins'
@@ -340,7 +333,7 @@ export const deleteAdmin = async (req, res) => {
   try {
     const admin = await User.findOne({ 
       _id: req.params.id,
-      role: { $in: ['admin', 'super_admin'] }
+      role: 'admin'
     });
     
     if (!admin) {
@@ -350,7 +343,7 @@ export const deleteAdmin = async (req, res) => {
       });
     }
     
-    // Prevent superadmin from deleting themselves
+    // Prevent admin from deleting themselves
     if (admin._id.toString() === req.user.id) {
       return res.status(400).json({
         success: false,
@@ -360,15 +353,15 @@ export const deleteAdmin = async (req, res) => {
     
     // Concurrency check not needed for deleteAdmin (we only soft delete users)
 
-    // Never allow deleting a super_admin (policy)
-    if (admin.role === 'super_admin') {
+    // Never allow deleting a admin (policy)
+    if (admin.role === 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Super admin accounts cannot be deleted'
       });
     }
     
-    // If deleting an admin, reassign their managed users to the superadmin
+    // If deleting an admin, reassign their managed users to another admin
     if (admin.role === 'admin') {
       await User.updateMany(
         { managedBy: admin._id },
@@ -397,7 +390,7 @@ export const deleteAdmin = async (req, res) => {
         message: `Hello ${admin.name || ''},\n\nYour admin account has been deactivated by a super administrator. If you believe this was a mistake, please contact support.\n\nReason: account deactivated by super administrator.\n\n— EchoAid`
       });
     } catch (e) {
-      console.error('Failed to send deletion email to admin:', e.message);
+      logger.errorWithStack('Failed to send deletion email to admin', e, 'EMAIL');
     }
     
     res.status(200).json({
@@ -436,7 +429,7 @@ export const deleteUser = async (req, res) => {
 
     // Role-based deletion rules
     // - admin: can delete only users they manage (role must be 'user')
-    // - super_admin: can delete users and admins, but never super_admin
+    // - admin: can delete users and admins, but never admin
     if (currentUser.role === 'admin') {
       if (user.role !== 'user') {
         return res.status(403).json({
@@ -444,8 +437,8 @@ export const deleteUser = async (req, res) => {
           message: 'Admins can delete only their assigned users'
         });
       }
-    } else if (currentUser.role === 'super_admin') {
-      if (user.role === 'super_admin') {
+    } else if (currentUser.role === 'admin') {
+      if (user.role === 'admin') {
         return res.status(403).json({
           success: false,
           message: 'Super admin accounts cannot be deleted'
@@ -478,7 +471,7 @@ export const deleteUser = async (req, res) => {
         message: `Hello ${user.name || ''},\n\nYour account has been deactivated by an administrator due to suspicious activity or violation of our terms. If you believe this was a mistake, please reply to this email to appeal.\n\n— EchoAid`
       });
     } catch (e) {
-      console.error('Failed to send deletion email to user:', e.message);
+      logger.errorWithStack('Failed to send deletion email to user', e, 'EMAIL');
     }
     
     res.status(200).json({
@@ -541,7 +534,7 @@ export const createAdmin = async (req, res) => {
         message: `Hello ${admin.name || 'Admin'},\n\nYour EchoAid admin account has been created by a Super Administrator.\n\nLogin Email: ${admin.email}\nTemporary Password: ${password}\nRole: ADMIN\nLogin URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/login\n\nFor security, please sign in and change your password immediately. If you did not expect this invitation, please contact the Super Admin.\n\n— EchoAid`
       });
     } catch (e) {
-      console.error('Failed to send admin welcome email:', e.message);
+      logger.errorWithStack('Failed to send admin welcome email', e, 'EMAIL');
     }
 
     res.status(201).json({
@@ -618,7 +611,6 @@ export const getUserStats = async (req, res) => {
     const totalUsers = await User.countDocuments();
     const activeUsers = await User.countDocuments({ isActive: true });
     const verifiedUsers = await User.countDocuments({ isEmailVerified: true });
-    const superAdmins = await User.countDocuments({ role: 'super_admin' });
     const admins = await User.countDocuments({ role: 'admin' });
     const regularUsers = await User.countDocuments({ role: 'user' });
     
@@ -635,7 +627,6 @@ export const getUserStats = async (req, res) => {
         totalUsers,
         activeUsers,
         verifiedUsers,
-        superAdmins,
         admins,
         regularUsers,
         newUsers
@@ -698,7 +689,7 @@ export const getAdminDashboard = async (req, res) => {
     };
     
     // Add super admin specific data
-    if (user.role === 'super_admin') {
+    if (user.role === 'admin') {
       const inactiveUsers = await User.countDocuments({ isActive: false });
       const unverifiedUsers = await User.countDocuments({ isEmailVerified: false });
       

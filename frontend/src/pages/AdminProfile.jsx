@@ -442,7 +442,7 @@ export default function AdminProfile() {
                     <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} text-sm`}>
                       {user?.createdAt ? `Joined ${formatDate(user.createdAt)}` : 'Administrator Account'}
                     </p>
-                    <p className="text-green-400 text-sm">✓ {user?.role === 'super_admin' ? 'Super Administrator' : 'Administrator'}</p>
+                    <p className="text-green-400 text-sm">✓ {user?.role === 'admin' ? 'Super Administrator' : 'Administrator'}</p>
                     {getProfilePhoto() && (
                       <p className="text-purple-400 text-sm">📸 Custom profile photo</p>
                     )}
@@ -495,7 +495,7 @@ export default function AdminProfile() {
                           <div>
                             <label className={`block text-sm font-medium ${textSecondary} mb-2`}>Role</label>
                             <p className={`${textPrimary} font-medium`}>
-                              {user?.role === 'super_admin' ? 'Super Administrator' : 'Administrator'}
+                              {user?.role === 'admin' ? 'Super Administrator' : 'Administrator'}
                             </p>
                           </div>
                           <div>

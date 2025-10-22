@@ -69,7 +69,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin', 'super_admin'],
+    enum: ['user', 'admin'],
     default: 'user'
   },
   permissions: {
@@ -117,8 +117,8 @@ const userSchema = new mongoose.Schema({
     trialEndDate: {
       type: Date,
       default: function() {
-        // 1 year trial from now
-        return new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+        // 14 days trial from now
+        return new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
       }
     },
     subscriptionStartDate: {
@@ -373,16 +373,6 @@ userSchema.methods.getResetPasswordToken = function() {
 userSchema.pre('save', function(next) {
   if (this.isModified('role')) {
     switch (this.role) {
-      case 'super_admin':
-        this.permissions = {
-          manageUsers: true,      // Can manage admins
-          manageContent: true,    // Can manage all content
-          manageSystem: true,     // Can manage system settings
-          viewAnalytics: true,    // Can view all analytics
-          moderateForum: true     // Can moderate forum
-        };
-        this.managedBy = null; // Super admins are not managed by anyone
-        break;
       case 'admin':
         this.permissions = {
           manageUsers: true,      // Can manage users assigned to them

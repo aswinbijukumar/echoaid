@@ -1,5 +1,6 @@
 import Skill from '../models/Skill.js';
 
+import logger from '../utils/prettyLogger.js';
 // Get all skills for admin management
 export const getAdminSkills = async (req, res) => {
   try {
@@ -14,7 +15,7 @@ export const getAdminSkills = async (req, res) => {
       data: skills
     });
   } catch (error) {
-    console.error('Get admin skills error:', error);
+    logger.errorWithStack('Get admin skills error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -43,7 +44,7 @@ export const getSkillById = async (req, res) => {
       data: skill
     });
   } catch (error) {
-    console.error('Get skill by ID error:', error);
+    logger.errorWithStack('Get skill by ID error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -143,7 +144,7 @@ export const createSkill = async (req, res) => {
           // Only validate if both imagePath and videoPath are explicitly provided and empty
           if (card.imagePath === '' && card.videoPath === '') {
             // This is allowed for partial updates - admin can add media later
-            console.log(`Flashcard "${card.word}": Media will be added later`);
+            logger.info('Flashcard "${card.word}": Media will be added later', null, 'CONTROLLER');
           }
         }
       }
@@ -186,7 +187,7 @@ export const createSkill = async (req, res) => {
       data: populatedSkill
     });
   } catch (error) {
-    console.error('Create skill error:', error);
+    logger.errorWithStack('Create skill error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -307,7 +308,7 @@ export const updateSkill = async (req, res) => {
           // Only validate if both imagePath and videoPath are explicitly provided and empty
           if (card.imagePath === '' && card.videoPath === '') {
             // This is allowed for partial updates - admin can add media later
-            console.log(`Flashcard "${card.word}": Media will be added later`);
+            logger.info('Flashcard "${card.word}": Media will be added later', null, 'CONTROLLER');
           }
         }
       }
@@ -350,7 +351,7 @@ export const updateSkill = async (req, res) => {
       data: updatedSkill
     });
   } catch (error) {
-    console.error('Update skill error:', error);
+    logger.errorWithStack('Update skill error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -378,7 +379,7 @@ export const deleteSkill = async (req, res) => {
       message: 'Skill deleted successfully'
     });
   } catch (error) {
-    console.error('Delete skill error:', error);
+    logger.errorWithStack('Delete skill error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error',

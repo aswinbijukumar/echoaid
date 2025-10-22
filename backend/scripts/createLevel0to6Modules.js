@@ -846,7 +846,7 @@ async function createLevelModules() {
     console.log('Creating comprehensive Level 0-6 modules...');
     
     // Find an admin user to assign as creator
-    const adminUser = await User.findOne({ role: { $in: ['admin', 'super_admin'] } });
+    const adminUser = await User.findOne({ role: { $in: ['admin', 'admin'] } });
     if (!adminUser) {
       console.error('No admin user found. Please create an admin user first.');
       return;

@@ -1,9 +1,12 @@
 import Quiz from '../models/Quiz.js';
+import logger from '../utils/prettyLogger.js';
 import QuizAttempt from '../models/QuizAttempt.js';
 import User from '../models/User.js';
 import Achievement from '../models/Achievement.js';
 import UserAchievement from '../models/UserAchievement.js';
 import QuestionBank from '../models/QuestionBank.js';
+import { checkSubscriptionAccess, checkDailyLimits } from '../middleware/subscriptionAuth.js';
+import { updateUserStreak } from './streakController.js';
 
 // Get all quizzes with filtering and pagination
 export const getQuizzes = async (req, res) => {
@@ -97,6 +100,34 @@ export const startQuiz = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Quiz not found' });
     }
 
+    // Check subscription-based quiz limits (skip for admin users)
+    const user = await User.findById(userId).select('subscription role');
+    if (user?.role !== 'admin' && user?.subscription?.status === 'trial') {
+      // Check daily quiz attempts for trial users
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const todayAttempts = await QuizAttempt.countDocuments({
+        userId,
+        createdAt: { $gte: today, $lt: tomorrow }
+      });
+      
+      const maxDailyAttempts = 5; // Free trial users get 5 quiz attempts per day
+      if (todayAttempts >= maxDailyAttempts) {
+        return res.status(403).json({
+          success: false,
+          message: `Free trial limit reached. You can attempt ${maxDailyAttempts} quizzes per day. Upgrade to Pro for unlimited quizzes.`,
+          data: { 
+            maxDailyAttempts, 
+            currentAttempts: todayAttempts,
+            upgradeRequired: true 
+          }
+        });
+      }
+    }
+
   // Check if this is a level mastery quiz and if user has completed required modules
   if (quiz.title.includes('Level') && quiz.title.includes('Mastery Quiz')) {
     const levelMatch = quiz.title.match(/Level (\d+)/);
@@ -141,7 +172,6 @@ export const startQuiz = async (req, res) => {
     }
 
     // Get adaptive questions based on user performance
-    const user = await User.findById(userId);
     const adaptiveQuestions = await getAdaptiveQuestions(quiz, user);
 
   // Compute today's XP for daily ring
@@ -220,6 +250,20 @@ export const submitQuiz = async (req, res) => {
     await updateUserStats(userId, quizAttempt);
     const newAchievements = await checkAchievements(userId, quizAttempt);
 
+    // Update streak based on quiz completion
+    try {
+      const streakResult = await updateUserStreak(userId, 'quiz', xpEarnedFinal);
+      logger.info('Streak updated after quiz completion', {
+        userId,
+        streak: streakResult.streak,
+        message: streakResult.message,
+        milestoneAchieved: streakResult.milestoneAchieved
+      }, 'STREAK');
+    } catch (streakError) {
+      logger.errorWithStack('Failed to update streak after quiz', streakError, 'STREAK');
+      // Don't fail the quiz submission if streak update fails
+    }
+
     // Update quiz stats
     await updateQuizStats(quizId, results.percentage);
 
@@ -229,7 +273,7 @@ export const submitQuiz = async (req, res) => {
       const levelMatch = quiz.title.match(/Level (\d+)/);
       if (levelMatch) {
         const completedLevel = parseInt(levelMatch[1]);
-        console.log(`🎯 Level ${completedLevel} quiz passed, unlocking Level ${completedLevel + 1}`);
+        logger.info('🎯 Level ${completedLevel} quiz passed, unlocking Level ${completedLevel + 1}', null, 'CONTROLLER');
         nextLevelUnlocked = true;
         // The skill unlocking logic will be handled by the frontend when it refreshes
       }
@@ -623,7 +667,7 @@ const updateQuizStats = async (quizId, percentage) => {
 // Check if user has completed all modules in a specific level
 const checkLevelMasteryQuizUnlock = async (userId, targetLevel) => {
   try {
-    console.log(`🔍 Checking Level ${targetLevel} mastery quiz unlock for user ${userId}`);
+    logger.info('🔍 Checking Level ${targetLevel} mastery quiz unlock for user ${userId}', null, 'CONTROLLER');
     
     // Get all skills in the target level
     const skillsInLevel = await Skill.find({ 
@@ -632,16 +676,16 @@ const checkLevelMasteryQuizUnlock = async (userId, targetLevel) => {
     }).sort({ order: 1 });
     
     if (skillsInLevel.length === 0) {
-      console.log(`❌ No skills found for Level ${targetLevel}`);
+      logger.info('❌ No skills found for Level ${targetLevel}', null, 'CONTROLLER');
       return false;
     }
     
-    console.log(`📚 Found ${skillsInLevel.length} skills in Level ${targetLevel}`);
+    logger.info('📚 Found ${skillsInLevel.length} skills in Level ${targetLevel}', null, 'CONTROLLER');
     
     // Get user progress
     const userProgress = await UserSkillProgress.findOne({ user: userId });
     if (!userProgress) {
-      console.log(`❌ No user progress found for user ${userId}`);
+      logger.info('❌ No user progress found for user ${userId}', null, 'CONTROLLER');
       return false;
     }
     
@@ -654,13 +698,13 @@ const checkLevelMasteryQuizUnlock = async (userId, targetLevel) => {
     
     const allCompleted = completedSkillsInLevel.length === skillsInLevel.length;
     
-    console.log(`📊 Level ${targetLevel} completion: ${completedSkillsInLevel.length}/${skillsInLevel.length} skills completed`);
-    console.log(`🔓 Level ${targetLevel} mastery quiz unlocked: ${allCompleted}`);
+    logger.info('📊 Level ${targetLevel} completion: ${completedSkillsInLevel.length}/${skillsInLevel.length} skills completed', null, 'CONTROLLER');
+    logger.info('🔓 Level ${targetLevel} mastery quiz unlocked: ${allCompleted}', null, 'CONTROLLER');
     
     return allCompleted;
     
   } catch (error) {
-    console.error('Error checking level mastery quiz unlock:', error);
+    logger.errorWithStack('Error checking level mastery quiz unlock:', error, error, 'CONTROLLER');
     return false;
   }
 };

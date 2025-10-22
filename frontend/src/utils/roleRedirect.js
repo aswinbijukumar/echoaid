@@ -2,7 +2,6 @@
 export const getRoleBasedRedirect = (userRole, currentPath = '') => {
   // If user is already on the correct dashboard, don't redirect
   const roleDashboards = {
-    'super_admin': '/super-admin',
     'admin': '/admin',
     'user': '/learn'
   };
@@ -25,7 +24,7 @@ export const getRoleBasedRedirect = (userRole, currentPath = '') => {
   }
 
   // Don't redirect from other allowed pages (including subpaths like /quiz/:id)
-  const allowedPages = ['/profile', '/dictionary', '/quiz', '/practice', '/accessibility', '/subscription'];
+  const allowedPages = ['/profile', '/dictionary', '/quiz', '/practice', '/accessibility', '/subscription', '/support', '/messages', '/admin/messages'];
   if (allowedPages.some(prefix => currentPath === prefix || currentPath.startsWith(prefix + '/'))) {
     return null;
   }
@@ -42,7 +41,6 @@ export const isAuthorizedForRoute = (userRole, allowedRoles) => {
 
 export const getRoleDisplayName = (role) => {
   const roleNames = {
-    'super_admin': 'Super Administrator',
     'admin': 'Administrator',
     'user': 'User'
   };
@@ -51,13 +49,6 @@ export const getRoleDisplayName = (role) => {
 
 export const getRolePermissions = (role) => {
   const permissions = {
-    'super_admin': {
-      manageUsers: true,
-      manageContent: true,
-      manageSystem: true,
-      viewAnalytics: true,
-      moderateForum: true
-    },
     'admin': {
       manageUsers: true,
       manageContent: true,

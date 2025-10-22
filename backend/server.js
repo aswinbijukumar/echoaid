@@ -22,10 +22,15 @@ import uploadRoutes from './routes/upload.js';
 import ttsRoutes from './routes/tts.js';
 import messagesRoutes from './routes/messages.js';
 import quizGeneratorRoutes from './routes/quizGenerator.js';
+import legalRoutes from './routes/legal.js';
+import streakRoutes from './routes/streak.js';
+import achievementRoutes from './routes/achievements.js';
 import { getAllCategories, getCategoryById, createSignWithVariants } from './controllers/contentController.js';
 import { errorHandler } from './utils/errorHandler.js';
 import { protect, adminAndSuperAdmin, canManageContent } from './middleware/roleAuth.js';
 import fileUpload from 'express-fileupload';
+import logger from './utils/prettyLogger.js';
+import { requestLogger, errorLogger } from './middleware/prettyLogging.js';
 
 // Load env vars
 dotenv.config({ path: './config.env' });
@@ -74,6 +79,9 @@ app.use((req, res, next) => {
   }
 });
 
+// Use pretty logging middleware
+app.use(requestLogger);
+
 // Serve static assets (images, videos, thumbnails) under /assets
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -84,10 +92,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB Connected'))
+  .then(() => logger.database('Connected', 'MongoDB', null, 'SERVER'))
   .catch(err => {
-    console.error('MongoDB connection error:', err);
-    console.log('Server will continue without database connection for testing...');
+    logger.errorWithStack('MongoDB connection failed', err, 'DATABASE');
+    logger.warning('Server will continue without database connection for testing...', null, 'SERVER');
   });
 
 // Mount routers
@@ -110,6 +118,9 @@ app.use('/api/admin/upload', uploadRoutes);
 app.use('/api/admin/tts', ttsRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/admin/quiz-generator', quizGeneratorRoutes);
+app.use('/api/legal', legalRoutes);
+app.use('/api/streak', streakRoutes);
+app.use('/api/achievements', achievementRoutes);
 
 // Public aliases for categories so user Dictionary can access them without auth
 app.get('/api/content/categories', getAllCategories);
@@ -177,19 +188,17 @@ app.post('/api/debug/upload',
     tempFileDir: './tmp/'
   }),
   (req, res) => {
-    console.log('Debug upload request received');
-    console.log('Files:', req.files);
-    console.log('Body:', req.body);
+    logger.debug('Debug upload request received', { files: req.files, body: req.body }, 'UPLOAD');
     
     if (req.files) {
       Object.keys(req.files).forEach(key => {
         const file = req.files[key];
-        console.log(`File ${key}:`, {
+        logger.debug(`File ${key} processed`, {
           name: file.name,
           size: file.size,
           tempFilePath: file.tempFilePath,
           path: file.path
-        });
+        }, 'UPLOAD');
       });
     }
     
@@ -210,12 +219,22 @@ app.use('*', (req, res, next) => {
 });
 
 // Error handling middleware
+app.use(errorLogger);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
-  console.log(`Frontend URL: ${process.env.FRONTEND_URL}`);
+  const services = [
+    'Authentication',
+    'Content Management', 
+    'Practice System',
+    'Quiz Engine',
+    'Gamification',
+    'Sign Recognition',
+    'Admin Dashboard',
+    'Subscription Management'
+  ];
+  
+  logger.startup(PORT, process.env.NODE_ENV || 'development', services);
 });

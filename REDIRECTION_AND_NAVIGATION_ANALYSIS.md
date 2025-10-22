@@ -146,7 +146,6 @@ fetchDashboardData();
 ### **1. Role-Based Redirects** ✅
 ```javascript
 // Working correctly:
-'super_admin' → '/super-admin'
 'admin' → '/admin'  
 'user' → '/learn'
 ```

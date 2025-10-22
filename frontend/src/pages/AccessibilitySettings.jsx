@@ -36,16 +36,9 @@ export default function AccessibilitySettings() {
   const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem(SETTINGS_KEY);
     return saved ? JSON.parse(saved) : {
-      soundEffects: true,
-      animations: true,
-      motivationalMessages: true,
-      signAnimationSpeed: 'normal',
       emailNotifications: true,
       pushNotifications: false,
-      practiceReminders: true,
-      profilePublic: false,
-      showAchievements: true,
-      dataSharing: false
+      practiceReminders: true
     };
   });
 
@@ -123,29 +116,9 @@ export default function AccessibilitySettings() {
         {/* Main Content Area - Duolingo-style Settings Layout */}
         <div className={`flex-1 ml-64 ${bg} min-h-screen flex justify-center items-start py-12`}>
           <div className="flex w-full max-w-5xl gap-8">
-            {/* Left: Preferences & Security */}
+            {/* Left: Appearance & Security */}
             <div className="flex-1">
               <div className="mb-8">
-                <h2 className="text-2xl font-bold mb-6">Preferences</h2>
-                <div className="mb-8">
-                  <h3 className="text-lg font-semibold mb-2">Lesson experience</h3>
-                  <hr className="border-gray-700 mb-4" />
-                  <Toggle label="Sound effects" checked={settings.soundEffects} onChange={(v) => setSettings(s => ({ ...s, soundEffects: v }))} />
-                  <Toggle label="Animations" checked={settings.animations} onChange={(v) => setSettings(s => ({ ...s, animations: v }))} />
-                  <Toggle label="Motivational messages" checked={settings.motivationalMessages} onChange={(v) => setSettings(s => ({ ...s, motivationalMessages: v }))} />
-                  <div className="flex items-center justify-between py-3">
-                    <span>Sign animation speed</span>
-                    <select 
-                      value={settings.signAnimationSpeed}
-                      onChange={(e) => setSettings(s => ({ ...s, signAnimationSpeed: e.target.value }))}
-                      className="bg-[#23272F] border border-gray-700 text-white rounded px-3 py-2 focus:outline-none"
-                    >
-                      <option value="slow">SLOW</option>
-                      <option value="normal">NORMAL</option>
-                      <option value="fast">FAST</option>
-                    </select>
-                  </div>
-                </div>
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Appearance</h3>
                   <hr className="border-gray-700 mb-4" />
@@ -194,22 +167,13 @@ export default function AccessibilitySettings() {
                 <TwoFactorSettings />
               </div>
 
-              {/* Privacy */}
-              <div className="mb-8">
-                <h2 className="text-2xl font-bold mb-6">Privacy</h2>
-                <div className="space-y-1">
-                  <Toggle label="Make my profile public" checked={settings.profilePublic} onChange={(v) => setSettings(s => ({ ...s, profilePublic: v }))} />
-                  <Toggle label="Show achievements on profile" checked={settings.showAchievements} onChange={(v) => setSettings(s => ({ ...s, showAchievements: v }))} />
-                  <Toggle label="Share anonymized usage data" checked={settings.dataSharing} onChange={(v) => setSettings(s => ({ ...s, dataSharing: v }))} />
-                </div>
-              </div>
             </div>
             {/* Right: Account/Subscription/Support */}
             <div className="w-80 space-y-6">
               <div className={`p-6 rounded-xl border ${border}`}>
                 <h3 className="font-bold text-lg mb-4">Account</h3>
                 <div className="flex flex-col space-y-2">
-                  <Link to="/accessibility" className="font-semibold text-green-400">Preferences</Link>
+                  <Link to="/accessibility" className="font-semibold text-green-400">Settings</Link>
                   <Link to="/profile" className="hover:text-green-400">Profile</Link>
                   <Link to="/notifications" className="hover:text-green-400">Notifications</Link>
                   <Link to="/courses" className="hover:text-green-400">My Learning Paths</Link>

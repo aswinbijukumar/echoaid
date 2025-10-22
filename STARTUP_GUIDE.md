@@ -34,7 +34,7 @@ The frontend will run on `http://localhost:5173`
 - Clear browser cache if needed
 
 ### **Subscription Management Issues**
-- Ensure you're logged in as admin or super_admin
+- Ensure you're logged in as admin
 - Check browser console for any error messages
 - Verify backend server is running and accessible
 

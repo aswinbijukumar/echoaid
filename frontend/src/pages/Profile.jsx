@@ -42,13 +42,13 @@ import SubscriptionStatus from '../components/SubscriptionStatus';
 import { useSessionManager } from '../hooks/useSessionManager';
 
 export default function Profile() {
+  const { darkMode } = useTheme();
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const fileInputRef = useRef(null);
   
-  const { darkMode } = useTheme();
   const { user, logout, setUser } = useAuth();
   const navigate = useNavigate();
   const { stats: userStats } = useUserStats();
@@ -59,25 +59,124 @@ export default function Profile() {
     formatTimeUntilExpiry 
   } = useSessionManager();
 
-
+  // Theme variables - Match Learn, Quiz, Practice, and Dictionary pages exactly
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
   const text = darkMode ? 'text-white' : 'text-[#23272F]';
-  const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
   const border = darkMode ? 'border-gray-600' : 'border-gray-300';
-  const sidebarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
+  const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
   const statusBarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
   const textPrimary = darkMode ? 'text-white' : 'text-[#23272F]';
   const textSecondary = darkMode ? 'text-gray-300' : 'text-gray-600';
-  const hoverBg = darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
+  const hoverBg = darkMode ? 'hover:bg-white/10' : 'hover:bg-gray-200';
+  const glassEffect = darkMode ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-gray-100 border border-gray-200';
+  const glassHover = darkMode ? 'hover:bg-white/10 hover:border-white/20' : 'hover:bg-gray-200 hover:border-gray-300';
 
-  // Mock user data - in real app, this would come from user context/API
-  const achievements = [
-    { id: 1, title: "First Steps", description: "Complete your first lesson", icon: "🎯", unlocked: true },
-    { id: 2, title: "Week Warrior", description: "Maintain a 7-day streak", icon: "🔥", unlocked: true },
-    { id: 3, title: "Sign Master", description: "Learn 100 signs", icon: "📚", unlocked: true },
-    { id: 4, title: "Quiz Champion", description: "Score 90% on any quiz", icon: "🏆", unlocked: false },
-    { id: 6, title: "Perfect Week", description: "Complete all daily goals for 7 days", icon: "⭐", unlocked: false }
-  ];
+  // Real achievements data - fetched from API
+  const [achievements, setAchievements] = useState([]);
+  const [achievementStats, setAchievementStats] = useState({
+    total: 0,
+    unlocked: 0,
+    locked: 0,
+    completionRate: 0,
+    totalXPEarned: 0
+  });
+  const [achievementsLoading, setAchievementsLoading] = useState(true);
+
+  // Real user statistics data
+  const [userStatistics, setUserStatistics] = useState({
+    streak: 0,
+    totalXP: 0,
+    level: 1,
+    xpToNextLevel: 100,
+    completedQuizzes: 0,
+    completedPractices: 0,
+    completedLessons: 0,
+    badges: [],
+    longestStreak: 0,
+    joinDate: null,
+    lastActivity: null
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // Fetch achievements data from API
+  const fetchAchievements = async () => {
+    try {
+      setAchievementsLoading(true);
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch('http://localhost:5000/api/achievements', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setAchievements(data.data.achievements);
+          setAchievementStats(data.data.stats);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching achievements:', error);
+    } finally {
+      setAchievementsLoading(false);
+    }
+  };
+
+  // Fetch comprehensive user statistics
+  const fetchUserStatistics = async () => {
+    try {
+      setStatsLoading(true);
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch('http://localhost:5000/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.user) {
+          const ls = data.user.learningStats || {};
+          setUserStatistics({
+            streak: ls.streak || 0,
+            totalXP: ls.totalXP || 0,
+            level: ls.level || 1,
+            xpToNextLevel: ls.xpToNextLevel || 100,
+            completedQuizzes: ls.completedQuizzes || 0,
+            completedPractices: ls.completedPractices || 0,
+            completedLessons: ls.completedLessons || 0,
+            badges: ls.badges || [],
+            longestStreak: ls.longestStreak || 0,
+            joinDate: data.user.createdAt,
+            lastActivity: data.user.lastLogin
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user statistics:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  // Fetch achievements when component mounts and when activeTab changes to achievements
+  useEffect(() => {
+    if (activeTab === 'achievements') {
+      fetchAchievements();
+    }
+  }, [activeTab]);
+
+  // Fetch user statistics when component mounts and when activeTab changes to overview
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      fetchUserStatistics();
+    }
+  }, [activeTab]);
 
   const handleLogout = () => {
     logout();
@@ -214,8 +313,8 @@ export default function Profile() {
 
   return (
     <div className={`min-h-screen ${bg} ${text}`}>
-      {/* Top Status Bar */}
-      <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64 sticky top-0 z-30`}>
+      {/* Fixed Top Status Bar - Match Learn, Quiz, Practice, and Dictionary pages exactly */}
+      <div className={`fixed top-0 left-0 right-0 z-50 ${statusBarBg} border-b ${border} px-6 py-3 pl-64`}>
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
             {/* Empty space on the left */}
@@ -244,12 +343,15 @@ export default function Profile() {
         {/* Fixed Left Sidebar - Navigation */}
         <Sidebar handleLogout={handleLogout} />
 
+        {/* Subtle line between sidebar and content */}
+        <div className="fixed left-64 top-0 h-screen w-px bg-gray-300 dark:bg-gray-600 z-40"></div>
+
         {/* Main Content Area */}
         <div className={`flex-1 ml-64 ${bg}`}>
           <div className="w-full mx-auto">
             <div className="flex">
               {/* Main Content */}
-              <div className="flex-1 p-6">
+              <div className="flex-1 p-6 pt-20">
                 {/* Profile Header */}
                 <div className={`p-6 rounded-lg border ${border} mb-6`}>
                   <div className="flex items-start justify-between">
@@ -326,8 +428,8 @@ export default function Profile() {
                   </div>
                   
                   <div className="mt-4">
-                    <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>{user?.name || 'User'}</h1>
-                    <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} text-sm`}>Joined {userStats.joinedDate}</p>
+                <h1 className={`text-2xl font-bold ${textPrimary}`}>{user?.name || 'User'}</h1>
+                <p className={`${textSecondary} text-sm`}>Joined {userStats.joinedDate}</p>
                      {isGoogleUser() && (
                        <p className="text-green-400 text-sm">✓ Google Account</p>
                      )}
@@ -373,36 +475,98 @@ export default function Profile() {
                   {/* Overview Tab */}
                   {activeTab === 'overview' && (
                     <div className="space-y-6">
-                {/* Statistics Section */}
+                      {/* Statistics Section */}
                       <div className={`p-6 rounded-lg border ${border}`}>
                         <h2 className="text-xl font-bold mb-4">Learning Statistics</h2>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                          <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
-                      <div className="flex items-center space-x-2 mb-2">
-                        <FireIcon className="w-5 h-5 text-orange-400" />
-                        <span className="font-semibold">{userStats.streak} Day streak</span>
+                        {statsLoading ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                            <span className="ml-2">Loading statistics...</span>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                              <div className="flex items-center space-x-2 mb-2">
+                                <FireIcon className="w-5 h-5 text-orange-400" />
+                                <span className="font-semibold">{userStatistics.streak} Day streak</span>
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                Longest: {userStatistics.longestStreak} days
+                              </div>
+                            </div>
+                            <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                              <div className="flex items-center space-x-2 mb-2">
+                                <SparklesIcon className="w-5 h-5 text-blue-400" />
+                                <span className="font-semibold">{userStatistics.totalXP} Total XP</span>
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                Level {userStatistics.level} ({userStatistics.xpToNextLevel} to next)
+                              </div>
+                            </div>
+                            <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                              <div className="flex items-center space-x-2 mb-2">
+                                <PuzzlePieceIcon className="w-5 h-5 text-purple-400" />
+                                <span className="font-semibold">{userStatistics.completedQuizzes} Quizzes</span>
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                Completed quizzes
+                              </div>
+                            </div>
+                            <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                              <div className="flex items-center space-x-2 mb-2">
+                                <TrophyIcon className="w-5 h-5 text-yellow-400" />
+                                <span className="font-semibold">{userStatistics.badges.length} Badges</span>
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                Achievements earned
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                          <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
-                      <div className="flex items-center space-x-2 mb-2">
-                        <SparklesIcon className="w-5 h-5 text-blue-400" />
-                        <span className="font-semibold">{userStats.totalXP} Total XP</span>
+
+                      {/* Activity Summary */}
+                      <div className={`p-6 rounded-lg border ${border}`}>
+                        <h2 className="text-xl font-bold mb-4">Activity Summary</h2>
+                        {statsLoading ? (
+                          <div className="flex items-center justify-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                            <span className="ml-2">Loading activity...</span>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                              <div className="flex items-center space-x-3">
+                                <AcademicCapIcon className="w-6 h-6 text-green-500" />
+                                <div>
+                                  <div className="font-semibold">{userStatistics.completedLessons}</div>
+                                  <div className="text-sm text-gray-500">Lessons Completed</div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                              <div className="flex items-center space-x-3">
+                                <HandRaisedIcon className="w-6 h-6 text-blue-500" />
+                                <div>
+                                  <div className="font-semibold">{userStatistics.completedPractices}</div>
+                                  <div className="text-sm text-gray-500">Practice Sessions</div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
+                              <div className="flex items-center space-x-3">
+                                <ClockIcon className="w-6 h-6 text-purple-500" />
+                                <div>
+                                  <div className="font-semibold">
+                                    {userStatistics.joinDate ? new Date(userStatistics.joinDate).toLocaleDateString() : 'N/A'}
+                                  </div>
+                                  <div className="text-sm text-gray-500">Member Since</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                          <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
-                      <div className="flex items-center space-x-2 mb-2">
-                        <ShieldCheckIcon className="w-5 h-5 text-green-400" />
-                        <span className="font-semibold">{userStats.currentLeague}</span>
-                      </div>
-                    </div>
-                          <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
-                      <div className="flex items-center space-x-2 mb-2">
-                        <TrophyIcon className="w-5 h-5 text-yellow-400" />
-                        <span className="font-semibold">{userStats.top3Finishes} Top 3 finishes</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
                       {/* Quick Actions */}
                       <div className={`p-6 rounded-lg border ${border}`}>
@@ -530,83 +694,83 @@ export default function Profile() {
                   {/* Support & Messages Tab */}
                   {activeTab === 'support' && (
                     <div className="space-y-6">
-                      <div className={`p-6 rounded-lg border ${border}`}>
-                        <h2 className="text-xl font-bold mb-4">Support & Messages</h2>
-                        <p className={`text-gray-600 dark:text-gray-400 mb-6`}>
+                      <div className={`${glassEffect} rounded-xl p-8 shadow-2xl`}>
+                        <h2 className="text-3xl font-bold mb-4 text-white">Support & Messages</h2>
+                        <p className={`text-lg ${textSecondary} mb-8`}>
                           Contact our support team for assistance with your account, learning progress, or any questions you may have.
                         </p>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                           {/* Send Message Card */}
-                          <div className={`p-6 rounded-lg border ${border} ${cardBg}`}>
-                            <div className="flex items-center space-x-3 mb-4">
-                              <div className={`p-2 rounded-lg ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100/50'}`}>
-                                <PlusIcon className="h-6 w-6 text-blue-600" />
+                          <div className={`${glassEffect} rounded-xl p-8 shadow-lg`}>
+                            <div className="flex items-center space-x-4 mb-6">
+                              <div className={`p-3 rounded-xl bg-blue-500/20 border border-blue-400/30`}>
+                                <PlusIcon className="h-8 w-8 text-blue-400" />
                               </div>
                               <div>
-                                <h3 className={`text-lg font-semibold ${text}`}>Send Message</h3>
-                                <p className={`text-sm ${textSecondary}`}>Contact support team</p>
+                                <h3 className={`text-2xl font-bold ${textPrimary}`}>Send Message</h3>
+                                <p className={`text-base ${textSecondary}`}>Contact support team</p>
                               </div>
                             </div>
-                            <p className={`text-sm ${textSecondary} mb-4`}>
+                            <p className={`text-base ${textSecondary} mb-6`}>
                               Send a message to our support team for any questions, issues, or feedback.
                             </p>
                             <Link
                               to="/messages"
-                              className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                              className="inline-flex items-center space-x-3 px-6 py-3 bg-blue-500/80 hover:bg-blue-500 text-white rounded-xl transition-all duration-300 font-medium backdrop-blur-md border border-blue-400/30"
                             >
-                              <ChatBubbleLeftRightIcon className="h-4 w-4" />
+                              <ChatBubbleLeftRightIcon className="h-5 w-5" />
                               <span>Send Message</span>
                             </Link>
                           </div>
 
                           {/* View Messages Card */}
-                          <div className={`p-6 rounded-lg border ${border} ${cardBg}`}>
-                            <div className="flex items-center space-x-3 mb-4">
-                              <div className={`p-2 rounded-lg ${darkMode ? 'bg-green-500/20' : 'bg-green-100/50'}`}>
-                                <EyeIcon className="h-6 w-6 text-green-600" />
+                          <div className={`${glassEffect} rounded-xl p-8 shadow-lg`}>
+                            <div className="flex items-center space-x-4 mb-6">
+                              <div className={`p-3 rounded-xl bg-green-500/20 border border-green-400/30`}>
+                                <EyeIcon className="h-8 w-8 text-green-400" />
                               </div>
                               <div>
-                                <h3 className={`text-lg font-semibold ${text}`}>Message History</h3>
-                                <p className={`text-sm ${textSecondary}`}>View your messages</p>
+                                <h3 className={`text-2xl font-bold ${textPrimary}`}>Message History</h3>
+                                <p className={`text-base ${textSecondary}`}>View your messages</p>
                               </div>
                             </div>
-                            <p className={`text-sm ${textSecondary} mb-4`}>
+                            <p className={`text-base ${textSecondary} mb-6`}>
                               View your message history, replies from support, and track the status of your inquiries.
                             </p>
                             <Link
                               to="/messages"
-                              className="inline-flex items-center space-x-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+                              className="inline-flex items-center space-x-3 px-6 py-3 bg-green-500/80 hover:bg-green-500 text-white rounded-xl transition-all duration-300 font-medium backdrop-blur-md border border-green-400/30"
                             >
-                              <EyeIcon className="h-4 w-4" />
+                              <EyeIcon className="h-5 w-5" />
                               <span>View Messages</span>
                             </Link>
                           </div>
                         </div>
 
                         {/* Quick Help Section */}
-                        <div className={`mt-8 p-6 rounded-lg border ${border} ${darkMode ? 'bg-yellow-900/20' : 'bg-yellow-50'}`}>
-                          <h3 className={`text-lg font-semibold ${text} mb-3`}>Quick Help</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="flex items-center space-x-3">
-                              <AcademicCapIcon className="h-5 w-5 text-blue-500" />
+                        <div className={`mt-8 ${glassEffect} rounded-xl p-8 shadow-lg`}>
+                          <h3 className={`text-2xl font-bold ${textPrimary} mb-6`}>Quick Help</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="flex items-center space-x-4">
+                              <AcademicCapIcon className="h-8 w-8 text-blue-400" />
                               <div>
-                                <p className={`font-medium ${text}`}>Learning Issues</p>
-                                <p className={`text-sm ${textSecondary}`}>Problems with lessons or progress</p>
+                                <p className={`text-lg font-semibold ${textPrimary}`}>Learning Issues</p>
+                                <p className={`text-base ${textSecondary}`}>Problems with lessons or progress</p>
                               </div>
                             </div>
-                            <div className="flex items-center space-x-3">
-                              <CreditCardIcon className="h-5 w-5 text-green-500" />
+                            <div className="flex items-center space-x-4">
+                              <CreditCardIcon className="h-8 w-8 text-green-400" />
                               <div>
-                                <p className={`font-medium ${text}`}>Billing & Subscription</p>
-                                <p className={`text-sm ${textSecondary}`}>Payment and subscription questions</p>
+                                <p className={`text-lg font-semibold ${textPrimary}`}>Billing & Subscription</p>
+                                <p className={`text-base ${textSecondary}`}>Payment and subscription questions</p>
                               </div>
                             </div>
-                            <div className="flex items-center space-x-3">
-                              <Cog6ToothIcon className="h-5 w-5 text-purple-500" />
+                            <div className="flex items-center space-x-4">
+                              <Cog6ToothIcon className="h-8 w-8 text-purple-400" />
                               <div>
-                                <p className={`font-medium ${text}`}>Technical Support</p>
-                                <p className={`text-sm ${textSecondary}`}>App bugs and technical issues</p>
+                                <p className={`text-lg font-semibold ${textPrimary}`}>Technical Support</p>
+                                <p className={`text-base ${textSecondary}`}>App bugs and technical issues</p>
                               </div>
                             </div>
                           </div>
@@ -618,31 +782,106 @@ export default function Profile() {
                   {/* Achievements Tab */}
                   {activeTab === 'achievements' && (
                     <div className="space-y-6">
-                  <div className={`p-6 rounded-lg border ${border}`}>
-                        <h2 className="text-xl font-bold mb-4">Your Achievements</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {achievements.map((achievement) => (
-                        <div 
-                          key={achievement.id} 
-                              className={`p-4 rounded-lg border ${
-                                achievement.unlocked 
-                                  ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
-                                  : 'border-gray-300 dark:border-gray-600 opacity-50'
-                              }`}
-                        >
-                          <div className="flex items-center space-x-3">
-                            <span className="text-2xl">{achievement.icon}</span>
-                            <div>
-                              <h3 className="font-semibold text-sm">{achievement.title}</h3>
-                                  <p className="text-gray-600 dark:text-gray-400 text-xs">{achievement.description}</p>
+                      <div className={`p-6 rounded-lg border ${border}`}>
+                        <div className="flex items-center justify-between mb-6">
+                          <h2 className="text-xl font-bold">Your Achievements</h2>
+                          {!achievementsLoading && (
+                            <div className="text-sm text-gray-500">
+                              {achievementStats.unlocked} of {achievementStats.total} unlocked
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Achievement Stats */}
+                        {!achievementsLoading && (
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                            <div className={`p-3 rounded-lg ${cardBg} border ${border}`}>
+                              <div className="text-2xl font-bold text-blue-500">{achievementStats.total}</div>
+                              <div className="text-sm text-gray-500">Total</div>
+                            </div>
+                            <div className={`p-3 rounded-lg ${cardBg} border ${border}`}>
+                              <div className="text-2xl font-bold text-green-500">{achievementStats.unlocked}</div>
+                              <div className="text-sm text-gray-500">Unlocked</div>
+                            </div>
+                            <div className={`p-3 rounded-lg ${cardBg} border ${border}`}>
+                              <div className="text-2xl font-bold text-yellow-500">{achievementStats.completionRate}%</div>
+                              <div className="text-sm text-gray-500">Complete</div>
+                            </div>
+                            <div className={`p-3 rounded-lg ${cardBg} border ${border}`}>
+                              <div className="text-2xl font-bold text-purple-500">{achievementStats.totalXPEarned}</div>
+                              <div className="text-sm text-gray-500">XP Earned</div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                        </div>
+                        )}
+                        
+                        {/* Achievements Grid */}
+                        {achievementsLoading ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                            <span className="ml-2">Loading achievements...</span>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {achievements.filter(a => a.visible).map((achievement) => (
+                              <div 
+                                key={achievement.id} 
+                                className={`p-4 rounded-lg border transition-all duration-200 ${
+                                  achievement.unlocked 
+                                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20 shadow-md' 
+                                    : 'border-gray-300 dark:border-gray-600 opacity-60'
+                                }`}
+                              >
+                                <div className="flex items-start space-x-3">
+                                  <span className="text-2xl">{achievement.icon}</span>
+                                  <div className="flex-1">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <h3 className="font-semibold text-sm">{achievement.name}</h3>
+                                      {achievement.unlocked && (
+                                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                                          ✓ Unlocked
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-gray-600 dark:text-gray-400 text-xs mb-2">
+                                      {achievement.description}
+                                    </p>
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span className={`px-2 py-1 rounded-full ${
+                                        achievement.rarity === 'legendary' ? 'bg-purple-100 text-purple-800' :
+                                        achievement.rarity === 'epic' ? 'bg-blue-100 text-blue-800' :
+                                        achievement.rarity === 'rare' ? 'bg-green-100 text-green-800' :
+                                        'bg-gray-100 text-gray-800'
+                                      }`}>
+                                        {achievement.rarity}
+                                      </span>
+                                      {achievement.xpReward > 0 && (
+                                        <span className="text-yellow-600 font-medium">
+                                          +{achievement.xpReward} XP
+                                        </span>
+                                      )}
+                                    </div>
+                                    {achievement.progress > 0 && achievement.progress < 100 && (
+                                      <div className="mt-2">
+                                        <div className="w-full bg-gray-200 rounded-full h-1">
+                                          <div 
+                                            className="bg-blue-500 h-1 rounded-full transition-all duration-300"
+                                            style={{ width: `${achievement.progress}%` }}
+                                          ></div>
+                                        </div>
+                                        <div className="text-xs text-gray-500 mt-1">
+                                          {Math.round(achievement.progress)}% complete
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
                 </div>
 
                  {/* Minimal Footer */}

@@ -18,7 +18,7 @@ const router = express.Router();
 
 // All admin quiz routes require authentication and admin role
 router.use(protect);
-router.use(authorize('admin', 'super_admin'));
+router.use(authorize('admin'));
 
 // Quiz Management
 router.get('/', getAdminQuizzes);

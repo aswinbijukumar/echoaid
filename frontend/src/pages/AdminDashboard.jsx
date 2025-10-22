@@ -44,6 +44,8 @@ import {
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContextConstants';
+import logger from '../utils/prettyLogger.js';
+import { API_BASE_URL } from '../constants/api.js';
 import Sidebar from '../components/Sidebar';
 import Modal from '../components/Modal';
 import ContentManagement from '../components/ContentManagement';
@@ -51,7 +53,6 @@ import LearningModulesManagement from '../components/LearningModulesManagement';
 import QuizGenerator from '../components/QuizGenerator';
 import AdminQuizManagement from '../components/AdminQuizManagement';
  
-import MessagesNotification from '../components/MessagesNotification';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import AdminSubscriptionManagement from '../components/AdminSubscriptionManagement';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -267,7 +268,7 @@ export default function AdminDashboard() {
   // Handle URL parameters for tab navigation
   useEffect(() => {
     const tab = searchParams.get('tab');
-    const allowed = ['overview', 'content', 'learning', 'users', 'subscriptions', 'analytics', 'quizzes'];
+    const allowed = ['overview', 'content', 'learning', 'users', 'subscriptions', 'analytics', 'quizzes', 'messages'];
     if (tab && allowed.includes(tab)) {
       setActiveTab(tab);
     } else if (!tab) {
@@ -515,7 +516,7 @@ export default function AdminDashboard() {
 
   const handleBulkFileUpload = (e) => {
     const files = Array.from(e.target.files);
-    console.log('Bulk upload - Files selected:', files.length);
+      logger.debug('Bulk upload - Files selected', { fileCount: files.length }, 'BULK_UPLOAD');
     
     // Validation 1: Check if files are selected
     if (files.length === 0) {
@@ -534,7 +535,7 @@ export default function AdminDashboard() {
     const validPreviews = [];
     const validationErrors = [];
     
-    files.forEach((file, index) => {
+    files.forEach((file) => {
       // Validation 3: File size validation (5MB limit)
       if (file.size > 5 * 1024 * 1024) {
         validationErrors.push(`File "${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 5MB.`);
@@ -583,7 +584,7 @@ export default function AdminDashboard() {
       return;
     }
 
-    console.log('Bulk upload - Setting form with:', {
+      logger.debug('Bulk upload - Setting form with', {
       files: validFiles.length,
       totalSize: validFiles.reduce((sum, file) => sum + file.size, 0)
     });
@@ -648,7 +649,7 @@ export default function AdminDashboard() {
     // Create a single sign with multiple variants
     const signDetail = {
       word: signInfo.word,
-      description: signInfo.description || `Sign for ${signInfo.word}`,
+      description: signInfo.description || `Learn how to sign "${signInfo.word}" in Indian Sign Language with proper hand gestures and movements`,
       category: category,
       difficulty: level,
       tags: signInfo.tags.length > 0 ? signInfo.tags : [signInfo.word.toLowerCase()],
@@ -720,10 +721,17 @@ export default function AdminDashboard() {
     }
 
     // Description validation
+    logger.debug('Frontend description validation', {
+      description: signDetail.description,
+      type: typeof signDetail.description,
+      length: signDetail.description ? signDetail.description.length : 'undefined',
+      trimmedLength: signDetail.description ? signDetail.description.trim().length : 'undefined'
+    }, 'BULK_UPLOAD');
+    
     if (!signDetail.description || signDetail.description.trim() === '') {
       validationErrors.push('Sign description is required');
     } else if (signDetail.description.trim().length < 10) {
-      validationErrors.push('Sign description must be at least 10 characters long');
+      validationErrors.push(`Sign description must be at least 10 characters long (current: ${signDetail.description.trim().length} characters)`);
     } else if (signDetail.description.trim().length > 500) {
       validationErrors.push('Sign description must be less than 500 characters');
     }
@@ -804,12 +812,26 @@ export default function AdminDashboard() {
 
     // Validation 5: Duplicate word check (client-side)
     // This is a basic check - server should also validate
-    const wordExists = signs.some(sign => 
-      sign.word.toLowerCase() === signDetail.word.trim().toLowerCase() && 
+    const existingSign = contentItems.find(sign => 
+      sign.word && sign.word.toLowerCase() === signDetail.word.trim().toLowerCase() && 
       sign.category === signDetail.category
     );
-    if (wordExists) {
-      validationErrors.push(`Sign "${signDetail.word}" already exists in ${signDetail.category} category`);
+    
+    if (existingSign) {
+      // Ask user if they want to add variants to existing sign or create new one
+      const userChoice = confirm(
+        `Sign "${signDetail.word}" already exists in ${signDetail.category} category.\n\n` +
+        `Click OK to add variants to the existing sign, or Cancel to choose a different word.`
+      );
+      
+      if (!userChoice) {
+        validationErrors.push(`Sign "${signDetail.word}" already exists. Please choose a different word or add variants to the existing sign.`);
+      } else {
+        // User wants to add variants to existing sign
+        logger.info(`Adding variants to existing sign: ${signDetail.word}`, { existingSignId: existingSign.id }, 'BULK_UPLOAD');
+        // Set flag to indicate this is an update request
+        signDetail.isUpdateRequest = true;
+      }
     }
 
     // Validation 6: Authentication check
@@ -830,8 +852,8 @@ export default function AdminDashboard() {
         return;
       }
       
-      console.log('Token exists:', !!token);
-      console.log('Sign details:', signDetail);
+      logger.debug('Token exists', { hasToken: !!token }, 'BULK_UPLOAD');
+      logger.debug('Sign details', signDetail, 'BULK_UPLOAD');
       
       const formData = new FormData();
       
@@ -853,38 +875,72 @@ export default function AdminDashboard() {
       formData.append('coverFile', signDetail.coverFile);
       
       // Add variant files
-      signDetail.variantFiles.forEach((variant, index) => {
+      signDetail.variantFiles.forEach((variant) => {
         formData.append(`variantFiles`, variant.file);
         formData.append(`variantTypes`, variant.type);
         formData.append(`variantAngles`, variant.angle);
         formData.append(`variantDescriptions`, variant.description);
       });
 
-      console.log('Making request to:', 'http://localhost:5000/api/content/signs/bulk-variants');
-      console.log('FormData entries:');
-      for (let [key, value] of formData.entries()) {
-        console.log(key, value);
+      logger.api('POST', '/api/content/signs/bulk-variants', 'PENDING', null, 'BULK_UPLOAD');
+      logger.debug('FormData entries', Object.fromEntries(formData.entries()), 'BULK_UPLOAD');
+      
+      const headers = {
+        'Authorization': `Bearer ${token}`
+      };
+      
+      // Add update header if this is an update request
+      if (signDetail.isUpdateRequest) {
+        headers['x-update-existing'] = 'true';
+        logger.info('Adding update header to request', { 
+          isUpdateRequest: signDetail.isUpdateRequest,
+          word: signDetail.word 
+        }, 'BULK_UPLOAD');
+      } else {
+        logger.info('Creating new sign (no update header)', { 
+          isUpdateRequest: signDetail.isUpdateRequest,
+          word: signDetail.word 
+        }, 'BULK_UPLOAD');
       }
       
-      const response = await fetch('http://localhost:5000/api/content/signs/bulk-variants', {
+      const response = await fetch(`${API_BASE_URL}/api/content/signs/bulk-variants`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+        headers: headers,
         body: formData
       });
       
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
+      logger.api('POST', '/api/content/signs/bulk-variants', response.status, null, 'BULK_UPLOAD');
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Failed to upload ${signDetail.word}: ${errorData.message || 'Unknown error'}`);
+        let errorMessage = `Failed to upload ${signDetail.word}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+          logger.error('API Error Response', { 
+            status: response.status, 
+            statusText: response.statusText,
+            error: errorData 
+          }, 'BULK_UPLOAD');
+        } catch (parseError) {
+          logger.error('Failed to parse error response', { 
+            status: response.status, 
+            statusText: response.statusText,
+            parseError: parseError.message 
+          }, 'BULK_UPLOAD');
+          errorMessage = `${errorMessage}: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
       
-      alert(`Successfully uploaded "${signDetail.word}" with ${signDetail.variantFiles.length} variants!`);
+      if (signDetail.isUpdateRequest) {
+        alert(`Successfully added ${signDetail.variantFiles.length} variants to existing sign "${signDetail.word}"!`);
+        logger.success(`Added variants to existing sign: ${signDetail.word}`, { variantCount: signDetail.variantFiles.length }, 'BULK_UPLOAD');
+      } else {
+        alert(`Successfully created new sign "${signDetail.word}" with ${signDetail.variantFiles.length} variants!`);
+        logger.success(`Created new sign: ${signDetail.word}`, { variantCount: signDetail.variantFiles.length }, 'BULK_UPLOAD');
+      }
       
       // Reset form
       setBulkUploadForm({
@@ -902,11 +958,22 @@ export default function AdminDashboard() {
       });
       setShowBulkUploadModal(false);
       
-      // Refresh content items
-      window.location.reload();
+      // Refresh content items properly
+      logger.info('Refreshing content items after bulk upload', { 
+        isUpdateRequest: signDetail.isUpdateRequest,
+        word: signDetail.word 
+      }, 'BULK_UPLOAD');
+      
+      // Fetch updated content items
+      await fetchContentItems();
+      
+      // Also refresh the page to ensure all data is up to date
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
       
     } catch (error) {
-      console.error('Error uploading files:', error);
+      logger.errorWithStack('Error uploading files', error, 'BULK_UPLOAD');
       alert(`Error uploading files: ${error.message}`);
     }
   };
@@ -1097,7 +1164,6 @@ export default function AdminDashboard() {
           </div>
           
           <div className="flex items-center space-x-4">
-            <MessagesNotification />
             <TopBarUserAvatar size={8} showName={false} />
           </div>
         </div>
@@ -1173,6 +1239,18 @@ export default function AdminDashboard() {
                         <div>
                           <h1 className="text-2xl font-bold">Section Analytics</h1>
                           <p className="text-orange-100">View performance and usage data</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {activeTab === 'messages' && (
+                    <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-6 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <ChatBubbleLeftRightIcon className="w-8 h-8" />
+                        <div>
+                          <h1 className="text-2xl font-bold">Support Messages</h1>
+                          <p className="text-indigo-100">Manage user support tickets and messages</p>
                         </div>
                       </div>
                     </div>
@@ -1533,12 +1611,25 @@ export default function AdminDashboard() {
                   <AdminQuizManagement />
                 )}
 
+                {/* Messages Tab */}
+                {activeTab === 'messages' && (
+                  <div className={`p-6 rounded-lg border ${border} mb-8`}>
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-xl font-bold">Support Messages</h3>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-gray-500">Manage user support tickets</span>
+                      </div>
+                    </div>
+                    
+                  </div>
+                )}
+
                 {/* User Management Tab */}
                 {activeTab === 'users' && (
                   <div className={`p-6 rounded-lg border ${border} mb-8`}>
                     <div className="flex items-center justify-between mb-6">
                       <h3 className="text-xl font-bold">User Management</h3>
-                      {currentUser?.role === 'super_admin' && (
+                      {currentUser?.role === 'admin' && (
                         <button
                           onClick={() => setShowAddAdminModal(true)}
                           className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
@@ -1616,9 +1707,9 @@ export default function AdminDashboard() {
                               <td className="py-3 px-4">
                                 {(() => {
                                   const isSelf = currentUser && currentUser._id === userItem._id;
-                                  const isTargetSuper = userItem.role === 'super_admin';
+                                  const isTargetSuper = userItem.role === 'admin';
                                   const canAdminToggle = currentUser?.role === 'admin' && userItem.role === 'user';
-                                  const canSuperToggle = currentUser?.role === 'super_admin' && (userItem.role === 'user' || userItem.role === 'admin');
+                                  const canSuperToggle = currentUser?.role === 'admin' && (userItem.role === 'user' || userItem.role === 'admin');
                                   const canToggle = !isSelf && !isTargetSuper && (canAdminToggle || canSuperToggle);
 
                                   const handleToggleUserStatus = async () => {
@@ -2434,7 +2525,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Add Admin Modal (Super Admin only) */}
-      {showAddAdminModal && currentUser?.role === 'super_admin' && (
+      {showAddAdminModal && currentUser?.role === 'admin' && (
         <Modal
           isOpen={showAddAdminModal}
           onClose={() => setShowAddAdminModal(false)}

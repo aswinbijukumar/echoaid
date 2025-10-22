@@ -207,8 +207,8 @@ export default function Quiz() {
   if (quizId) {
     return (
       <div className={`h-screen ${bg} ${text} flex flex-col`}>
-        {/* Fixed Top Status Bar */}
-        <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64 flex-shrink-0 sticky top-0 z-30`}>
+        {/* Fixed Top Status Bar - Match Practice and Dictionary pages exactly */}
+        <div className={`fixed top-0 left-0 right-0 z-50 ${statusBarBg} border-b ${border} px-6 py-3 pl-64`}>
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center space-x-4">
               {/* Empty space on the left */}
@@ -239,7 +239,7 @@ export default function Quiz() {
           <Sidebar handleLogout={handleLogout} />
 
           {/* Subtle line between sidebar and content */}
-          <div className="fixed left-64 top-0 h-screen w-px bg-gray-600 z-40"></div>
+          <div className="fixed left-64 top-0 h-screen w-px bg-gray-300 dark:bg-gray-600 z-40"></div>
 
           {/* Scrollable Main Content Area */}
           <div className={`flex-1 ml-64 ${bg} overflow-y-auto`}>
@@ -258,8 +258,8 @@ export default function Quiz() {
 
   return (
     <div className={`min-h-screen ${bg} ${text}`}>
-      {/* Top Status Bar */}
-      <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64`}>
+      {/* Fixed Top Status Bar - Match Practice and Dictionary pages exactly */}
+      <div className={`fixed top-0 left-0 right-0 z-50 ${statusBarBg} border-b ${border} px-6 py-3 pl-64`}>
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
             {/* Empty space on the left */}
@@ -290,12 +290,12 @@ export default function Quiz() {
         <Sidebar handleLogout={handleLogout} />
 
         {/* Subtle line between sidebar and content */}
-        <div className="fixed left-64 top-0 h-screen w-px bg-gray-600 z-40"></div>
+        <div className="fixed left-64 top-0 h-screen w-px bg-gray-300 dark:bg-gray-600 z-40"></div>
 
         {/* Main Content Area */}
         <div className={`flex-1 ml-64 ${bg}`}>
           <div className="max-w-6xl mx-auto">
-            <div className="p-6">
+            <div className="p-6 pt-20">
               <div className="flex items-center justify-between mb-8">
                 <PageHeader title="Assessments" subtitle="Test your sign language knowledge and earn XP!" className="mb-0" />
               <div className="flex items-center space-x-6">

@@ -164,7 +164,7 @@ async function addHigherLevelModules() {
     console.log('Adding higher level modules for testing dynamic levels...');
     
     // Find an admin user to assign as creator
-    const adminUser = await User.findOne({ role: { $in: ['admin', 'super_admin'] } });
+    const adminUser = await User.findOne({ role: { $in: ['admin', 'admin'] } });
     if (!adminUser) {
       console.error('No admin user found. Please create an admin user first.');
       return;

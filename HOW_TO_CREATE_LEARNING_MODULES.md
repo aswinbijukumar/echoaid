@@ -6,8 +6,8 @@ The 400 error has been fixed! The issue was that the admin dashboard was using t
 
 ### ✅ **Problem Solved**
 - **Issue**: Frontend was sending `exercises: []` but backend expected `flashcards: []` and `quizQuestions: []`
-- **Fix**: Updated SuperAdminDashboard to use `LearningModulesManagement` component
-- **Result**: Now both Admin and SuperAdmin dashboards use the correct component structure
+- **Fix**: Updated AdminDashboard to use `LearningModulesManagement` component
+- **Result**: Admin dashboard uses the correct component structure
 
 ## 🚀 **How to Create Learning Modules**
 

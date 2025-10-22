@@ -16,6 +16,7 @@ export default function SignRecognition({
   mode = 'webcam' // 'webcam' or 'upload'
 }) {
   const { darkMode } = useTheme();
+  const [currentMode, setCurrentMode] = useState(mode);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
@@ -1186,13 +1187,45 @@ export default function SignRecognition({
           <div>
             <h3 className="text-2xl font-bold mb-2">Sign Recognition Practice</h3>
             <p className="text-blue-100">
-              {mode === 'webcam' 
+              {currentMode === 'webcam' 
                 ? 'Show your sign to the camera for real-time recognition' 
                 : 'Upload an image to recognize the sign'
               }
             </p>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-4">
+            {/* Mode Toggle */}
+            <div className="flex bg-white/20 rounded-lg p-1">
+              <button
+                onClick={() => {
+                  setCurrentMode('webcam');
+                  setPreviewUrl(null);
+                  setError('');
+                }}
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  currentMode === 'webcam' 
+                    ? 'bg-white text-blue-600' 
+                    : 'text-white hover:bg-white/20'
+                }`}
+              >
+                📹 Webcam
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentMode('upload');
+                  stopWebcam();
+                  setError('');
+                }}
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  currentMode === 'upload' 
+                    ? 'bg-white text-blue-600' 
+                    : 'text-white hover:bg-white/20'
+                }`}
+              >
+                📤 Upload
+              </button>
+            </div>
+            <div className="flex items-center space-x-3">
             {availableCameras.length > 1 && (
               <>
                 <label className="text-sm text-white/80">Camera</label>
@@ -1220,6 +1253,7 @@ export default function SignRecognition({
             >
               Refresh
             </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1230,19 +1264,19 @@ export default function SignRecognition({
           <div className={`w-3 h-3 rounded-full bg-green-500`}></div>
           <span className="font-medium">Model Ready</span>
         </div>
-        {mode === 'webcam' && isWebcamActive && isVideoReady && (
+        {currentMode === 'webcam' && isWebcamActive && isVideoReady && (
           <div className={`flex items-center space-x-2 ${isProcessing ? 'text-blue-500' : handDetected ? 'text-green-500' : 'text-yellow-500'}`}>
             <div className={`w-3 h-3 rounded-full ${isProcessing ? 'bg-blue-500 animate-pulse' : handDetected ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`}></div>
             <span className="font-medium">{isProcessing ? 'Analyzing...' : handDetected ? 'Hand Detected' : 'Looking for Hand...'}</span>
           </div>
         )}
-        {mode === 'webcam' && isWebcamActive && !isVideoReady && (
+        {currentMode === 'webcam' && isWebcamActive && !isVideoReady && (
           <div className="flex items-center space-x-2 text-yellow-500">
             <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse"></div>
             <span className="font-medium">Starting Camera...</span>
           </div>
         )}
-        {mode === 'webcam' && !isWebcamActive && (
+        {currentMode === 'webcam' && !isWebcamActive && (
           <div className="flex items-center space-x-2 text-orange-500">
             <div className="w-3 h-3 rounded-full bg-orange-500"></div>
             <span className="font-medium">Camera Off</span>
@@ -1256,7 +1290,7 @@ export default function SignRecognition({
         </div>
       )}
 
-      {mode === 'webcam' ? (
+      {currentMode === 'webcam' ? (
         <div className="space-y-4">
           {/* Webcam Video */}
           <div className="relative">
@@ -1659,12 +1693,11 @@ export default function SignRecognition({
         </div>
       )}
 
-  {/* Floating Sign Learning Chatbot */}
-  <FloatingChatbot
-    detectedSign={recognitionResult}
-    signDictionary={signDictionary}
-  />
-
+      {/* Floating Sign Learning Chatbot */}
+      <FloatingChatbot
+        detectedSign={recognitionResult}
+        signDictionary={signDictionary}
+      />
     </div>
   );
 }

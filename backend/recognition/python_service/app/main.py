@@ -40,6 +40,22 @@ class DetectResponse(BaseModel):
     time_ms: float
     detections: List[Detection]
 
+class ScoreRequest(BaseModel):
+    image: str  # base64 image data
+    isISL: bool = True
+    signId: Optional[str] = None
+
+class ScoreResponse(BaseModel):
+    success: bool
+    time_ms: float
+    detections: List[Detection]
+    label: Optional[str] = None
+    confidence: Optional[float] = None
+    source: str = "yolov5"
+    bounding_box: Optional[List[float]] = None
+    landmarks: List = []
+    all_predictions: List = []
+
 
 def load_model():
     global model, model_names
@@ -169,3 +185,92 @@ async def detect(
 
     dt_ms = (time.time() - t0) * 1000.0
     return DetectResponse(success=True, time_ms=dt_ms, detections=detections)
+
+
+@app.post("/score", response_model=ScoreResponse)
+async def score(request: ScoreRequest):
+    """Score endpoint for backend compatibility - accepts base64 image data"""
+    if model is None:
+        raise HTTPException(status_code=500, detail="Model not loaded")
+    
+    try:
+        # Decode base64 image
+        import base64
+        if request.image.startswith('data:'):
+            # Remove data URL prefix
+            header, encoded = request.image.split(',', 1)
+            image_data = base64.b64decode(encoded)
+        else:
+            # Assume it's raw base64
+            image_data = base64.b64decode(request.image)
+        
+        image = Image.open(io.BytesIO(image_data)).convert('RGB')
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid image data: {e}")
+
+    t0 = time.time()
+    
+    try:
+        results = model(image, size=640)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Model inference error: {e}")
+    
+    # Process results
+    detections: List[Detection] = []
+    top_detection = None
+    
+    try:
+        preds = results.xyxy[0].cpu().numpy()
+        print(f"[score] received image {len(image_data)} bytes, preds shape={getattr(results.xyxy[0], 'shape', None)}")
+        
+        # Filter detections by confidence and validate
+        for x1, y1, x2, y2, conf, cls_id in preds:
+            cls_idx = int(cls_id)
+            label = model_names[cls_idx] if 0 <= cls_idx < len(model_names) else str(cls_idx)
+            
+            # Additional validation: check if detection is reasonable
+            box_width = x2 - x1
+            box_height = y2 - y1
+            box_area = box_width * box_height
+            
+            # Skip very small detections (likely false positives)
+            if box_area < 100:  # Minimum 100 pixels area
+                print(f"[score] Skipping small detection: {label} (area: {box_area:.1f})")
+                continue
+                
+            # Skip detections that are too large (likely background)
+            image_area = image.width * image.height
+            if box_area > image_area * 0.8:  # Max 80% of image
+                print(f"[score] Skipping large detection: {label} (area: {box_area:.1f})")
+                continue
+            
+            detection = Detection(
+                label=label,
+                confidence=float(conf),
+                box=[float(x1), float(y1), float(x2), float(y2)]
+            )
+            detections.append(detection)
+            
+            # Keep track of the highest confidence detection
+            if top_detection is None or detection.confidence > top_detection.confidence:
+                top_detection = detection
+            
+        print(f"[score] Final detections: {len(detections)} valid detections")
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Postprocess error: {e}")
+
+    dt_ms = (time.time() - t0) * 1000.0
+    
+    # Return response in the format expected by the backend
+    return ScoreResponse(
+        success=True,
+        time_ms=dt_ms,
+        detections=detections,
+        label=top_detection.label if top_detection else None,
+        confidence=top_detection.confidence if top_detection else None,
+        source="yolov5",
+        bounding_box=top_detection.box if top_detection else None,
+        landmarks=[],
+        all_predictions=[]
+    )

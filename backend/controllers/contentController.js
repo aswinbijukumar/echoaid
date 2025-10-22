@@ -7,6 +7,7 @@ import sharp from 'sharp';
 import { v2 as cloudinary } from 'cloudinary';
 import csv from 'csv-parser';
 import os from 'os';
+import logger from '../utils/prettyLogger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -534,12 +535,23 @@ export const createSignWithVariants = async (req, res) => {
       validationErrors.push('Invalid category. Must be one of: alphabet, numbers, phrases, family, activities, advanced');
     }
 
-    // Description validation
-    if (!description || !description.trim()) {
-      validationErrors.push('Description is required');
+    // Description validation with fallback
+    logger.debug('Description validation', {
+      rawDescription: description,
+      type: typeof description,
+      length: description ? description.length : 'undefined'
+    }, 'BULK_UPLOAD');
+    
+    // Ensure description meets minimum length requirement
+    let finalDescription = description;
+    if (!description || description === '' || !description.trim()) {
+      finalDescription = `Learn how to sign "${word}" in Indian Sign Language with proper hand gestures and movements`;
     } else if (description.trim().length < 10) {
-      validationErrors.push('Description must be at least 10 characters long');
-    } else if (description.trim().length > 500) {
+      // If description is too short, extend it
+      finalDescription = `${description.trim()} - Learn how to sign "${word}" in Indian Sign Language with proper hand gestures and movements`;
+    }
+    
+    if (finalDescription.trim().length > 500) {
       validationErrors.push('Description must be less than 500 characters');
     }
 
@@ -578,17 +590,56 @@ export const createSignWithVariants = async (req, res) => {
     }
 
     // Check for duplicate word in same category
+    let existingSign = null;
     try {
-      const existingSign = await Sign.findOne({ 
+      logger.debug('Checking for existing sign', {
+        word: word.trim(),
+        category: category.trim(),
+        searchQuery: { 
+          word: { $regex: new RegExp(`^${word.trim()}$`, 'i') }, 
+          category: category.trim(),
+          isActive: true 
+        }
+      }, 'BULK_UPLOAD');
+      
+      existingSign = await Sign.findOne({ 
         word: { $regex: new RegExp(`^${word.trim()}$`, 'i') }, 
         category: category.trim(),
         isActive: true 
       });
+      
       if (existingSign) {
-        validationErrors.push(`Sign "${word}" already exists in ${category} category`);
+        logger.info('Found existing sign', {
+          signId: existingSign._id,
+          word: existingSign.word,
+          category: existingSign.category,
+          variantsCount: existingSign.variants ? existingSign.variants.length : 0,
+          coverImage: existingSign.coverImage
+        }, 'BULK_UPLOAD');
+      } else {
+        logger.info('No existing sign found', { word: word.trim(), category: category.trim() }, 'BULK_UPLOAD');
+      }
+      
+      if (existingSign) {
+        // Check if this is an update request (adding variants to existing sign)
+        const isUpdateRequest = req.headers['x-update-existing'] === 'true';
+        
+        logger.debug('Duplicate check result', {
+          existingSignId: existingSign._id,
+          existingSignWord: existingSign.word,
+          isUpdateRequest: isUpdateRequest,
+          updateHeader: req.headers['x-update-existing'],
+          allHeaders: Object.keys(req.headers).filter(h => h.toLowerCase().includes('update') || h.toLowerCase().includes('existing'))
+        }, 'BULK_UPLOAD');
+        
+        if (!isUpdateRequest) {
+          validationErrors.push(`Sign "${word}" already exists in ${category} category. Use update mode to add variants.`);
+        } else {
+          logger.info(`Adding variants to existing sign: ${word} (ID: ${existingSign._id})`, null, 'BULK_UPLOAD');
+        }
       }
     } catch (dbError) {
-      console.error('Database error during duplicate check:', dbError);
+      logger.errorWithStack('Database error during duplicate check', dbError, 'DATABASE');
       // Continue with other validations
     }
 
@@ -651,9 +702,9 @@ export const createSignWithVariants = async (req, res) => {
       const filePath = coverFile.tempFilePath || coverFile.path;
       
       try {
-        console.log('Uploading cover image to Cloudinary...');
-        console.log('File path:', filePath);
-        console.log('Category:', category);
+        logger.info('Uploading cover image to Cloudinary...', null, 'CONTROLLER');
+        logger.debug('File path:', filePath, 'CONTROLLER');
+        logger.debug('Category:', category, 'CONTROLLER');
         
         const uploaded = await cloudinary.uploader.upload(filePath, {
           folder: `signs/${category}`,
@@ -664,7 +715,7 @@ export const createSignWithVariants = async (req, res) => {
           fetch_format: 'auto'
         });
         
-        console.log('Cover image uploaded successfully:', uploaded.secure_url);
+        logger.debug('Cover image uploaded successfully:', uploaded.secure_url, 'CONTROLLER');
         
         coverImagePath = uploaded.secure_url;
         coverThumbnailPath = cloudinary.url(uploaded.public_id, { 
@@ -676,7 +727,7 @@ export const createSignWithVariants = async (req, res) => {
           format: 'jpg'
         });
       } catch (e) {
-        console.error('Cover image upload error:', e);
+        logger.errorWithStack('Cover image upload error:', e, error, 'CONTROLLER');
         return res.status(500).json({ 
           success: false, 
           message: 'Cover image upload failed', 
@@ -699,9 +750,9 @@ export const createSignWithVariants = async (req, res) => {
         const filePath = variantFile.tempFilePath || variantFile.path;
         
         try {
-          console.log(`Uploading variant ${i + 1} to Cloudinary...`);
-          console.log('File path:', filePath);
-          console.log('Variant type:', variantTypes[i]);
+          logger.info('Uploading variant ${i + 1} to Cloudinary...', null, 'CONTROLLER');
+          logger.debug('File path:', filePath, 'CONTROLLER');
+          logger.debug('Variant type:', variantTypes[i], 'CONTROLLER');
           
           const uploaded = await cloudinary.uploader.upload(filePath, {
             folder: `signs/${category}/variants`,
@@ -732,46 +783,117 @@ export const createSignWithVariants = async (req, res) => {
             isDefault: i === 0
           });
         } catch (e) {
-          console.error(`Variant ${i + 1} upload failed:`, e);
+          logger.errorWithStack(`Variant ${i + 1} upload failed:`, e, error, 'CONTROLLER');
           // Continue with other variants but log the error
         }
       }
     }
 
-    // Create sign with variants
-    const signData = {
-      word: word.trim(),
-      category: category.trim(),
-      difficulty: difficulty || 'Beginner',
-      description: description.trim(),
-      coverImage: coverImagePath,
-      coverThumbnail: coverThumbnailPath,
-      variants: variants,
-      tags: tags ? JSON.parse(tags) : [word.toLowerCase()],
-      usage: usage || `Common usage of ${word} in sign language`,
-      signLanguageType: signLanguageType || 'ISL',
-      handDominance: handDominance || 'right',
-      facialExpression: facialExpression || '',
-      bodyPosition: bodyPosition || '',
-      movement: movement || '',
-      isActive: isActive !== undefined ? isActive : true,
-      createdBy: req.user._id,
-      // Legacy fields for backward compatibility
-      imagePath: coverImagePath,
-      thumbnailPath: coverThumbnailPath,
-      videoPath: variants.find(v => v.type === 'video')?.path || null
-    };
+    let sign;
+    
+    if (existingSign) {
+      // Add variants to existing sign
+      logger.info(`Adding ${variants.length} variants to existing sign: ${word}`, { 
+        signId: existingSign._id,
+        existingVariantsCount: existingSign.variants ? existingSign.variants.length : 0,
+        newVariantsCount: variants.length
+      }, 'BULK_UPLOAD');
+      
+      // Log existing sign details before modification
+      logger.debug('Existing sign before modification', {
+        signId: existingSign._id,
+        word: existingSign.word,
+        category: existingSign.category,
+        existingVariants: existingSign.variants ? existingSign.variants.length : 0,
+        coverImage: existingSign.coverImage,
+        imagePath: existingSign.imagePath
+      }, 'BULK_UPLOAD');
+      
+      // Add new variants to existing sign
+      existingSign.variants = [...(existingSign.variants || []), ...variants];
+      
+      // Update other fields if provided
+      if (finalDescription.trim()) existingSign.description = finalDescription.trim();
+      if (difficulty) existingSign.difficulty = difficulty;
+      if (tags) existingSign.tags = JSON.parse(tags);
+      if (usage) existingSign.usage = usage;
+      if (signLanguageType) existingSign.signLanguageType = signLanguageType;
+      if (handDominance) existingSign.handDominance = handDominance;
+      if (facialExpression) existingSign.facialExpression = facialExpression;
+      if (bodyPosition) existingSign.bodyPosition = bodyPosition;
+      if (movement) existingSign.movement = movement;
+      
+      // Update cover image ONLY if no cover image exists
+      if (coverImagePath && (!existingSign.coverImage || !existingSign.imagePath)) {
+        existingSign.coverImage = coverImagePath;
+        existingSign.coverThumbnail = coverThumbnailPath;
+        existingSign.imagePath = coverImagePath;
+        existingSign.thumbnailPath = coverThumbnailPath;
+        logger.info(`Updated cover image for existing sign: ${word}`, { signId: existingSign._id }, 'BULK_UPLOAD');
+      } else if (coverImagePath) {
+        logger.info(`Keeping existing cover image for sign: ${word}`, { 
+          signId: existingSign._id,
+          existingCover: existingSign.coverImage 
+        }, 'BULK_UPLOAD');
+      }
+      
+      // Update video path if new video variant added
+      const videoVariant = variants.find(v => v.type === 'video');
+      if (videoVariant) {
+        existingSign.videoPath = videoVariant.path;
+      }
+      
+      sign = await existingSign.save();
+      
+      // Log the result after saving
+      logger.info(`Successfully updated existing sign: ${word}`, {
+        signId: sign._id,
+        totalVariants: sign.variants ? sign.variants.length : 0,
+        coverImage: sign.coverImage,
+        imagePath: sign.imagePath
+      }, 'BULK_UPLOAD');
+      
+      res.status(200).json({
+        success: true,
+        message: `Added ${variants.length} variants to existing sign "${word}"`,
+        data: sign
+      });
+    } else {
+      // Create new sign with variants
+      const signData = {
+        word: word.trim(),
+        category: category.trim(),
+        difficulty: difficulty || 'Beginner',
+        description: finalDescription.trim(),
+        coverImage: coverImagePath,
+        coverThumbnail: coverThumbnailPath,
+        variants: variants,
+        tags: tags ? JSON.parse(tags) : [word.toLowerCase()],
+        usage: usage || `Common usage of ${word} in sign language`,
+        signLanguageType: signLanguageType || 'ISL',
+        handDominance: handDominance || 'right',
+        facialExpression: facialExpression || '',
+        bodyPosition: bodyPosition || '',
+        movement: movement || '',
+        isActive: isActive !== undefined ? isActive : true,
+        createdBy: req.user._id,
+        // Legacy fields for backward compatibility
+        imagePath: coverImagePath,
+        thumbnailPath: coverThumbnailPath,
+        videoPath: variants.find(v => v.type === 'video')?.path || null
+      };
 
-    const sign = await Sign.create(signData);
+      sign = await Sign.create(signData);
 
-    res.status(201).json({
-      success: true,
-      message: `Sign "${word}" created successfully with ${variants.length} variants`,
-      data: sign
-    });
+      res.status(201).json({
+        success: true,
+        message: `Sign "${word}" created successfully with ${variants.length} variants`,
+        data: sign
+      });
+    }
 
   } catch (error) {
-    console.error('Error creating sign with variants:', error);
+    logger.errorWithStack('Error creating sign with variants:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -787,7 +909,7 @@ export const bulkSignOperations = async (req, res) => {
   try {
     const { operation, signIds, data } = req.body;
     
-    console.log('Bulk operation request:', { operation, signIds: signIds?.length, data });
+    logger.debug('Bulk operation request:', { operation, signIds: signIds?.length, data }, 'CONTROLLER');
     
     if (!operation || !signIds || !Array.isArray(signIds)) {
       console.log('Invalid request parameters:', { operation, signIds, isArray: Array.isArray(signIds) });
@@ -815,10 +937,10 @@ export const bulkSignOperations = async (req, res) => {
         break;
         
       case 'delete':
-        console.log('Processing bulk delete for signIds:', signIds);
+        logger.debug('Processing bulk delete for signIds:', signIds, 'CONTROLLER');
         // Get signs to delete their files
         const signsToDelete = await Sign.find({ _id: { $in: signIds } });
-        console.log('Found signs to delete:', signsToDelete.length);
+        logger.debug('Found signs to delete:', signsToDelete.length, 'CONTROLLER');
         
         // Delete associated files
         signsToDelete.forEach(sign => {
@@ -827,21 +949,21 @@ export const bulkSignOperations = async (req, res) => {
               const imagePath = path.join(__dirname, '..', sign.imagePath);
               if (fs.existsSync(imagePath)) {
                 fs.unlinkSync(imagePath);
-                console.log('Deleted image file:', imagePath);
+                logger.debug('Deleted image file:', imagePath, 'CONTROLLER');
               }
             }
             if (sign.thumbnailPath && !sign.thumbnailPath.startsWith('http')) {
               const thumbnailPath = path.join(__dirname, '..', sign.thumbnailPath);
               if (fs.existsSync(thumbnailPath)) {
                 fs.unlinkSync(thumbnailPath);
-                console.log('Deleted thumbnail file:', thumbnailPath);
+                logger.debug('Deleted thumbnail file:', thumbnailPath, 'CONTROLLER');
               }
             }
             if (sign.videoPath && !sign.videoPath.startsWith('http')) {
               const videoPath = path.join(__dirname, '..', sign.videoPath);
               if (fs.existsSync(videoPath)) {
                 fs.unlinkSync(videoPath);
-                console.log('Deleted video file:', videoPath);
+                logger.debug('Deleted video file:', videoPath, 'CONTROLLER');
               }
             }
           } catch (fileError) {
@@ -850,7 +972,7 @@ export const bulkSignOperations = async (req, res) => {
         });
         
         result = await Sign.deleteMany({ _id: { $in: signIds } });
-        console.log('Bulk delete result:', result);
+        logger.debug('Bulk delete result:', result, 'CONTROLLER');
         break;
         
       case 'update':
@@ -1145,7 +1267,7 @@ export const getCategoryById = async (req, res) => {
 // Create new category
 export const createCategory = async (req, res) => {
   try {
-    console.log('createCategory called by user:', req.user?.email, 'role:', req.user?.role);
+    logger.debug('createCategory called by user:', req.user?.email, 'role:', req.user?.role, 'CONTROLLER');
     const { name, description, icon, color, slug } = req.body || {};
     let { order } = req.body || {};
 
@@ -1233,7 +1355,7 @@ export const createCategory = async (req, res) => {
     if (error?.code === 11000) {
       return res.status(400).json({ success: false, message: 'Category with this name already exists' });
     }
-    console.error('createCategory error:', error);
+    logger.errorWithStack('createCategory error:', error, error, 'CONTROLLER');
     return res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };

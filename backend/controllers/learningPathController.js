@@ -1,4 +1,5 @@
 import LearningPath from '../models/LearningPath.js';
+import logger from '../utils/prettyLogger.js';
 import Unit from '../models/Unit.js';
 import Lesson from '../models/Lesson.js';
 import Exercise from '../models/Exercise.js';
@@ -44,7 +45,7 @@ export const getLearningPaths = async (req, res) => {
       data: pathsWithProgress
     });
   } catch (error) {
-    console.error('Get learning paths error:', error);
+    logger.errorWithStack('Get learning paths error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -129,7 +130,7 @@ export const getLearningPath = async (req, res) => {
       data: pathWithProgress
     });
   } catch (error) {
-    console.error('Get learning path error:', error);
+    logger.errorWithStack('Get learning path error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -200,7 +201,7 @@ export const enrollInLearningPath = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Enroll in learning path error:', error);
+    logger.errorWithStack('Enroll in learning path error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -263,7 +264,7 @@ export const getCurrentLesson = async (req, res) => {
       data: currentLesson
     });
   } catch (error) {
-    console.error('Get current lesson error:', error);
+    logger.errorWithStack('Get current lesson error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -444,7 +445,7 @@ export const completeExercise = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Complete exercise error:', error);
+    logger.errorWithStack('Complete exercise error:', error, error, 'CONTROLLER');
     res.status(500).json({
       success: false,
       message: 'Internal server error'

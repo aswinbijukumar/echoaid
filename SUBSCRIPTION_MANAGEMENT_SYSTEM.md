@@ -88,7 +88,7 @@ A complete subscription management system for EchoAid with transparent backgroun
 #### 2. **adminSubscription.js (Routes)**
 - RESTful API endpoints for all subscription operations
 - Authentication and authorization middleware
-- Admin and super_admin role protection
+- Admin role protection
 
 ### Database Integration
 - **User Model**: Extended subscription schema

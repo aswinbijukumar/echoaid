@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContextConstants';
-import { useTheme } from '../hooks/useTheme';
 import { 
   BellIcon,
   XMarkIcon,
@@ -16,7 +16,7 @@ import {
 
 export default function MessagesNotification() {
   const { token } = useAuth();
-  const { darkMode } = useTheme();
+  const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const [messages, setMessages] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -29,14 +29,35 @@ export default function MessagesNotification() {
   });
   const dropdownRef = useRef(null);
 
-  // Theme variables
-  const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
-  const text = darkMode ? 'text-white' : 'text-[#23272F]';
-  const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
-  const border = darkMode ? 'border-gray-600' : 'border-gray-300';
-  const textPrimary = darkMode ? 'text-white' : 'text-[#23272F]';
-  const textSecondary = darkMode ? 'text-gray-300' : 'text-gray-600';
-  const hoverBg = darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
+  // Glass theme variables
+  const bg = 'bg-black';
+  const text = 'text-white';
+  const cardBg = 'bg-white/5 backdrop-blur-md border border-white/10';
+  const border = 'border-white/20';
+  const textPrimary = 'text-white';
+  const textSecondary = 'text-white/70';
+  const hoverBg = 'hover:bg-white/10';
+  const glassEffect = 'backdrop-blur-md bg-white/5 border border-white/10';
+  const glassHover = 'hover:bg-white/10 hover:border-white/20';
+
+  // Fetch unread count
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/messages/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadCount(data.data.unreadMessages || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
 
   // Fetch messages
   const fetchMessages = async () => {
@@ -58,7 +79,8 @@ export default function MessagesNotification() {
       if (response.ok) {
         const data = await response.json();
         setMessages(data.data.messages || []);
-        setUnreadCount(data.data.unreadCount || 0);
+        // Get unread count from stats
+        fetchUnreadCount();
       } else {
         setError('Failed to load messages');
       }
@@ -75,14 +97,16 @@ export default function MessagesNotification() {
       const response = await fetch(`http://localhost:5000/api/messages/${messageId}/read`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ readBy: 'admin' })
       });
 
       if (response.ok) {
         setMessages(prev => prev.map(msg => 
           msg._id === messageId 
-            ? { ...msg, isReadByAdmin: true, status: 'read' }
+            ? { ...msg, isReadByAdmin: true }
             : msg
         ));
         setUnreadCount(prev => Math.max(0, prev - 1));
@@ -137,7 +161,7 @@ export default function MessagesNotification() {
   useEffect(() => {
     const interval = setInterval(() => {
       if (!showDropdown) {
-        fetchMessages();
+        fetchUnreadCount();
       }
     }, 30000); // Refresh every 30 seconds
 
@@ -174,15 +198,15 @@ export default function MessagesNotification() {
 
       {/* Dropdown */}
       {showDropdown && (
-        <div className={`absolute right-0 top-full mt-2 w-96 rounded-lg shadow-xl border z-50 ${cardBg} ${border}`}>
+        <div className={`absolute right-0 top-full mt-2 w-96 rounded-xl shadow-2xl border z-50 ${glassEffect}`}>
           {/* Header */}
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className={`text-lg font-semibold ${textPrimary} flex items-center space-x-2`}>
-                <ChatBubbleLeftRightIcon className="h-5 w-5" />
+          <div className="p-6 border-b border-white/20">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-xl font-bold ${textPrimary} flex items-center space-x-3`}>
+                <ChatBubbleLeftRightIcon className="h-6 w-6 text-blue-400" />
                 <span>Messages & Queries</span>
                 {unreadCount > 0 && (
-                  <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                  <span className="bg-red-500/80 text-white text-sm px-3 py-1 rounded-full font-semibold backdrop-blur-md border border-red-400/30">
                     {unreadCount} unread
                   </span>
                 )}
@@ -190,46 +214,46 @@ export default function MessagesNotification() {
               <button
                 onClick={fetchMessages}
                 disabled={isLoading}
-                className={`p-1 rounded ${hoverBg} ${textSecondary}`}
+                className={`p-2 rounded-xl ${glassHover} ${textSecondary} transition-all duration-300`}
                 title="Refresh"
               >
-                <ArrowPathIcon className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <ArrowPathIcon className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
               </button>
             </div>
 
             {/* Filters */}
-            <div className="flex space-x-2">
+            <div className="flex space-x-3">
               <select
                 value={filters.status}
                 onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                className={`text-xs px-2 py-1 rounded border ${border} ${bg} ${textPrimary}`}
+                className={`text-sm px-3 py-2 rounded-xl border ${border} ${glassEffect} ${textPrimary} focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 transition-all duration-300 bg-black/80`}
               >
-                <option value="">All Status</option>
-                <option value="new">New</option>
-                <option value="read">Read</option>
-                <option value="replied">Replied</option>
-                <option value="resolved">Resolved</option>
+                <option value="" className="bg-black text-white">All Status</option>
+                <option value="open" className="bg-black text-blue-400">🔵 Open</option>
+                <option value="in-progress" className="bg-black text-yellow-400">🟡 In Progress</option>
+                <option value="resolved" className="bg-black text-green-400">🟢 Resolved</option>
+                <option value="closed" className="bg-black text-white/60">⚫ Closed</option>
               </select>
               
               <select
                 value={filters.category}
                 onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-                className={`text-xs px-2 py-1 rounded border ${border} ${bg} ${textPrimary}`}
+                className={`text-sm px-3 py-2 rounded-xl border ${border} ${glassEffect} ${textPrimary} focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 transition-all duration-300 bg-black/80`}
               >
-                <option value="">All Categories</option>
-                <option value="technical">Technical</option>
-                <option value="account">Account</option>
-                <option value="billing">Billing</option>
-                <option value="content">Content</option>
-                <option value="general">General</option>
+                <option value="" className="bg-black text-white">All Categories</option>
+                <option value="general" className="bg-black text-white">💬 General</option>
+                <option value="technical" className="bg-black text-blue-400">⚙️ Technical</option>
+                <option value="billing" className="bg-black text-green-400">💳 Billing</option>
+                <option value="learning" className="bg-black text-purple-400">📚 Learning</option>
+                <option value="account" className="bg-black text-orange-400">👤 Account</option>
               </select>
 
-              <label className="flex items-center space-x-1 text-xs">
+              <label className="flex items-center space-x-2 text-sm">
                 <input
                   type="checkbox"
                   checked={filters.unreadOnly}
                   onChange={(e) => setFilters(prev => ({ ...prev, unreadOnly: e.target.checked }))}
-                  className="rounded"
+                  className="rounded border-white/20 bg-white/5 text-blue-400 focus:ring-blue-400/50"
                 />
                 <span className={textSecondary}>Unread only</span>
               </label>
@@ -239,61 +263,66 @@ export default function MessagesNotification() {
           {/* Messages List */}
           <div className="max-h-96 overflow-y-auto">
             {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <ArrowPathIcon className="w-6 h-6 animate-spin text-blue-500" />
-                <span className={`ml-2 ${textSecondary}`}>Loading messages...</span>
+              <div className="flex items-center justify-center py-12">
+                <ArrowPathIcon className="w-8 h-8 animate-spin text-blue-400" />
+                <span className={`ml-3 text-lg ${textSecondary}`}>Loading messages...</span>
               </div>
             ) : error ? (
-              <div className="flex items-center space-x-2 text-red-600 dark:text-red-400 p-4">
-                <ExclamationTriangleIcon className="w-5 h-5" />
-                <span className="text-sm">{error}</span>
+              <div className="flex items-center space-x-3 text-red-400 p-6">
+                <ExclamationTriangleIcon className="w-6 h-6" />
+                <span className="text-base">{error}</span>
               </div>
             ) : messages.length === 0 ? (
-              <div className="text-center py-8">
-                <ChatBubbleLeftRightIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                <p className={textSecondary}>No messages found</p>
+              <div className="text-center py-12">
+                <ChatBubbleLeftRightIcon className="w-16 h-16 text-white/40 mx-auto mb-4" />
+                <p className={`text-lg ${textSecondary}`}>No messages found</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              <div className="divide-y divide-white/20">
                 {messages.map((message) => (
                   <div
                     key={message._id}
-                    className={`p-4 ${hoverBg} cursor-pointer transition-colors ${
-                      !message.isReadByAdmin ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                    className={`p-6 ${glassHover} cursor-pointer transition-all duration-300 ${
+                      !message.isReadByAdmin ? 'ring-2 ring-yellow-400/30 border-yellow-400/20' : ''
                     }`}
                     onClick={() => markAsRead(message._id)}
                   >
-                    <div className="flex items-start space-x-3">
+                    <div className="flex items-start space-x-4">
                       <div className="flex-shrink-0 mt-1">
                         {getStatusIcon(message.status, message.isReadByAdmin)}
                       </div>
                       
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className={`text-sm font-medium ${textPrimary} truncate`}>
-                            {message.subject}
-                          </p>
-                          <span className={`text-xs ${getPriorityColor(message.priority)}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <p className={`text-base font-semibold ${textPrimary} truncate`}>
+                              {message.subject}
+                            </p>
+                            {!message.isReadByAdmin && (
+                              <span className="px-2 py-1 bg-yellow-400/20 text-yellow-400 text-xs font-semibold rounded-full">
+                                NEW
+                              </span>
+                            )}
+                          </div>
+                          <span className={`text-sm font-semibold ${getPriorityColor(message.priority)}`}>
                             {message.priority}
                           </span>
                         </div>
                         
-                        <p className={`text-xs ${textSecondary} mt-1 line-clamp-2`}>
+                        <p className={`text-sm ${textSecondary} mb-3 line-clamp-2`}>
                           {message.message}
                         </p>
                         
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center space-x-2">
-                            <span className={`text-xs ${textSecondary}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <span className={`text-sm ${textSecondary}`}>
                               {message.userName || message.userEmail}
                             </span>
-                            <span className={`text-xs px-2 py-1 rounded-full ${
-                              darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'
-                            }`}>
+                            <span className={`text-sm px-3 py-1 rounded-full bg-white/10 border border-white/20 text-white/80`}>
                               {message.category}
                             </span>
                           </div>
-                          <span className={`text-xs ${textSecondary}`}>
+                          <span className={`text-sm ${textSecondary}`}>
                             {formatDate(message.createdAt)}
                           </span>
                         </div>
@@ -306,13 +335,13 @@ export default function MessagesNotification() {
           </div>
 
           {/* Footer */}
-          <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="p-4 border-t border-white/20">
             <button
               onClick={() => {
                 // Navigate to full messages page
-                window.location.href = '/admin/messages';
+                navigate('/admin/messages');
               }}
-              className={`w-full text-sm ${textPrimary} ${hoverBg} py-2 rounded transition-colors`}
+              className={`w-full text-base font-medium ${textPrimary} ${glassHover} py-3 rounded-xl transition-all duration-300`}
             >
               View All Messages
             </button>

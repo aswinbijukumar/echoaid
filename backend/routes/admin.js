@@ -14,7 +14,7 @@ import {
   getUserStats,
   toggleUserStatus
 } from '../controllers/adminController.js';
-import { protect, superAdminOnly, adminAndSuperAdmin, canManageUsers, canViewAnalytics } from '../middleware/roleAuth.js';
+import { protect, adminAndSuperAdmin, canManageUsers, canViewAnalytics } from '../middleware/roleAuth.js';
 
 const router = express.Router();
 
@@ -26,11 +26,11 @@ router.get('/dashboard', adminAndSuperAdmin, canViewAnalytics, getAdminDashboard
 router.get('/stats', adminAndSuperAdmin, canViewAnalytics, getUserStats);
 
 // Admin management routes (Super Admin only)
-router.get('/admins', superAdminOnly, canManageUsers, getAllAdmins);
-router.post('/admins', superAdminOnly, canManageUsers, createAdmin);
-router.get('/admins/:id', superAdminOnly, canManageUsers, getAdminById);
-router.put('/admins/:id', superAdminOnly, canManageUsers, updateAdmin);
-router.delete('/admins/:id', superAdminOnly, canManageUsers, deleteAdmin);
+router.get('/admins', adminAndSuperAdmin, canManageUsers, getAllAdmins);
+router.post('/admins', adminAndSuperAdmin, canManageUsers, createAdmin);
+router.get('/admins/:id', adminAndSuperAdmin, canManageUsers, getAdminById);
+router.put('/admins/:id', adminAndSuperAdmin, canManageUsers, updateAdmin);
+router.delete('/admins/:id', adminAndSuperAdmin, canManageUsers, deleteAdmin);
 
 // User management routes (Admin and Super Admin)
 router.get('/users', adminAndSuperAdmin, canManageUsers, getManagedUsers);

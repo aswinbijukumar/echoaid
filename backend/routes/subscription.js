@@ -6,6 +6,7 @@ import {
   cancelSubscription,
   getSubscriptionPlans,
   checkSubscriptionAccess,
+  getSubscriptionStatus,
   createRazorpayOrder,
   verifyRazorpayPayment
 } from '../controllers/subscriptionController.js';
@@ -20,6 +21,9 @@ router.get('/plans', getSubscriptionPlans);
 
 // Check access to specific features
 router.get('/check-access', protect, checkSubscriptionAccess);
+
+// Get subscription status and usage limits
+router.get('/status', protect, getSubscriptionStatus);
 
 // Update subscription (for webhooks)
 router.post('/update', updateSubscription);

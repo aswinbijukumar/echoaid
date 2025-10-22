@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   TrophyIcon, 
@@ -25,9 +25,13 @@ import Sidebar from '../components/Sidebar';
 import { useUserStats } from '../hooks/useUserStats';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import SubscriptionStatus from '../components/SubscriptionStatus';
+import SubscriptionLimits from '../components/SubscriptionLimits';
 import UnitSelector from '../components/UnitSelector';
 import LessonViewer from '../components/LessonViewer';
 import UserMessageForm from '../components/UserMessageForm';
+import DailyStreak from '../components/DailyStreak';
+import StreakNotification from '../components/StreakNotification';
+import { streakService } from '../services/streakService';
 
 export default function Dashboard() {
   const { stats: userStats } = useUserStats();
@@ -41,6 +45,9 @@ export default function Dashboard() {
   const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'curriculum', 'lesson'
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [showMessageForm, setShowMessageForm] = useState(false);
+  const [showStreakNotification, setShowStreakNotification] = useState(false);
+  const [streakNotificationData, setStreakNotificationData] = useState(null);
+  const [previousStreak, setPreviousStreak] = useState(0);
   
   const { darkMode } = useTheme();
   const { logout } = useAuth();
@@ -59,7 +66,7 @@ export default function Dashboard() {
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
   // Function to fetch skills data
-  const fetchSkillsData = async () => {
+  const fetchSkillsData = useCallback(async () => {
     try {
       const skillsResponse = await fetch(`${API_BASE_URL}/api/skills`, {
         headers: {
@@ -87,6 +94,47 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Error fetching skills data:', error);
     }
+  }, [API_BASE_URL]);
+
+  // Check for streak milestones and show notifications
+  useEffect(() => {
+    if (userStats && userStats.streak !== undefined) {
+      const currentStreak = userStats.streak || 0;
+      
+      // Check for new milestone
+      const milestone = streakService.checkMilestone(currentStreak, previousStreak);
+      if (milestone) {
+        setStreakNotificationData({
+          type: 'milestone',
+          title: milestone.title,
+          message: milestone.message,
+          streak: currentStreak,
+          progress: streakService.getStreakProgress(currentStreak)
+        });
+        setShowStreakNotification(true);
+      }
+      
+      // Update previous streak for next comparison
+      setPreviousStreak(currentStreak);
+    }
+  }, [userStats, previousStreak]);
+
+  // Handle streak message from DailyStreak component
+  const handleStreakMessage = (message) => {
+    if (message && !showStreakNotification) {
+      setStreakNotificationData({
+        type: 'daily',
+        message: message,
+        streak: userStats?.streak || 0
+      });
+      setShowStreakNotification(true);
+    }
+  };
+
+  // Close streak notification
+  const handleCloseStreakNotification = () => {
+    setShowStreakNotification(false);
+    setStreakNotificationData(null);
   };
 
   // Fetch categories, recent signs, and learning modules
@@ -163,7 +211,7 @@ export default function Dashboard() {
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('moduleCompleted', handleModuleCompleted);
     };
-  }, []);
+  }, [fetchSkillsData]);
 
   // Helper functions for skill display
   const getSkillIcon = (category) => {
@@ -312,7 +360,7 @@ export default function Dashboard() {
                       </div>
                       <div className="flex space-x-3">
                         <Link
-                          to="/messages"
+                          to="/support"
                           className={`px-4 py-2 ${cardBg} border ${border} rounded-lg ${text} ${hoverBg} transition-all duration-200 flex items-center space-x-2`}
                         >
                           <EyeIcon className="h-4 w-4" />
@@ -428,6 +476,19 @@ export default function Dashboard() {
                   <SubscriptionStatus />
                 </div>
 
+                {/* Subscription Limits (for trial users) */}
+                <div className="mb-6">
+                  <SubscriptionLimits />
+                </div>
+
+                {/* Daily Streak Component */}
+                <div className="mb-6">
+                  <DailyStreak 
+                    userStats={userStats} 
+                    onStreakMessage={handleStreakMessage}
+                  />
+                </div>
+
                 {/* Support Section */}
                 <div className={`${cardBg} rounded-lg border ${border} p-6 mb-6`}>
                   <div className="flex items-center justify-between">
@@ -442,7 +503,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex space-x-3">
                       <Link
-                        to="/messages"
+                        to="/support"
                         className={`px-4 py-2 ${cardBg} border ${border} rounded-lg ${text} ${hoverBg} transition-all duration-200 flex items-center space-x-2`}
                       >
                         <EyeIcon className="h-4 w-4" />
@@ -771,6 +832,14 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Streak Notification */}
+      <StreakNotification
+        isVisible={showStreakNotification}
+        onClose={handleCloseStreakNotification}
+        streakData={streakNotificationData}
+        type={streakNotificationData?.type || 'daily'}
+      />
 
     </div>
   );

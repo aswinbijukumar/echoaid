@@ -99,11 +99,16 @@ export default function Dictionary() {
     navigate('/');
   };
 
+  // Theme variables - Match Learn and Quiz pages exactly
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
   const text = darkMode ? 'text-white' : 'text-[#23272F]';
-  const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
   const border = darkMode ? 'border-gray-600' : 'border-gray-300';
+  const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
   const statusBarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
+  const textPrimary = darkMode ? 'text-white' : 'text-[#23272F]';
+  const textSecondary = darkMode ? 'text-gray-300' : 'text-gray-600';
+  const glassEffect = darkMode ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-gray-100 border border-gray-200';
+  const glassHover = darkMode ? 'hover:bg-white/10 hover:border-white/20' : 'hover:bg-gray-200 hover:border-gray-300';
 
   // API base URL
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -335,8 +340,8 @@ export default function Dictionary() {
 
   return (
     <div className={`min-h-screen ${bg} ${text} overflow-x-hidden`}>
-      {/* Top Status Bar */}
-      <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64 sticky top-0 z-30`}>
+      {/* Fixed Top Status Bar - Match Learn and Quiz pages exactly */}
+      <div className={`fixed top-0 left-0 right-0 z-50 ${statusBarBg} border-b ${border} px-6 py-3 pl-64`}>
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
             {/* Empty space on the left */}
@@ -365,6 +370,9 @@ export default function Dictionary() {
         {/* Fixed Left Sidebar - Navigation */}
         <Sidebar handleLogout={handleLogout} />
 
+        {/* Subtle line between sidebar and content */}
+        <div className="fixed left-64 top-0 h-screen w-px bg-gray-300 dark:bg-gray-600 z-40"></div>
+
         {/* Main Content Area with Left Margin */}
         <div className={`flex-1 ml-64 ${bg} flex flex-col h-screen overflow-hidden`}>
           <div className="w-full mx-auto flex-1 flex flex-col min-h-0">
@@ -372,7 +380,7 @@ export default function Dictionary() {
               {/* Main Content - Scrollable */}
               <div 
                 ref={setContentRef}
-                className={`flex-1 p-6 overflow-y-auto min-h-0 ${bg}`}
+                className={`flex-1 p-6 pt-20 overflow-y-auto min-h-0 ${bg}`}
               >
                 {/* Header */}
                 <PageHeader 
@@ -409,11 +417,11 @@ export default function Dictionary() {
 
                 {/* View Mode Toggle */}
                 <div className="mb-4 flex items-center justify-between">
-                  <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>Dictionary</h2>
+                  <h2 className={`text-xl font-bold ${textPrimary}`}>Dictionary</h2>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={refreshSigns}
-                      className={`p-2 rounded-lg transition-colors ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                      className={`p-2 rounded-lg transition-colors ${glassEffect} ${glassHover} ${textSecondary}`}
                       title="Refresh signs"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -425,7 +433,7 @@ export default function Dictionary() {
                       className={`p-2 rounded-lg transition-colors ${
                         viewMode === 'grid' 
                           ? 'bg-blue-500 text-white' 
-                          : `${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'} hover:bg-blue-500 hover:text-white`
+                          : `${glassEffect} ${textSecondary} hover:bg-blue-500 hover:text-white`
                       }`}
                     >
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -437,7 +445,7 @@ export default function Dictionary() {
                       className={`p-2 rounded-lg transition-colors ${
                         viewMode === 'list' 
                           ? 'bg-blue-500 text-white' 
-                          : `${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'} hover:bg-blue-500 hover:text-white`
+                          : `${glassEffect} ${textSecondary} hover:bg-blue-500 hover:text-white`
                       }`}
                     >
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -449,7 +457,7 @@ export default function Dictionary() {
 
                 {/* Categories */}
                 <div className="mb-6">
-                  <h2 className={`text-xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>Categories</h2>
+                  <h2 className={`text-xl font-bold mb-2 ${textPrimary}`}>Categories</h2>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                     {/* All Signs Category */}
                     <button
@@ -457,11 +465,11 @@ export default function Dictionary() {
                       className={`p-3 rounded-lg border transition-all ${
                         selectedCategory === 'all'
                           ? `${categoryIcons.all.color} text-white border-transparent`
-                          : `${cardBg} ${border} hover:${darkMode ? 'bg-gray-700' : 'bg-gray-200'} ${darkMode ? 'text-white' : 'text-[#23272F]'}`
+                          : `${cardBg} ${border} hover:${glassEffect} ${textPrimary}`
                       }`}
                     >
-                      <categoryIcons.all.icon className={`w-6 h-6 mx-auto mb-2 ${selectedCategory === 'all' ? 'text-white' : (darkMode ? 'text-white' : 'text-[#23272F]')}`} />
-                      <span className={`text-sm font-medium ${selectedCategory === 'all' ? 'text-white' : (darkMode ? 'text-white' : 'text-[#23272F]')}`}>All Signs</span>
+                      <categoryIcons.all.icon className={`w-6 h-6 mx-auto mb-2 ${selectedCategory === 'all' ? 'text-white' : (textPrimary)}`} />
+                      <span className={`text-sm font-medium ${selectedCategory === 'all' ? 'text-white' : (textPrimary)}`}>All Signs</span>
                     </button>
                     
                     {/* Dynamic Categories from API */}
@@ -475,12 +483,12 @@ export default function Dictionary() {
                           className={`p-3 rounded-lg border transition-all ${
                             selectedCategory === category.id
                               ? `${categoryColor} text-white border-transparent`
-                              : `${cardBg} ${border} hover:${darkMode ? 'bg-gray-700' : 'bg-gray-200'} ${darkMode ? 'text-white' : 'text-[#23272F]'}`
+                              : `${cardBg} ${border} hover:${glassEffect} ${textPrimary}`
                           }`}
                         >
-                          <iconData.icon className={`w-6 h-6 mx-auto mb-2 ${selectedCategory === category.id ? 'text-white' : (darkMode ? 'text-white' : 'text-[#23272F]')}`} />
+                          <iconData.icon className={`w-6 h-6 mx-auto mb-2 ${selectedCategory === category.id ? 'text-white' : (textPrimary)}`} />
                           <div className="text-center">
-                            <span className={`text-sm font-medium block ${selectedCategory === category.id ? 'text-white' : (darkMode ? 'text-white' : 'text-[#23272F]')}`}>
+                            <span className={`text-sm font-medium block ${selectedCategory === category.id ? 'text-white' : (textPrimary)}`}>
                               {category.name}
                             </span>
                             <span className={`text-xs ${selectedCategory === category.id ? 'text-white/80' : 'text-gray-500'}`}>
@@ -496,7 +504,7 @@ export default function Dictionary() {
                 {/* Results */}
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className={`text-xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
+                    <h2 className={`text-xl font-bold mb-2 ${textPrimary}`}>
                       {loading ? 'Loading...' : `${filteredSigns.length} Signs Found`}
                     </h2>
                     <span className="text-gray-400 text-sm">
@@ -547,10 +555,10 @@ export default function Dictionary() {
                             <div key={categoryKey} className="space-y-4">
                               {/* Category Header */}
                               <div className="flex items-center justify-between">
-                                <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
+                                <h2 className={`text-2xl font-bold ${textPrimary}`}>
                                   {categories.find(c => c.id === categoryKey)?.name || categoryKey.charAt(0).toUpperCase() + categoryKey.slice(1)}
                                 </h2>
-                                <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                <span className={`text-sm ${textSecondary}`}>
                                   {Object.values(categoryData).flat().length} signs
                                 </span>
                               </div>
@@ -560,10 +568,10 @@ export default function Dictionary() {
                                 <div key={subCategory} className="space-y-3">
                                   {/* Subcategory Header */}
                                   <div className="flex items-center justify-between">
-                                    <h3 className={`text-lg font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    <h3 className={`text-lg font-semibold ${textSecondary}`}>
                                       {subCategory}
                                     </h3>
-                                    <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                    <span className={`text-xs ${textSecondary}`}>
                                       {signs.length} signs
                                     </span>
                                   </div>
@@ -585,7 +593,7 @@ export default function Dictionary() {
                                               <img
                                                 src={imageSource}
                                                 alt={`Sign for ${sign.word}`}
-                                                className="w-full h-32 object-contain rounded-lg bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 group-hover:scale-105 transition-all duration-200 shadow-sm"
+                                                className="w-full h-32 object-contain rounded-lg bg-white/10 backdrop-blur-md border border-white/20 group-hover:scale-105 transition-all duration-200 shadow-sm"
                                                 onError={(e) => {
                                                   e.target.style.display = 'none';
                                                   e.target.nextSibling.style.display = 'flex';
@@ -593,14 +601,14 @@ export default function Dictionary() {
                                               />
                                             );
                                           })()}
-                                          <div className="w-full h-32 bg-white dark:bg-gray-100 rounded-lg flex items-center justify-center hidden border border-gray-200 dark:border-gray-300">
+                                          <div className="w-full h-32 bg-white/10 backdrop-blur-md rounded-lg flex items-center justify-center hidden border border-white/20">
                                             <PhotoIcon className="w-8 h-8 text-gray-400" />
                                           </div>
                                         </div>
                                         
                                         <div className="flex items-start justify-between mb-3">
                                           <div>
-                                            <h3 className={`font-semibold text-lg ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>{sign.word}</h3>
+                                            <h3 className={`font-semibold text-lg ${textPrimary}`}>{sign.word}</h3>
                                             <p className="text-gray-400 text-sm">{sign.description}</p>
                                           </div>
                                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -758,11 +766,11 @@ export default function Dictionary() {
 
       {/* Sign Preview Modal */}
       {showPreview && selectedSign && (
-        <Modal isOpen={showPreview} onClose={closePreview} className={`${cardBg} rounded-xl shadow-2xl border border-gray-200 dark:border-gray-600`} widthClass="max-w-3xl w-full mx-4">
+        <Modal isOpen={showPreview} onClose={closePreview} className={`${cardBg} rounded-xl shadow-2xl border border-white/20`} widthClass="max-w-3xl w-full mx-4">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-600">
+            <div className="flex items-center justify-between p-6 border-b border-white/20">
               <div>
-                <h2 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
+                <h2 className={`text-3xl font-bold ${textPrimary}`}>
                   {selectedSign.word}
                 </h2>
                 <p className="text-gray-500 text-sm mt-1">
@@ -771,7 +779,7 @@ export default function Dictionary() {
               </div>
               <button
                 onClick={closePreview}
-                className={`p-2 rounded-lg hover:bg-gray-100 ${darkMode ? 'hover:bg-gray-700' : ''} transition-colors`}
+                className={`p-2 rounded-lg hover:bg-gray-100 ${glassHover} transition-colors`}
               >
                 <XMarkIcon className="w-6 h-6" />
               </button>
@@ -788,7 +796,7 @@ export default function Dictionary() {
                     <img
                       src={src}
                       alt={`Sign for ${selectedSign.word}`}
-                      className="w-full h-80 object-contain rounded-xl bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 shadow-lg"
+                      className="w-full h-80 object-contain rounded-xl bg-white/10 backdrop-blur-md border border-white/20 shadow-lg"
                       onError={(e) => {
                         e.target.style.display = 'none';
                         e.target.nextSibling.style.display = 'flex';
@@ -796,7 +804,7 @@ export default function Dictionary() {
                     />
                   );
                 })()}
-                <div className="w-full h-80 bg-white dark:bg-gray-100 rounded-xl flex items-center justify-center border border-gray-200 dark:border-gray-300 hidden">
+                <div className="w-full h-80 bg-white/10 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20 hidden">
                   <PhotoIcon className="w-16 h-16 text-gray-400" />
                 </div>
               </div>
@@ -804,7 +812,7 @@ export default function Dictionary() {
               {/* Sign Variants */}
               {selectedSign.variants && selectedSign.variants.length > 0 && (
                 <div className="mb-6">
-                  <h3 className={`font-semibold text-xl mb-4 ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
+                  <h3 className={`font-semibold text-xl mb-4 ${textPrimary}`}>
                     Learning Variants ({selectedSign.variants.length})
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -836,18 +844,18 @@ export default function Dictionary() {
               {/* Sign Details */}
               <div className="space-y-6">
                 <div>
-                  <h3 className={`font-semibold text-xl mb-3 ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
+                  <h3 className={`font-semibold text-xl mb-3 ${textPrimary}`}>
                     Description
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-300 text-lg leading-relaxed">{selectedSign.description}</p>
+                  <p className="text-white/70 text-lg leading-relaxed">{selectedSign.description}</p>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                      selectedSign.difficulty === 'Beginner' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                      selectedSign.difficulty === 'Intermediate' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                      'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                      selectedSign.difficulty === 'Beginner' ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
+                      selectedSign.difficulty === 'Intermediate' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
+                      'bg-red-500/20 text-red-300 border border-red-500/30'
                     }`}>
                       {selectedSign.difficulty}
                     </span>
@@ -858,14 +866,14 @@ export default function Dictionary() {
                 </div>
 
                 {/* Video Section */}
-                <div className="border-t border-gray-200 dark:border-gray-600 pt-6">
+                <div className="border-t border-white/20 pt-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className={`font-semibold text-xl ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
+                    <h3 className={`font-semibold text-xl ${textPrimary}`}>
                       🎥 Video Tutorial
                     </h3>
                   </div>
                   {selectedSign.videoPath || selectedSign.videoUrl ? (
-                    <div className="rounded-xl overflow-hidden border border-blue-300 dark:border-blue-600 bg-black">
+                    <div className="rounded-xl overflow-hidden border border-blue-500/50 bg-black">
                       {(() => {
                         const pickVideo = selectedSign.videoUrl || selectedSign.videoPath;
                         const videoSource = typeof pickVideo === 'string' && pickVideo.startsWith('http') ? pickVideo : `${API_BASE_URL}${pickVideo || ''}`;
@@ -880,8 +888,8 @@ export default function Dictionary() {
                       })()}
                     </div>
                   ) : (
-                    <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border-2 border-dashed border-blue-300 dark:border-blue-600">
-                      <div className="flex items-center justify-center space-x-3 text-gray-500 dark:text-gray-400">
+                    <div className="p-6 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 rounded-xl border-2 border-dashed border-blue-500/50">
+                      <div className="flex items-center justify-center space-x-3 text-white/50">
                         <PlayIcon className="w-6 h-6" />
                         <span className="text-lg">Video tutorial will be available here</span>
                       </div>
@@ -892,10 +900,10 @@ export default function Dictionary() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-600">
+            <div className="flex items-center justify-between p-6 border-t border-white/20">
               <button
                 onClick={closePreview}
-                className="px-6 py-3 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors font-medium"
+                className="px-6 py-3 text-white/70 hover:text-white transition-colors font-medium"
               >
                 Close
               </button>

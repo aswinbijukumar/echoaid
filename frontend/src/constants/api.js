@@ -1,5 +1,7 @@
 // API configuration constants
-export const API_BASE_URL = 'http://localhost:5000';
+import { ENV_CONFIG } from '../config/prettyConfig.js';
+
+export const API_BASE_URL = ENV_CONFIG.API_BASE_URL;
 
 // API endpoints
 export const ENDPOINTS = {

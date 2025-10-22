@@ -9,7 +9,7 @@ const practiceAttemptSchema = new mongoose.Schema({
   sign: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Sign',
-    required: true
+    required: false
   },
   expectedWord: {
     type: String,

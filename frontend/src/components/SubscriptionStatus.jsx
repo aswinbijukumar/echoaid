@@ -41,7 +41,7 @@ export default function SubscriptionStatus() {
         plan: 'free',
         status: 'trial',
         trialStartDate: new Date(),
-        trialEndDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        trialEndDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         features: {}
       });
     }

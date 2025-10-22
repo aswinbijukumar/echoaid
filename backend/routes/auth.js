@@ -37,11 +37,12 @@ import {
   validateForgotPassword,
   handleValidationErrors
 } from '../middleware/validation.js';
+import { validateEmailMiddleware } from '../middleware/emailValidation.js';
 
 const router = express.Router();
 
 // Public routes with rate limiting and validation
-router.post('/register', authRateLimit, validateRegistration, handleValidationErrors, register);
+router.post('/register', authRateLimit, validateEmailMiddleware, validateRegistration, handleValidationErrors, register);
 router.post('/login', authRateLimit, validateLogin, handleValidationErrors, login);
 router.post('/verify-email', otpRateLimit, validateOTP, handleValidationErrors, verifyEmail);
 router.post('/resend-otp', otpRateLimit, resendOTP);

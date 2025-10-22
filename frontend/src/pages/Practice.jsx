@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContextConstants';
 import { useUserStats } from '../hooks/useUserStats';
+import logger from '../utils/prettyLogger.js';
 import Sidebar from '../components/Sidebar';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import SignRecognition from '../components/SignRecognition';
@@ -50,12 +51,13 @@ export default function Practice() {
   // Quiz requirements state
   const [quizRequirements, setQuizRequirements] = useState([]);
 
-  // Theme variables - Match Learn page exactly
+  // Theme variables - Match Learn and Quiz pages exactly
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
   const text = darkMode ? 'text-white' : 'text-[#23272F]';
   const border = darkMode ? 'border-gray-600' : 'border-gray-300';
   const cardBg = darkMode ? 'bg-[#23272F]' : 'bg-gray-50';
-  const statusBarBg = darkMode ? 'bg-[#23272F]/95' : 'bg-gray-100';
+  const statusBarBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100';
+  const textSecondary = darkMode ? 'text-gray-300' : 'text-gray-600';
 
   // Fetch quiz requirements for level progression
   const fetchQuizRequirements = async (token) => {
@@ -86,7 +88,7 @@ export default function Practice() {
         setQuizRequirements(requirements);
       }
     } catch (error) {
-      console.error('Error fetching quiz requirements:', error);
+      logger.errorWithStack('Error fetching quiz requirements', error, 'PRACTICE');
     }
   };
 
@@ -106,7 +108,7 @@ export default function Practice() {
       const attempts = recentData.data || [];
       const recents = attempts.map(a => ({
         id: a.sign?._id || a.sign || a._id,
-        word: a.expectedWord || a.sign?.word || 'Sign',
+        word: a.expectedWord || a.sign?.word || 'Unknown Sign',
         accuracy: a.score || a.confidence || 0,
         lastPracticed: a.createdAt,
         category: a.sign?.category || 'practice'
@@ -115,12 +117,32 @@ export default function Practice() {
       // weak signs from attempts with low accuracy
       const weak = recents.filter(r => r.accuracy < 60).slice(0, 6);
       setWeakSigns(weak);
-      // set a simple daily goal from attempts count
-      const todayCount = attempts.length;
-      setDailyGoal({ completed: Math.min(todayCount, 5), target: 5 });
+      // Get daily goal from user stats
+      const userResponse = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : undefined
+      });
+      const userData = await userResponse.json().catch(() => ({}));
+      const userStats = userData.user?.learningStats || {};
+      
+      // Calculate today's progress from practice attempts
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayAttempts = attempts.filter(attempt => {
+        const attemptDate = new Date(attempt.lastPracticed || attempt.createdAt);
+        attemptDate.setHours(0, 0, 0, 0);
+        return attemptDate.getTime() === today.getTime();
+      });
+      
+      const dailyGoalTarget = userStats.dailyGoal || 100;
+      const dailyGoalCompleted = Math.min(todayAttempts.length * 20, dailyGoalTarget); // 20 XP per practice
+      
+      setDailyGoal({ 
+        completed: dailyGoalCompleted, 
+        target: dailyGoalTarget 
+      });
       
     } catch (error) {
-      console.error('Error fetching practice data:', error);
+      logger.errorWithStack('Error fetching practice data', error, 'PRACTICE');
     } finally {
       setLoading(false);
     }
@@ -176,7 +198,7 @@ export default function Practice() {
   };
 
   const handleRecognitionResult = (result) => {
-    console.log('Recognition result:', result);
+      logger.recognition('Recognition result received', result, 'PRACTICE');
     // Handle the recognition result
     // This could update progress, show feedback, etc.
   };
@@ -196,7 +218,7 @@ export default function Practice() {
         return (
           <div className="text-center space-y-6">
             {/* Show cover image or first variant */}
-            <div className="w-64 h-48 bg-gray-200 dark:bg-gray-700 rounded-lg mx-auto overflow-hidden">
+            <div className="w-64 h-48 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg mx-auto overflow-hidden">
               {currentSign.coverImage ? (
                 <img
                   src={currentSign.coverImage}
@@ -221,13 +243,13 @@ export default function Practice() {
                 )
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <span className="text-gray-500">Sign Demonstration</span>
+                  <span className="text-white/50">Sign Demonstration</span>
                 </div>
               )}
             </div>
             <div>
               <h3 className="text-2xl font-bold mb-2">{currentSign.word}</h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-white/70 mb-4">
                 Study this sign and its meaning
               </p>
               {currentSign.variants && currentSign.variants.length > 1 && (
@@ -271,7 +293,7 @@ export default function Practice() {
             </div>
             <div>
               <h3 className="text-xl font-bold mb-2">{currentSign.word}</h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-white/70 mb-4">
                 Watch the video tutorial to learn this sign
               </p>
               {currentSign.variants && currentSign.variants.length > 1 && (
@@ -315,9 +337,9 @@ export default function Practice() {
   };
 
   const getAccuracyBg = (accuracy) => {
-    if (accuracy >= 80) return 'bg-green-100 dark:bg-green-900/20';
-    if (accuracy >= 60) return 'bg-yellow-100 dark:bg-yellow-900/20';
-    return 'bg-red-100 dark:bg-red-900/20';
+    if (accuracy >= 80) return 'bg-green-500/20 border border-green-500/30';
+    if (accuracy >= 60) return 'bg-yellow-500/20 border border-yellow-500/30';
+    return 'bg-red-500/20 border border-red-500/30';
   };
 
   if (loading) {
@@ -381,7 +403,7 @@ export default function Practice() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h1 className={`text-3xl font-bold ${text} mb-2`}>Practice Session</h1>
-                        <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                        <p className={`${textSecondary}`}>
                           Practice the sign for "{currentSign.word}"
                         </p>
                       </div>
@@ -415,7 +437,7 @@ export default function Practice() {
                       <h2 className={`text-2xl font-bold ${text} mb-2`}>
                         Practice: {currentSign.word}
                       </h2>
-                      <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                      <p className={`${textSecondary}`}>
                         Show this sign to the camera
                       </p>
                     </div>
@@ -436,8 +458,8 @@ export default function Practice() {
 
   return (
     <div className={`min-h-screen ${bg} ${text} overflow-x-hidden`}>
-      {/* Fixed Top Status Bar - Match Learn page exactly */}
-      <div className={`fixed top-0 left-0 right-0 z-50 ${cardBg} border-b ${border} px-6 py-3 pl-64`}>
+      {/* Fixed Top Status Bar - Match Learn and Quiz pages exactly */}
+      <div className={`fixed top-0 left-0 right-0 z-50 ${statusBarBg} border-b ${border} px-6 py-3 pl-64`}>
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
             {/* Empty space on the left */}
@@ -467,7 +489,7 @@ export default function Practice() {
         <Sidebar handleLogout={handleLogout} />
 
         {/* Subtle line between sidebar and content */}
-        <div className="fixed left-64 top-0 h-screen w-px bg-gray-600 z-40"></div>
+        <div className="fixed left-64 top-0 h-screen w-px bg-gray-300 dark:bg-gray-600 z-40"></div>
 
         {/* Scrollable Main Content Area */}
         <div className={`flex-1 ml-64 ${bg} overflow-y-auto`}>
@@ -550,7 +572,16 @@ export default function Practice() {
               </div>
                     
                     <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                      {recentSigns.slice(0, recentLimit).map((sign) => (
+                      {recentSigns.length === 0 ? (
+                        <div className="text-center py-8">
+                          <div className="w-16 h-16 mx-auto mb-4 bg-white/10 rounded-full flex items-center justify-center">
+                            <ClockIcon className="w-8 h-8 text-white/50" />
+                          </div>
+                          <p className="text-white/60 mb-2">No recent practice attempts</p>
+                          <p className="text-sm text-white/40">Start practicing signs to see them here</p>
+                        </div>
+                      ) : (
+                        recentSigns.slice(0, recentLimit).map((sign) => (
                         <div
                           key={sign.id}
                           className={`flex items-center justify-between p-3 ${cardBg} rounded-2xl border ${border}`}
@@ -579,7 +610,8 @@ export default function Practice() {
                             </div>
                           </div>
                         </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
 
@@ -609,7 +641,16 @@ export default function Practice() {
               </div>
 
                     <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                      {weakSigns.slice(0, weakLimit).map((sign) => (
+                      {weakSigns.length === 0 ? (
+                        <div className="text-center py-8">
+                          <div className="w-16 h-16 mx-auto mb-4 bg-white/10 rounded-full flex items-center justify-center">
+                            <ExclamationTriangleIcon className="w-8 h-8 text-white/50" />
+                          </div>
+                          <p className="text-white/60 mb-2">No weak areas identified</p>
+                          <p className="text-sm text-white/40">Great job! Keep practicing to maintain your skills</p>
+                        </div>
+                      ) : (
+                        weakSigns.slice(0, weakLimit).map((sign) => (
                         <div
                           key={sign.id}
                           className={`flex items-center justify-between p-3 ${cardBg} rounded-2xl border ${border}`}
@@ -638,7 +679,8 @@ export default function Practice() {
                             </div>
                           </div>
                         </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
 
@@ -710,20 +752,20 @@ export default function Practice() {
                 {/* Practice Options */}
                 <div className={`${cardBg} rounded-lg border ${border} p-6`}>
                   <h3 className={`text-xl font-bold ${text} mb-4`}>Practice Options</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <button
                       onClick={() => setPracticeMode('review')}
                       className={`p-4 rounded-lg border transition-all ${
                         practiceMode === 'review' 
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                          : 'border-gray-300 dark:border-gray-600 hover:border-blue-300'
+                ? 'border-blue-500 bg-blue-500/20'
+                : 'border-white/20 hover:border-blue-300'
                       }`}
                     >
                       <div className="flex items-center space-x-3">
                         <ClockIcon className="w-6 h-6 text-blue-500" />
                         <div className="text-left">
                           <h4 className="font-semibold">Review Practice</h4>
-                          <p className="text-sm text-gray-500">Practice recent signs</p>
+                          <p className="text-sm text-white/50">Practice recent signs</p>
                         </div>
                       </div>
                     </button>
@@ -732,15 +774,37 @@ export default function Practice() {
                       onClick={() => setPracticeMode('weak')}
                       className={`p-4 rounded-lg border transition-all ${
                         practiceMode === 'weak' 
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
-                          : 'border-gray-300 dark:border-gray-600 hover:border-orange-300'
+                ? 'border-orange-500 bg-orange-500/20'
+                : 'border-white/20 hover:border-orange-300'
                       }`}
                     >
                       <div className="flex items-center space-x-3">
                         <ExclamationTriangleIcon className="w-6 h-6 text-orange-500" />
                         <div className="text-left">
                           <h4 className="font-semibold">Weak Areas</h4>
-                          <p className="text-sm text-gray-500">Focus on improvement</p>
+                          <p className="text-sm text-white/50">Focus on improvement</p>
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsPracticeSession(true);
+                        setCurrentSign({ word: 'Free Practice', id: 'free-practice' });
+                        setSessionMode('free');
+                        setExerciseType('sign-recognition');
+                      }}
+                      className={`p-4 rounded-lg border transition-all ${
+                        practiceMode === 'free' 
+                ? 'border-green-500 bg-green-500/20'
+                : 'border-white/20 hover:border-green-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <PlayIcon className="w-6 h-6 text-green-500" />
+                        <div className="text-left">
+                          <h4 className="font-semibold">Free Practice</h4>
+                          <p className="text-sm text-white/50">Practice any sign</p>
                         </div>
                       </div>
                     </button>

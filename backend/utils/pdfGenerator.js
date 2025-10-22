@@ -6,8 +6,42 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export const generateInvoicePDF = (paymentData, userData) => {
-  // Placeholder function - jsPDF removed, using PDFKit instead
-  throw new Error('Invoice PDF generation not implemented - using PDFKit');
+  // Simple text-based invoice generation for now
+  const invoiceContent = `
+INVOICE
+=======
+
+Invoice #: ${paymentData.orderId}
+Date: ${new Date().toLocaleDateString()}
+Payment ID: ${paymentData.paymentId}
+
+Bill To:
+--------
+Name: ${userData.name || 'User'}
+Email: ${userData.email}
+
+Subscription Details:
+--------------------
+Description: ${paymentData.plan.charAt(0).toUpperCase() + paymentData.plan.slice(1)} Subscription
+Plan: ${paymentData.plan.charAt(0).toUpperCase() + paymentData.plan.slice(1)}
+Billing Cycle: ${paymentData.billingCycle.charAt(0).toUpperCase() + paymentData.billingCycle.slice(1)}
+Amount: ₹${(paymentData.amount / 100).toLocaleString()}
+
+Total Amount: ₹${(paymentData.amount / 100).toLocaleString()}
+
+Payment Status: PAID
+
+Thank you for choosing EchoAid!
+This is a computer-generated invoice and does not require a signature.
+  `.trim();
+
+  const fileName = `invoice_${paymentData.orderId}_${Date.now()}.txt`;
+  const buffer = Buffer.from(invoiceContent, 'utf8');
+
+  return {
+    buffer: buffer,
+    fileName: fileName
+  };
   /*
   const doc = new jsPDF();
   
@@ -119,8 +153,42 @@ export const generateInvoicePDF = (paymentData, userData) => {
 };
 
 export const generateReceiptPDF = (paymentData, userData) => {
-  // Placeholder function - jsPDF removed, using PDFKit instead
-  throw new Error('Receipt PDF generation not implemented - using PDFKit');
+  // Simple text-based receipt generation for now
+  const receiptContent = `
+PAYMENT RECEIPT
+===============
+
+Receipt #: ${paymentData.paymentId}
+Date: ${new Date().toLocaleDateString()}
+Time: ${new Date().toLocaleTimeString()}
+
+Customer Details:
+----------------
+Name: ${userData.name || 'User'}
+Email: ${userData.email}
+
+Payment Details:
+---------------
+Plan: ${paymentData.plan.charAt(0).toUpperCase() + paymentData.plan.slice(1)}
+Billing Cycle: ${paymentData.billingCycle.charAt(0).toUpperCase() + paymentData.billingCycle.slice(1)}
+Amount: ₹${(paymentData.amount / 100).toLocaleString()}
+Payment Method: Razorpay
+Transaction ID: ${paymentData.paymentId}
+
+✓ PAYMENT SUCCESSFUL
+Your subscription has been activated successfully!
+
+Thank you for choosing EchoAid!
+This is a computer-generated receipt.
+  `.trim();
+
+  const fileName = `receipt_${paymentData.paymentId}_${Date.now()}.txt`;
+  const buffer = Buffer.from(receiptContent, 'utf8');
+
+  return {
+    buffer: buffer,
+    fileName: fileName
+  };
   /*
   const doc = new jsPDF();
   

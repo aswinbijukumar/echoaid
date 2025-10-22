@@ -17,7 +17,7 @@ The subscription management system has been implemented with comprehensive featu
 ### 1. **Authentication Issues**
 **Problem**: User not logged in or doesn't have admin privileges
 **Solution**: 
-- Make sure you're logged in as an admin or super_admin
+- Make sure you're logged in as an admin
 - Check if your user role has the necessary permissions
 - Try logging out and logging back in
 
@@ -88,7 +88,7 @@ npm run dev
 - Create admin user if needed:
 ```bash
 cd backend
-node scripts/createSuperAdmin.js
+node scripts/createAdmin.js
 ```
 
 ## 🔧 **Debugging Steps:**
@@ -100,7 +100,7 @@ node scripts/createSuperAdmin.js
 
 ### 2. **Verify Authentication**
 - Check if user is logged in
-- Verify user role is admin or super_admin
+- Verify user role is admin
 - Check JWT token validity
 
 ### 3. **Test API Endpoints**

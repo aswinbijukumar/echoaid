@@ -27,7 +27,7 @@ const testQuizUpdate = async () => {
     console.log(`📋 Found quiz: "${quiz.title}" (ID: ${quiz._id})`);
     
     // Find an admin user
-    const adminUser = await User.findOne({ role: { $in: ['admin', 'super_admin'] } });
+    const adminUser = await User.findOne({ role: { $in: ['admin', 'admin'] } });
     if (!adminUser) {
       console.log('❌ No admin user found');
       return;

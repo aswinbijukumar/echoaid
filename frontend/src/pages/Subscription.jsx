@@ -13,7 +13,7 @@ export default function Subscription() {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [billingCycle, setBillingCycle] = useState('monthly');
   
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { darkMode } = useTheme();
   const navigate = useNavigate();
 
@@ -30,49 +30,52 @@ export default function Subscription() {
       description: 'Perfect for getting started',
       features: [
         'Basic sign language learning',
-        'Limited quiz attempts',
+        'Limited quiz attempts (5 per day)',
+        'Limited learning modules (3 per day)',
+        'Basic progress tracking',
         'Community support',
         'Mobile app access'
       ],
       limitations: [
-        '5 quizzes per day',
+        'Limited to 5 quizzes per day',
+        'Limited to 3 learning modules per day',
         'Basic analytics only',
-        'Standard support'
+        'Standard support',
+        '14-day trial period'
       ],
       popular: false
     },
     {
-      id: 'premium',
-      name: 'Premium',
-      price: { monthly: 299, yearly: 2990 },
+      id: 'pro',
+      name: 'Pro',
+      price: { monthly: 299, yearly: 2999 },
       description: 'Most popular for serious learners',
       features: [
-        'Unlimited sign language learning',
-        'Unlimited quiz attempts',
-        'Advanced analytics & progress tracking',
-        'Priority support',
-        'Offline content access',
+        'Unlimited quizzes and practice',
+        'Advanced progress analytics',
+        'Priority customer support',
+        'Offline mode access',
+        'Advanced gamification',
         'Custom learning paths',
-        'Video tutorials',
-        'Progress certificates'
+        'Export progress reports'
       ],
       limitations: [],
       popular: true
     },
     {
-      id: 'pro',
-      name: 'Pro',
-      price: { monthly: 499, yearly: 4990 },
-      description: 'For educators and professionals',
+      id: 'premium',
+      name: 'Premium',
+      price: { monthly: 599, yearly: 5999 },
+      description: 'For educators and institutions',
       features: [
-        'Everything in Premium',
-        'Teaching tools & resources',
-        'Student progress tracking',
-        'Custom content creation',
+        'Everything in Pro',
+        'Classroom management tools',
+        'Student progress monitoring',
+        'Bulk user management',
+        'Advanced reporting dashboard',
         'API access',
-        'White-label options',
-        'Dedicated support',
-        'Advanced reporting'
+        'Custom branding options',
+        'Dedicated account manager'
       ],
       limitations: [],
       popular: false
@@ -127,6 +130,7 @@ export default function Subscription() {
 
       if (response.ok) {
         await fetchSubscription();
+        await refreshUser(); // Refresh user data in AuthContext
         alert('Subscription cancelled successfully');
       } else {
         throw new Error('Failed to cancel subscription');
@@ -355,9 +359,10 @@ export default function Subscription() {
           onClose={() => setShowPaymentModal(false)}
           selectedPlan={selectedPlan}
           billingCycle={billingCycle}
-          onSuccess={() => {
+          onSuccess={async () => {
             setShowPaymentModal(false);
-            fetchSubscription();
+            await fetchSubscription();
+            await refreshUser(); // Refresh user data in AuthContext
           }}
         />
       )}

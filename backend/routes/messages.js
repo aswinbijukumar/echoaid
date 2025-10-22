@@ -3,24 +3,30 @@ import { protect, adminAndSuperAdmin } from '../middleware/roleAuth.js';
 import {
   getMessages,
   getMessageById,
-  markAsRead,
+  createMessage,
   replyToMessage,
   updateMessageStatus,
-  getMessageStats,
-  createMessage
+  markAsRead,
+  getUserMessages,
+  getMessageStats
 } from '../controllers/messageController.js';
 
 const router = express.Router();
 
-// Admin routes (protected)
-router.get('/', protect, adminAndSuperAdmin, getMessages);
-router.get('/stats', protect, adminAndSuperAdmin, getMessageStats);
-router.get('/:id', protect, adminAndSuperAdmin, getMessageById);
-router.put('/:id/read', protect, adminAndSuperAdmin, markAsRead);
-router.put('/:id/reply', protect, adminAndSuperAdmin, replyToMessage);
-router.put('/:id/status', protect, adminAndSuperAdmin, updateMessageStatus);
+// All routes require authentication
+router.use(protect);
 
-// User routes (for creating messages)
-router.post('/', protect, createMessage);
+// Admin routes
+router.get('/', adminAndSuperAdmin, getMessages);
+router.get('/stats', adminAndSuperAdmin, getMessageStats);
+router.get('/:id', adminAndSuperAdmin, getMessageById);
+router.put('/:id/reply', adminAndSuperAdmin, replyToMessage);
+router.put('/:id/status', adminAndSuperAdmin, updateMessageStatus);
+router.put('/:id/read', adminAndSuperAdmin, markAsRead);
+
+// User routes
+router.post('/', createMessage);
+router.get('/user/messages', getUserMessages);
+router.put('/user/:id/read', markAsRead);
 
 export default router;

@@ -13,7 +13,7 @@ const populateCategories = async () => {
     console.log('Connected to MongoDB');
 
     // Get the first admin user to use as creator
-    const adminUser = await User.findOne({ role: { $in: ['admin', 'super_admin'] } });
+    const adminUser = await User.findOne({ role: { $in: ['admin', 'admin'] } });
     
     if (!adminUser) {
       console.log('No admin user found. Please create an admin user first.');
