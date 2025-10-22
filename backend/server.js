@@ -170,6 +170,16 @@ app.post('/api/content/signs/bulk-variants',
   createSignWithVariants
 );
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'EchoAid Backend API is running',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
 // Health check route
 app.get('/api/health', (req, res) => {
   res.json({ 
