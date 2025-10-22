@@ -1,5 +1,6 @@
 // Route via backend so we can auth, log attempts, and unify thresholds
-const PRACTICE_RECOGNIZE_URL = 'http://localhost:5000/api/practice/recognize';
+import { ENV_CONFIG } from '../config/prettyConfig.js';
+const PRACTICE_RECOGNIZE_URL = `${ENV_CONFIG.API_BASE_URL}/api/practice/recognize`;
 
 export async function detectImageFromBlob(imageBlob, { signId } = {}) {
   try {

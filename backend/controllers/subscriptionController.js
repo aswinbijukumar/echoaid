@@ -634,7 +634,7 @@ export const verifyRazorpayPayment = async (req, res) => {
             </div>
 
             <div style="text-align: center; margin: 30px 0;">
-              <a href="http://localhost:5173/dashboard" style="background: #00CC00; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+              <a href="${process.env.FRONTEND_URL || 'https://echoaid.vercel.app'}/dashboard" style="background: #00CC00; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
                 Start Learning Now
               </a>
             </div>

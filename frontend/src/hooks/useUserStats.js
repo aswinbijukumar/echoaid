@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { ENV_CONFIG } from '../config/prettyConfig.js';
 
 export function useUserStats() {
   const [stats, setStats] = useState({
@@ -18,7 +19,7 @@ export function useUserStats() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch('http://localhost:5000/api/auth/me', {
+      const response = await fetch(`${ENV_CONFIG.API_BASE_URL}/api/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       

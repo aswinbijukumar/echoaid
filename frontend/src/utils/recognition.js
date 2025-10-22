@@ -3,10 +3,10 @@ export async function extractLandmarksFromImageData(imageData) {
   return null;
 }
 
+import { ENV_CONFIG } from './prettyConfig.js';
+
 export async function scoreLandmarks(signId, landmarks) {
-  const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta && import.meta.env && import.meta.env.VITE_API_URL)
-    ? import.meta.env.VITE_API_URL
-    : 'http://localhost:5000';
+  const API_BASE_URL = ENV_CONFIG.API_BASE_URL;
   const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
 
   const res = await fetch(`${API_BASE_URL}/api/practice/score`, {
