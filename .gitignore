@@ -97,8 +97,57 @@ build/
 
 # Temporary files
 *.tmp
-*.temp 
-node_modules
-node_modules
-node_modules
-node_modules
+*.temp
+
+# Production environment files
+config.env
+.env.production
+.env.local
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Upload directories
+uploads/
+backend/uploads/
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# YOLOv5 model files
+*.pt
+*.pth
+weights/
+
+# IDE and editor files
+*.sublime-project
+*.sublime-workspace
+.vscode/settings.json
+.vscode/launch.json
+
+# OS specific files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Certificate files
+*.pem
+*.key
+*.crt
+*.p12
+
+# API keys and secrets (additional protection)
+*secret*
+*key*
+*password*
+*token*
