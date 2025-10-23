@@ -85,8 +85,8 @@ const analyzeKickboxResponse = (response, email) => {
     result === 'undeliverable',
     result === 'invalid',
     disposable === true,
-    role === true,
-    accept_all === true
+    role === true
+    // accept_all no longer causes rejection; treat as medium risk below
   ];
 
   // Medium-risk indicators
@@ -94,7 +94,8 @@ const analyzeKickboxResponse = (response, email) => {
     result === 'risky',
     free === true,
     sendex < 0.5,
-    common === false
+    common === false,
+    accept_all === true // allow but warn
   ];
 
   // Check for high-risk emails
@@ -140,7 +141,7 @@ const analyzeKickboxResponse = (response, email) => {
  * Get reason for high-risk email rejection
  */
 const getHighRiskReason = (response) => {
-  const { result, reason, disposable, role, accept_all } = response;
+  const { result, reason, disposable, role } = response;
 
   if (result === 'undeliverable') {
     return 'This email address cannot receive emails';
@@ -156,10 +157,6 @@ const getHighRiskReason = (response) => {
   
   if (role) {
     return 'Role-based email addresses (like admin@, info@) are not allowed';
-  }
-  
-  if (accept_all) {
-    return 'This domain accepts all emails and may not be legitimate';
   }
 
   return reason || 'Email address is not suitable for registration';
@@ -187,7 +184,7 @@ const getHighRiskSuggestions = (response, email) => {
  * Get reason for medium-risk email warning
  */
 const getMediumRiskReason = (response) => {
-  const { free, sendex } = response;
+  const { free, sendex, accept_all } = response;
 
   if (free) {
     return 'Free email service detected - consider using a professional email';
@@ -195,6 +192,10 @@ const getMediumRiskReason = (response) => {
 
   if (sendex < 0.5) {
     return 'Low email deliverability score detected';
+  }
+
+  if (accept_all) {
+    return 'Domain accepts all emails; proceeding with caution';
   }
 
   return 'Email appears valid but may have delivery issues';
@@ -212,6 +213,11 @@ const getMediumRiskSuggestions = (response, email) => {
 
   if (response.sendex < 0.5) {
     suggestions.push('This email may have delivery issues');
+  }
+
+  if (response.accept_all) {
+    suggestions.push('Ensure you can receive mail at this address');
+    suggestions.push('Check spam/junk folder for verification emails');
   }
 
   suggestions.push('Make sure you can receive emails at this address');
