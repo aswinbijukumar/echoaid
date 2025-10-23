@@ -125,7 +125,7 @@ export default function Login() {
     
     try {
       // Show loading state with better UX
-      const googleAuthUrl = 'http://localhost:5000/api/auth/google';
+      const googleAuthUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/google`;
       
       // Add a small delay to show loading state
       await new Promise(resolve => setTimeout(resolve, 300));
