@@ -48,7 +48,7 @@ export default function Quiz() {
 
   const fetchQuizzes = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/quiz', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/quiz`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -66,7 +66,7 @@ export default function Quiz() {
 
   const fetchUserStats = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/auth/me', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -89,7 +89,7 @@ export default function Quiz() {
 
   const fetchLearningModules = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/skills', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/skills`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

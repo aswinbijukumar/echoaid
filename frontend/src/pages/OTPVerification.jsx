@@ -85,7 +85,7 @@ export default function OTPVerification() {
 
     try {
       
-      const response = await fetch('http://localhost:5000/api/auth/verify-email', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/verify-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -126,7 +126,7 @@ export default function OTPVerification() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/resend-otp', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/resend-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
