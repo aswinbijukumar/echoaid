@@ -74,7 +74,7 @@ export default function SignsManagement() {
         ...filters
       });
 
-      const response = await fetch(`http://localhost:5000/api/admin/content/signs?${params}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -113,7 +113,7 @@ export default function SignsManagement() {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/admin/content/signs', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -153,7 +153,7 @@ export default function SignsManagement() {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/content/signs/${selectedSign._id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/${selectedSign._id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -177,7 +177,7 @@ export default function SignsManagement() {
 
   const handleDeleteSign = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/content/signs/${selectedSign._id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/${selectedSign._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -196,7 +196,7 @@ export default function SignsManagement() {
 
   const handleBulkOperation = async (operation, signIds) => {
     try {
-      const response = await fetch('http://localhost:5000/api/admin/content/signs/bulk', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/bulk`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -313,7 +313,7 @@ export default function SignsManagement() {
           <button
             onClick={() => {
               const link = document.createElement('a');
-              link.href = `http://localhost:5000/api/admin/content/signs/export?format=csv`;
+              link.href = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/export?format=csv`;
               link.download = 'signs-export.csv';
               link.click();
             }}

@@ -111,7 +111,7 @@ export default function Dictionary() {
   const glassHover = darkMode ? 'hover:bg-white/10 hover:border-white/20' : 'hover:bg-gray-200 hover:border-gray-300';
 
   // API base URL
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
   // Fetch categories and signs
   useEffect(() => {

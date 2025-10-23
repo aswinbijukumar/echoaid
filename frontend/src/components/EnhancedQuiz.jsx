@@ -48,7 +48,7 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
 
   const fetchQuiz = useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/quiz/${quizId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/quiz/${quizId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -81,7 +81,7 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
   const startQuiz = async () => {
     try {
       setIsStarting(true);
-      const response = await fetch('http://localhost:5000/api/quiz/start', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/quiz/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -140,7 +140,7 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
     };
 
     try {
-      const response = await fetch(`http://localhost:5000/api/quiz/submit`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/quiz/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
