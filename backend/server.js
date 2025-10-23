@@ -46,6 +46,9 @@ cloudinary.config({
 
 const app = express();
 
+// Trust first proxy (Railway)
+app.set('trust proxy', 1);
+
 // Body parser - increase limit for image uploads
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));

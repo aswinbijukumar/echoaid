@@ -20,6 +20,7 @@ import Sidebar from '../components/Sidebar';
 import EnhancedQuiz from '../components/EnhancedQuiz';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import PageHeader from '../components/PageHeader';
+import { API_BASE_URL, withAuth } from '../constants/api.js';
 
 export default function Quiz() {
   const [quizzes, setQuizzes] = useState([]);
@@ -48,11 +49,7 @@ export default function Quiz() {
 
   const fetchQuizzes = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/quiz`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await fetch(`${API_BASE_URL}/api/quiz`, withAuth());
       const data = await response.json();
       if (data.success) {
         setQuizzes(data.data);
@@ -66,11 +63,7 @@ export default function Quiz() {
 
   const fetchUserStats = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await fetch(`${API_BASE_URL}/api/auth/me`, withAuth());
       const data = await response.json();
       if (data.success) {
         const ls = data.user.learningStats || {};
@@ -89,11 +82,7 @@ export default function Quiz() {
 
   const fetchLearningModules = useCallback(async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/skills`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await fetch(`${API_BASE_URL}/api/skills`, withAuth());
       const data = await response.json();
       if (data.success) {
         // setLearningModules(data.data || []);

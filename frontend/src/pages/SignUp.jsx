@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import PasswordStrength from '../components/PasswordStrength';
+import { API_BASE_URL } from '../constants/api.js';
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
@@ -60,8 +61,7 @@ export default function SignUp() {
     }
 
     try {
-      
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/register`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -108,8 +108,7 @@ export default function SignUp() {
     setError('');
     
     try {
-      // Show loading state with better UX
-      const googleAuthUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/google`;
+      const googleAuthUrl = `${API_BASE_URL}/api/auth/google`;
       
       // Add a small delay to show loading state
       await new Promise(resolve => setTimeout(resolve, 300));

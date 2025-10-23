@@ -3,6 +3,14 @@ import rateLimit from 'express-rate-limit';
 // Check if we're in development mode
 const isDevelopment = process.env.NODE_ENV === 'development';
 
+// Normalize client IP for proxy-safe rate limiting
+const normalizeClientIp = (req) => {
+  const xff = req.headers['x-forwarded-for'];
+  const first = Array.isArray(xff) ? xff[0] : (typeof xff === 'string' ? xff.split(',')[0] : null);
+  const ip = first || req.ip || req.connection?.remoteAddress || '';
+  return (ip || 'unknown').replace(/^::ffff:/, '');
+};
+
 // Rate limiting for authentication endpoints
 export const authRateLimit = isDevelopment ? (req, res, next) => next() : rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -13,6 +21,7 @@ export const authRateLimit = isDevelopment ? (req, res, next) => next() : rateLi
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: normalizeClientIp,
 });
 
 // Rate limiting for OTP requests
@@ -25,6 +34,7 @@ export const otpRateLimit = isDevelopment ? (req, res, next) => next() : rateLim
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: normalizeClientIp,
 });
 
 // Rate limiting for password reset
@@ -37,6 +47,7 @@ export const passwordResetRateLimit = isDevelopment ? (req, res, next) => next()
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: normalizeClientIp,
 });
 
 // General API rate limiting
@@ -49,4 +60,5 @@ export const generalRateLimit = isDevelopment ? (req, res, next) => next() : rat
   },
   standardHeaders: true,
   legacyHeaders: false,
-}); 
+  keyGenerator: normalizeClientIp,
+});
