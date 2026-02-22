@@ -7,43 +7,43 @@ dotenv.config({ path: './config.env' });
 const databases = {
   // Main application database (users, auth, etc.)
   main: {
-    uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/echoaid_main',
+    uri: process.env.MONGODB_URI,
     options: {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     }
   },
-  
+
   // Dictionary service database
   dictionary: {
-    uri: process.env.DICTIONARY_DB_URI || 'mongodb://localhost:27017/echoaid_dictionary',
+    uri: process.env.DICTIONARY_DB_URI || process.env.MONGODB_URI,
     options: {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     }
   },
-  
+
   // Quiz service database
   quiz: {
-    uri: process.env.QUIZ_DB_URI || 'mongodb://localhost:27017/echoaid_quiz',
+    uri: process.env.QUIZ_DB_URI || process.env.MONGODB_URI,
     options: {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     }
   },
-  
+
   // Forum service database
   forum: {
-    uri: process.env.FORUM_DB_URI || 'mongodb://localhost:27017/echoaid_forum',
+    uri: process.env.FORUM_DB_URI || process.env.MONGODB_URI,
     options: {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     }
   },
-  
+
   // Video service database
   video: {
-    uri: process.env.VIDEO_DB_URI || 'mongodb://localhost:27017/echoaid_video',
+    uri: process.env.VIDEO_DB_URI || process.env.MONGODB_URI,
     options: {
       useNewUrlParser: true,
       useUnifiedTopology: true,
@@ -67,7 +67,7 @@ export const connectToDatabase = async (serviceName) => {
     }
 
     const connection = await mongoose.createConnection(config.uri, config.options);
-    
+
     connection.on('connected', () => {
       console.log(`✅ Connected to ${serviceName} database`);
     });
@@ -106,7 +106,7 @@ export const closeAllConnections = async () => {
 // Health check for all databases
 export const checkDatabaseHealth = async () => {
   const health = {};
-  
+
   for (const serviceName of Object.keys(databases)) {
     try {
       const connection = connections[serviceName];
@@ -119,30 +119,30 @@ export const checkDatabaseHealth = async () => {
       health[serviceName] = { status: 'error', error: error.message };
     }
   }
-  
+
   return health;
 };
 
 // Initialize all database connections
 export const initializeDatabases = async () => {
   console.log('🚀 Initializing database connections...');
-  
+
   try {
     // Connect to main database first (for auth)
     await connectToDatabase('main');
-    
+
     // Connect to other service databases
     await connectToDatabase('dictionary');
     await connectToDatabase('quiz');
     await connectToDatabase('forum');
     await connectToDatabase('video');
-    
+
     console.log('✅ All database connections initialized');
-    
+
     // Log health status
     const health = await checkDatabaseHealth();
     console.log('📊 Database Health Status:', health);
-    
+
   } catch (error) {
     console.error('❌ Failed to initialize databases:', error);
     throw error;

@@ -1,91 +1,127 @@
+import nodemailer from 'nodemailer';
 import sgMail from '@sendgrid/mail';
 import logger from './prettyLogger.js';
 
-// Initialize SendGrid with API key lazily
-let sendGridInitialized = false;
+let transporter = null;
 
-const initializeSendGrid = () => {
-  if (!sendGridInitialized) {
-    if (!process.env.SENDGRID_API_KEY) {
-      throw new Error('SENDGRID_API_KEY environment variable is not set');
-    }
+const createTransporter = async () => {
+  // 1. Try SendGrid if API key is present
+  if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.startsWith('SG.')) {
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    sendGridInitialized = true;
+    return { type: 'sendgrid' };
+  }
+
+  // 2. Try Gmail/SMTP if credentials exist
+  if (process.env.SMTP_EMAIL && process.env.SMTP_PASSWORD) {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.SMTP_EMAIL,
+        pass: process.env.SMTP_PASSWORD
+      }
+    });
+    return { type: 'nodemailer', transport: transporter };
+  }
+
+  // 3. Fallback to Ethereal (Test Account)
+  return await createEtherealTransporter();
+};
+
+const createEtherealTransporter = async () => {
+  logger.info('Creating Ethereal test account for email...', null, 'EMAIL');
+  try {
+    const testAccount = await nodemailer.createTestAccount();
+    const transporter = nodemailer.createTransport({
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false,
+      auth: {
+        user: testAccount.user,
+        pass: testAccount.pass,
+      },
+    });
+    logger.warning('Using Ethereal Mail (Test Mode)', { user: testAccount.user }, 'EMAIL');
+    return { type: 'nodemailer', transport: transporter };
+  } catch (e) {
+    logger.error('Failed to create Ethereal account', e, 'EMAIL');
+    return { type: 'none' };
   }
 };
 
 const sendEmail = async (options) => {
   try {
-    // Initialize SendGrid
-    initializeSendGrid();
+    const config = await createTransporter();
 
-    logger.info('Sending email via SendGrid', {
-      to: options.email,
-      subject: options.subject,
-      hasHtml: !!options.html,
-      hasText: !!(options.message || options.text),
-      attachmentsCount: options.attachments ? options.attachments.length : 0
-    }, 'EMAIL');
+    if (config.type === 'none') return { success: false, message: 'Email service disabled' };
 
-    // Prepare email data for SendGrid
-    const msg = {
-      to: options.email,
-      from: `${process.env.EMAIL_FROM_NAME || 'EchoAid'} <${process.env.EMAIL_FROM}>`,
-      subject: options.subject,
-    };
+    // Use SendGrid
+    if (config.type === 'sendgrid') {
+      const msg = {
+        to: options.email,
+        from: `${process.env.EMAIL_FROM_NAME || 'EchoAid'} <${process.env.EMAIL_FROM}>`,
+        subject: options.subject,
+        text: options.message || options.text,
+        html: options.html,
+      };
+      if (options.attachments) {
+        msg.attachments = options.attachments.map(a => ({
+          content: a.content.toString('base64'),
+          filename: a.filename,
+          type: a.contentType || 'application/octet-stream',
+          disposition: 'attachment'
+        }));
+      }
 
-    // Add text content
-    if (options.message || options.text) {
-      msg.text = options.message || options.text;
+      await sgMail.send(msg);
+      logger.success(`Email sent via SendGrid to ${options.email}`, null, 'EMAIL');
+      return { success: true, provider: 'sendgrid' };
     }
 
-    // Add HTML content
-    if (options.html) {
-      msg.html = options.html;
-    }
-
-    // Handle attachments (SendGrid format)
-    if (options.attachments && options.attachments.length > 0) {
-      msg.attachments = options.attachments.map(attachment => ({
-        content: attachment.content.toString('base64'),
-        filename: attachment.filename,
-        type: attachment.contentType || 'application/octet-stream',
-        disposition: 'attachment'
-      }));
-    }
-
-    // Send email via SendGrid
-    const response = await sgMail.send(msg);
-
-    logger.success('Email sent successfully via SendGrid', {
-      messageId: response[0].headers['x-message-id'],
-      to: options.email,
-      subject: options.subject,
-      statusCode: response[0].statusCode
-    }, 'EMAIL');
-
-    return {
-      messageId: response[0].headers['x-message-id'],
-      accepted: [options.email],
-      rejected: [],
-      statusCode: response[0].statusCode
-    };
+    // Use Nodemailer
+    return await sendViaNodemailer(config.transport, options);
 
   } catch (error) {
-    logger.errorWithStack('Email sending error', error, 'EMAIL');
-    
-    // Handle SendGrid specific errors
-    if (error.response) {
-      const { statusCode, body } = error.response;
-      logger.error('SendGrid API error', { 
-        statusCode, 
-        body: body.errors || body 
-      }, 'EMAIL');
-      throw new Error(`SendGrid API error (${statusCode}): ${JSON.stringify(body.errors || body)}`);
+    logger.error('Primary email provider failed. Attempting fallback to Ethereal...', error, 'EMAIL');
+
+    // Fallback: Try Ethereal
+    try {
+      const fallbackConfig = await createEtherealTransporter();
+      if (fallbackConfig.type === 'nodemailer') {
+        const result = await sendViaNodemailer(fallbackConfig.transport, {
+          ...options,
+          subject: `[FALLBACK] ${options.subject}`
+        });
+        // Override provider to indicate fallback
+        return { ...result, provider: 'ethereal-fallback' };
+      }
+    } catch (fallbackError) {
+      logger.errorWithStack('Email fallback failed', fallbackError, 'EMAIL');
     }
-    
-    throw new Error(`Email could not be sent: ${error.message}`);
+
+    return { success: false, error: error.message };
   }
+};
+
+const sendViaNodemailer = async (transport, options) => {
+  const message = {
+    from: `${process.env.EMAIL_FROM_NAME || 'EchoAid'} <${process.env.EMAIL_FROM || 'test@echoaid.com'}>`,
+    to: options.email,
+    subject: options.subject,
+    text: options.message || options.text,
+    html: options.html,
+    attachments: options.attachments
+  };
+
+  const info = await transport.sendMail(message);
+  logger.success(`Email sent via Nodemailer to ${options.email}`, { messageId: info.messageId }, 'EMAIL');
+
+  const previewUrl = nodemailer.getTestMessageUrl(info);
+  if (previewUrl) {
+    logger.info(`📧 Preview Email URL: ${previewUrl}`, null, 'EMAIL');
+    console.log(`\x1b[36m[EMAIL PREVIEW] View email at: ${previewUrl}\x1b[0m`);
+  }
+
+  return { success: true, provider: 'nodemailer', messageId: info.messageId, previewUrl };
 };
 
 export default sendEmail;

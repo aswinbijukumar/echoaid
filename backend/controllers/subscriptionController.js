@@ -10,7 +10,7 @@ import logger from '../utils/prettyLogger.js';
 export const getSubscription = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('subscription');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -35,6 +35,7 @@ export const getSubscription = async (req, res) => {
 export const updateSubscription = async (req, res) => {
   try {
     const { userId, plan, status, subscriptionId, customerId, billingCycle } = req.body;
+    logger.info('updateSubscription called', { userId, plan, status }, 'CONTROLLER');
 
     const user = await User.findById(userId);
     if (!user) {
@@ -48,7 +49,7 @@ export const updateSubscription = async (req, res) => {
     user.subscription.plan = plan;
     user.subscription.status = status;
     user.subscription.billingCycle = billingCycle || 'monthly';
-    
+
     if (status === 'active') {
       user.subscription.subscriptionStartDate = new Date();
       user.subscription.subscriptionEndDate = new Date(
@@ -67,18 +68,21 @@ export const updateSubscription = async (req, res) => {
 
     // Send confirmation email
     if (status === 'active') {
-      await sendEmail({
-        email: user.email,
-        subject: 'Subscription Activated - EchoAid',
-        html: `
-          <h2>Welcome to EchoAid ${plan.charAt(0).toUpperCase() + plan.slice(1)}!</h2>
-          <p>Your subscription has been successfully activated.</p>
-          <p><strong>Plan:</strong> ${plan.charAt(0).toUpperCase() + plan.slice(1)}</p>
-          <p><strong>Billing Cycle:</strong> ${billingCycle}</p>
-          <p><strong>Next Billing Date:</strong> ${user.subscription.subscriptionEndDate.toLocaleDateString()}</p>
-          <p>Thank you for choosing EchoAid!</p>
-        `
-      });
+      try {
+        const { getSubscriptionActivatedEmail } = await import('../utils/emailTemplates.js');
+        await sendEmail({
+          email: user.email,
+          subject: 'Subscription Activated - EchoAid',
+          html: getSubscriptionActivatedEmail(
+            user.name,
+            plan.charAt(0).toUpperCase() + plan.slice(1),
+            billingCycle,
+            user.subscription.subscriptionEndDate.toLocaleDateString()
+          )
+        });
+      } catch (emailError) {
+        logger.error('Failed to send activation email', emailError, 'CONTROLLER');
+      }
     }
 
     res.status(200).json({
@@ -99,7 +103,7 @@ export const updateSubscription = async (req, res) => {
 export const cancelSubscription = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -110,23 +114,28 @@ export const cancelSubscription = async (req, res) => {
     // Update subscription status
     user.subscription.status = 'cancelled';
     user.subscription.autoRenew = false;
-    
+
     // Reset features to free plan
     updatePlanFeatures(user, 'free');
 
     await user.save();
 
     // Send cancellation email
-    await sendEmail({
-      email: user.email,
-      subject: 'Subscription Cancelled - EchoAid',
-      html: `
-        <h2>Subscription Cancelled</h2>
-        <p>Your subscription has been cancelled successfully.</p>
-        <p>You can continue using your current plan until the end of your billing period.</p>
-        <p>We're sorry to see you go! If you change your mind, you can reactivate your subscription anytime.</p>
-      `
-    });
+    try {
+      const { getSubscriptionCancelledEmail } = await import('../utils/emailTemplates.js');
+      // Calculate end date (if available or standard logic)
+      const endDate = user.subscription.subscriptionEndDate
+        ? new Date(user.subscription.subscriptionEndDate).toLocaleDateString()
+        : 'the end of your billing cycle';
+
+      await sendEmail({
+        email: user.email,
+        subject: 'Subscription Cancelled - EchoAid',
+        html: getSubscriptionCancelledEmail(user.name, endDate)
+      });
+    } catch (emailError) {
+      logger.error('Failed to send cancellation email', emailError, 'CONTROLLER');
+    }
 
     res.status(200).json({
       success: true,
@@ -244,7 +253,7 @@ export const checkSubscriptionAccess = async (req, res) => {
   try {
     const { feature } = req.query;
     const user = await User.findById(req.user.id).select('subscription');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -274,7 +283,7 @@ export const checkSubscriptionAccess = async (req, res) => {
 export const getSubscriptionStatus = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('subscription role');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -312,7 +321,7 @@ export const getSubscriptionStatus = async (req, res) => {
 
     const subscription = user.subscription;
     const now = new Date();
-    
+
     // Calculate trial days left
     let trialDaysLeft = 0;
     if (subscription.status === 'trial' && subscription.trialEndDate) {
@@ -328,25 +337,25 @@ export const getSubscriptionStatus = async (req, res) => {
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      
+
       // Count today's quiz attempts
       const quizAttempts = await QuizAttempt.countDocuments({
         userId: req.user.id,
         createdAt: { $gte: today, $lt: tomorrow }
       });
-      
+
       // Count today's module completions
       const userProgress = await UserSkillProgress.findOne({ user: req.user.id });
       let moduleCompletions = 0;
       if (userProgress && userProgress.skills) {
-        moduleCompletions = userProgress.skills.filter(skill => 
-          skill.isCompleted && 
-          skill.completedAt && 
-          new Date(skill.completedAt) >= today && 
+        moduleCompletions = userProgress.skills.filter(skill =>
+          skill.isCompleted &&
+          skill.completedAt &&
+          new Date(skill.completedAt) >= today &&
           new Date(skill.completedAt) < tomorrow
         ).length;
       }
-      
+
       todayUsage = {
         quizAttempts,
         moduleCompletions,
@@ -444,7 +453,7 @@ export const createRazorpayOrder = async (req, res) => {
     logger.info('Creating Razorpay order...', null, 'CONTROLLER');
     logger.debug('Request body:', req.body, 'CONTROLLER');
     logger.debug('User:', req.user, 'CONTROLLER');
-    
+
     const { amount, currency = 'INR', plan, billingCycle } = req.body;
     const userId = req.user.id;
 
@@ -506,11 +515,21 @@ export const verifyRazorpayPayment = async (req, res) => {
 
     // Verify payment signature
     const crypto = await import('crypto');
-    const expectedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(`${orderId}|${paymentId}`)
-      .digest('hex');
+
+    // Debug logging
+    logger.info(`Verifying payment signature: Order=${orderId}, Payment=${paymentId}`, null, 'CONTROLLER');
+    logger.debug(`Received Signature: ${signature}`, null, 'CONTROLLER');
+    logger.debug(`Received Signature: ${signature}`, null, 'CONTROLLER');
+    logger.debug(`Hmac Secret Available: ${!!process.env.RAZORPAY_KEY_SECRET}`, null, 'CONTROLLER');
+
+    const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
+    hmac.update(`${orderId}|${paymentId}`);
+    const expectedSignature = hmac.digest('hex');
+
+    logger.debug(`Expected Signature: ${expectedSignature}`, null, 'CONTROLLER');
 
     if (expectedSignature !== signature) {
+      logger.error('Signature mismatch!', { expected: expectedSignature, received: signature }, 'CONTROLLER');
       return res.status(400).json({
         success: false,
         message: 'Invalid payment signature'
@@ -519,7 +538,7 @@ export const verifyRazorpayPayment = async (req, res) => {
 
     // Get order details from Razorpay
     const order = await razorpay.orders.fetch(orderId);
-    
+
     // Update user subscription
     const user = await User.findById(userId);
     if (!user) {
@@ -531,7 +550,7 @@ export const verifyRazorpayPayment = async (req, res) => {
 
     // Extract plan and billing cycle from order notes
     const { plan, billingCycle } = order.notes;
-    
+
     // Update subscription
     user.subscription.plan = plan;
     user.subscription.status = 'active';
@@ -569,17 +588,17 @@ export const verifyRazorpayPayment = async (req, res) => {
     try {
       const invoicePDF = generateInvoicePDF(paymentData, userData);
       const receiptPDF = generateReceiptPDF(paymentData, userData);
-      
+
       attachments = [
         {
           filename: invoicePDF.fileName,
           content: invoicePDF.buffer,
-          contentType: 'text/plain'
+          contentType: 'application/pdf'
         },
         {
           filename: receiptPDF.fileName,
           content: receiptPDF.buffer,
-          contentType: 'text/plain'
+          contentType: 'application/pdf'
         }
       ];
     } catch (pdfError) {
@@ -588,74 +607,29 @@ export const verifyRazorpayPayment = async (req, res) => {
     }
 
     // Send confirmation email (with or without PDF attachments)
-    await sendEmail({
-      email: user.email,
-      subject: 'Payment Successful - EchoAid Subscription',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #00CC00, #00AA00); padding: 20px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">EchoAid</h1>
-            <p style="color: white; margin: 5px 0 0 0; font-size: 16px;">Payment Successful!</p>
-          </div>
-          
-          <div style="padding: 30px; background: #f8f9fa;">
-            <h2 style="color: #23272F; margin-bottom: 20px;">🎉 Welcome to EchoAid Premium!</h2>
-            
-            <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-              <h3 style="color: #23272F; margin-top: 0;">Subscription Details</h3>
-              <table style="width: 100%; border-collapse: collapse;">
-                <tr>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Plan:</strong></td>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${plan.charAt(0).toUpperCase() + plan.slice(1)}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Billing Cycle:</strong></td>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${billingCycle.charAt(0).toUpperCase() + billingCycle.slice(1)}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Amount Paid:</strong></td>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #eee;">₹${(order.amount / 100).toLocaleString()}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0;"><strong>Payment ID:</strong></td>
-                  <td style="padding: 8px 0;">${paymentId}</td>
-                </tr>
-              </table>
-            </div>
+    try {
+      const { getPaymentSuccessEmail } = await import('../utils/emailTemplates.js');
+      logger.info('Attempting to send payment success email...', { email: user.email }, 'CONTROLLER');
 
-            <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-              <h4 style="color: #2d5a2d; margin-top: 0;">✅ What's Next?</h4>
-              <ul style="color: #2d5a2d; margin: 10px 0;">
-                <li>Your subscription is now active</li>
-                <li>Access all premium features immediately</li>
-                ${attachments.length > 0 ? '<li>Download your invoice and receipt (attached)</li>' : '<li>Your payment receipt is available in your account</li>'}
-                <li>Start learning with unlimited access</li>
-              </ul>
-            </div>
+      const emailHtml = getPaymentSuccessEmail(
+        user.name,
+        plan.charAt(0).toUpperCase() + plan.slice(1),
+        `₹${(order.amount / 100).toLocaleString()}`,
+        paymentId,
+        new Date().toLocaleDateString()
+      );
 
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="http://localhost:5173/dashboard" style="background: #00CC00; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-                Start Learning Now
-              </a>
-            </div>
-
-            <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #00CC00;">
-              <p style="margin: 0; color: #666; font-size: 14px;">
-                <strong>Need Help?</strong> Contact our support team at support@echoaid.com or visit our help center.
-              </p>
-            </div>
-          </div>
-          
-          <div style="background: #23272F; padding: 20px; text-align: center;">
-            <p style="color: #ccc; margin: 0; font-size: 12px;">
-              © 2024 EchoAid. All rights reserved.<br>
-              This is an automated email. Please do not reply.
-            </p>
-          </div>
-        </div>
-      `,
-      attachments: attachments
-    });
+      await sendEmail({
+        email: user.email,
+        subject: 'Payment Successful - EchoAid Subscription',
+        html: emailHtml,
+        attachments: attachments
+      });
+      logger.success('Payment success email sent!', null, 'CONTROLLER');
+    } catch (emailError) {
+      logger.error('Failed to send payment confirmation email', emailError, 'CONTROLLER');
+      // Don't fail the request
+    }
 
     res.status(200).json({
       success: true,

@@ -29,7 +29,7 @@ export default function SessionInstances() {
   const fetchSessions = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/auth/sessions', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/sessions`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -56,7 +56,7 @@ export default function SessionInstances() {
   const revokeSession = async (sessionId) => {
     try {
       setRevokingSession(sessionId);
-      const response = await fetch(`http://localhost:5000/api/auth/sessions/${sessionId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/sessions/${sessionId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

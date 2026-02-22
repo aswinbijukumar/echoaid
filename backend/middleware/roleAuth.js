@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import logger from '../utils/prettyLogger.js';
 import User from '../models/User.js';
+import { ENV_CONFIG } from '../config/prettyConfig.js';
 
 // Protect routes - verify token
 export const protect = async (req, res, next) => {
@@ -11,6 +12,11 @@ export const protect = async (req, res, next) => {
   }
 
   logger.debug('Protect middleware - Token present:', !!token, 'CONTROLLER');
+  if (req.headers.authorization) {
+    logger.debug('Authorization Header:', req.headers.authorization.substring(0, 20) + '...', 'CONTROLLER');
+  } else {
+    logger.debug('Authorization Header: MISSING', null, 'CONTROLLER');
+  }
 
   if (!token) {
     logger.info('No token found in request', null, 'CONTROLLER');
@@ -21,8 +27,8 @@ export const protect = async (req, res, next) => {
   }
 
   try {
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    logger.debug('Verifying token:', token.substring(0, 20) + '...', 'CONTROLLER');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || ENV_CONFIG.JWT_SECRET || 'secret_fallback_123');
     logger.debug('Token decoded successfully, user ID:', decoded.id, 'CONTROLLER');
 
     // Get user from token
@@ -36,19 +42,21 @@ export const protect = async (req, res, next) => {
       });
     }
 
+    logger.debug('User found. Keys:', Object.keys(user.toObject()), 'isActive value:', user.isActive, 'AUTH');
+
     if (!user.isActive) {
-      logger.info('User account is deactivated', null, 'CONTROLLER');
+      logger.warning('User account is deactivated', { userId: user._id }, 'AUTH');
       return res.status(401).json({
         success: false,
         message: 'Account is deactivated'
       });
     }
 
-    logger.debug('User authenticated successfully:', user.email, 'role:', user.role, 'CONTROLLER');
+    logger.debug('User authenticated successfully:', { email: user.email, role: user.role }, 'AUTH');
     req.user = user;
     next();
   } catch (error) {
-    logger.debug('Token verification failed:', error.message, 'CONTROLLER');
+    logger.error('Token verification failed:', { error: error.message }, 'AUTH');
     return res.status(401).json({
       success: false,
       message: 'Not authorized to access this route'

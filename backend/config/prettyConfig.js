@@ -12,26 +12,26 @@ export const ENV_CONFIG = {
   BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:5000',
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
   PY_SERVICE_URL: process.env.PY_SERVICE_URL || 'http://localhost:8001',
-  
+
   // Database URLs
   MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/echoaid_main',
   DICTIONARY_DB_URI: process.env.DICTIONARY_DB_URI || 'mongodb://localhost:27017/echoaid_dictionary',
   QUIZ_DB_URI: process.env.QUIZ_DB_URI || 'mongodb://localhost:27017/echoaid_quiz',
   FORUM_DB_URI: process.env.FORUM_DB_URI || 'mongodb://localhost:27017/echoaid_forum',
   VIDEO_DB_URI: process.env.VIDEO_DB_URI || 'mongodb://localhost:27017/echoaid_video',
-  
+
   // Environment
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: process.env.PORT || 5000,
-  
+
   // Logging
   LOG_LEVEL: process.env.LOG_LEVEL || 'debug',
   ENABLE_PRETTY_LOGS: process.env.ENABLE_PRETTY_LOGS !== 'false',
-  
+
   // Security
-  JWT_SECRET: process.env.JWT_SECRET,
+  JWT_SECRET: process.env.JWT_SECRET || 'fallback_secret_key_12345',
   JWT_EXPIRE: process.env.JWT_EXPIRE || '30d',
-  
+
   // External Services
   RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
   RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET,
@@ -145,7 +145,7 @@ export const LOG_FORMATTING = {
 // Environment-specific configurations
 export const getEnvironmentConfig = () => {
   const env = ENV_CONFIG.NODE_ENV;
-  
+
   switch (env) {
     case 'production':
       return {
@@ -155,7 +155,7 @@ export const getEnvironmentConfig = () => {
         enableUserContext: false,
         maxLogEntries: 1000
       };
-      
+
     case 'development':
       return {
         logLevel: 'debug',
@@ -164,7 +164,7 @@ export const getEnvironmentConfig = () => {
         enableUserContext: true,
         maxLogEntries: 10000
       };
-      
+
     case 'test':
       return {
         logLevel: 'error',
@@ -173,7 +173,7 @@ export const getEnvironmentConfig = () => {
         enableUserContext: false,
         maxLogEntries: 100
       };
-      
+
     default:
       return {
         logLevel: 'info',
@@ -213,12 +213,12 @@ export const getDatabaseConfig = () => {
 export const validateEnvironment = () => {
   const required = ['JWT_SECRET', 'MONGODB_URI'];
   const missing = required.filter(key => !process.env[key]);
-  
+
   if (missing.length > 0) {
     console.warn(`⚠️ Missing required environment variables: ${missing.join(', ')}`);
     return false;
   }
-  
+
   return true;
 };
 

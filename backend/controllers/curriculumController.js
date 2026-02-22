@@ -4,6 +4,7 @@ import Lesson from '../models/Lesson.js';
 import UserProgress from '../models/UserProgress.js';
 import User from '../models/User.js';
 import Sign from '../models/Sign.js';
+import LearningPath from '../models/LearningPath.js'; // Needed for createUnit linkage
 
 // Get all units with user progress
 export const getUnits = async (req, res) => {
@@ -15,14 +16,14 @@ export const getUnits = async (req, res) => {
 
     // Get user progress
     const userProgress = await UserProgress.findOne({ user: userId });
-    
+
     const unitsWithProgress = units.map(unit => {
       const completedUnit = userProgress?.curriculum.completedUnits.find(
         cu => cu.unit.toString() === unit._id.toString()
       );
-      
+
       const isUnlocked = checkUnitUnlock(unit, userProgress);
-      
+
       return {
         ...unit.toObject(),
         isCompleted: !!completedUnit,
@@ -70,14 +71,14 @@ export const getUnit = async (req, res) => {
 
     // Get user progress for lessons
     const userProgress = await UserProgress.findOne({ user: userId });
-    
+
     const lessonsWithProgress = unit.lessons.map(lesson => {
       const completedLesson = userProgress?.curriculum.completedLessons.find(
         cl => cl.lesson.toString() === lesson._id.toString()
       );
-      
+
       const isUnlocked = checkLessonUnlock(lesson, userProgress);
-      
+
       return {
         ...lesson.toObject(),
         isCompleted: !!completedLesson,
@@ -124,7 +125,7 @@ export const getLesson = async (req, res) => {
     // Check if lesson is unlocked
     const userProgress = await UserProgress.findOne({ user: userId });
     const isUnlocked = checkLessonUnlock(lesson, userProgress);
-    
+
     if (!isUnlocked) {
       return res.status(403).json({
         success: false,
@@ -162,7 +163,7 @@ export const completeLesson = async (req, res) => {
 
     // Calculate XP earned
     const xpEarned = Math.round((score / 100) * lesson.xpReward);
-    
+
     // Update user progress
     let userProgress = await UserProgress.findOne({ user: userId });
     if (!userProgress) {
@@ -230,7 +231,7 @@ export const completeLesson = async (req, res) => {
           xpEarned: unit.xpReward
         });
       }
-      
+
       userProgress.overall.totalXP += unit.xpReward;
       unitCompleted = true;
     }
@@ -288,31 +289,192 @@ export const getLessons = async (req, res) => {
   }
 };
 
+// @desc    Create new unit
+// @route   POST /api/curriculum/units
+// @access  Private (Admin)
+export const createUnit = async (req, res) => {
+  try {
+    const { title, description, level, order, learningPathId } = req.body;
+
+    const unit = await Unit.create({
+      title,
+      description,
+      level,
+      order,
+      learningPath: learningPathId,
+      createdBy: req.user.id,
+      isActive: true
+    });
+
+    // Link to LearningPath if provided
+    if (learningPathId) {
+      await LearningPath.findByIdAndUpdate(learningPathId, {
+        $push: { units: unit._id },
+        $inc: { totalUnits: 1 }
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      data: unit
+    });
+  } catch (error) {
+    logger.errorWithStack('Create unit error:', error, error, 'CONTROLLER');
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Create new lesson
+// @route   POST /api/curriculum/lessons
+// @access  Private (Admin)
+export const createLesson = async (req, res) => {
+  try {
+    const { title, unitId, order, level, signs } = req.body;
+
+    const lesson = await Lesson.create({
+      title,
+      unit: unitId,
+      order,
+      level,
+      signs: signs || [], // Array of Sign IDs
+      flashcards: req.body.flashcards || [], // Embedded content
+      quizQuestions: req.body.quizQuestions || [], // Embedded content
+      createdBy: req.user.id,
+      calculateXP: 50, // Default base XP
+      isActive: true
+    });
+
+    // Link to Unit
+    await Unit.findByIdAndUpdate(unitId, {
+      $push: { lessons: lesson._id },
+      $inc: { totalLessons: 1 }
+    });
+
+    res.status(201).json({
+      success: true,
+      data: lesson
+    });
+  } catch (error) {
+    logger.errorWithStack('Create lesson error:', error, error, 'CONTROLLER');
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update unit
+// @route   PUT /api/curriculum/units/:unitId
+export const updateUnit = async (req, res) => {
+  try {
+    const unit = await Unit.findByIdAndUpdate(req.params.unitId, req.body, {
+      new: true,
+      runValidators: true
+    });
+
+    if (!unit) {
+      return res.status(404).json({ success: false, message: 'Unit not found' });
+    }
+
+    res.status(200).json({ success: true, data: unit });
+  } catch (error) {
+    logger.errorWithStack('Update unit error:', error, error, 'CONTROLLER');
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Delete unit
+// @route   DELETE /api/curriculum/units/:unitId
+export const deleteUnit = async (req, res) => {
+  try {
+    const unit = await Unit.findById(req.params.unitId);
+    if (!unit) {
+      return res.status(404).json({ success: false, message: 'Unit not found' });
+    }
+
+    // Optional: Remove unit from LearningPath 
+    if (unit.learningPath) {
+        await LearningPath.findByIdAndUpdate(unit.learningPath, {
+            $pull: { units: unit._id },
+            $inc: { totalUnits: -1 }
+        });
+    }
+
+    await unit.deleteOne(); // Trigger pre-remove hooks if any
+    res.status(200).json({ success: true, data: {} });
+  } catch (error) {
+    logger.errorWithStack('Delete unit error:', error, error, 'CONTROLLER');
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update lesson
+// @route   PUT /api/curriculum/lessons/:lessonId
+export const updateLesson = async (req, res) => {
+  try {
+    const lesson = await Lesson.findByIdAndUpdate(req.params.lessonId, req.body, {
+      new: true,
+      runValidators: true
+    });
+
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    res.status(200).json({ success: true, data: lesson });
+  } catch (error) {
+    logger.errorWithStack('Update lesson error:', error, error, 'CONTROLLER');
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Delete lesson
+// @route   DELETE /api/curriculum/lessons/:lessonId
+export const deleteLesson = async (req, res) => {
+  try {
+    const lesson = await Lesson.findById(req.params.lessonId);
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    // Remove lesson from Unit
+    if (lesson.unit) {
+        await Unit.findByIdAndUpdate(lesson.unit, {
+            $pull: { lessons: lesson._id },
+            $inc: { totalLessons: -1 }
+        });
+    }
+
+    await lesson.deleteOne();
+    res.status(200).json({ success: true, data: {} });
+  } catch (error) {
+    logger.errorWithStack('Delete lesson error:', error, error, 'CONTROLLER');
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // Helper functions
 const checkUnitUnlock = (unit, userProgress) => {
   if (!userProgress) return unit.order === 1;
-  
+
   // Check prerequisites
   const completedUnitIds = userProgress.curriculum.completedUnits.map(cu => cu.unit.toString());
-  const hasPrerequisites = unit.prerequisites.every(prereq => 
+  const hasPrerequisites = unit.prerequisites.every(prereq =>
     completedUnitIds.includes(prereq.toString())
   );
-  
+
   // Check level and XP requirements
   const meetsLevel = userProgress.overall.level >= unit.unlockRequirements.minLevel;
   const meetsXP = userProgress.overall.totalXP >= unit.unlockRequirements.minXP;
-  
+
   return hasPrerequisites && meetsLevel && meetsXP;
 };
 
 const checkLessonUnlock = (lesson, userProgress) => {
   if (!userProgress) return lesson.order === 1;
-  
+
   // Check prerequisites
   const completedLessonIds = userProgress.curriculum.completedLessons.map(cl => cl.lesson.toString());
-  const hasPrerequisites = lesson.prerequisites.every(prereq => 
+  const hasPrerequisites = lesson.prerequisites.every(prereq =>
     completedLessonIds.includes(prereq.toString())
   );
-  
+
   return hasPrerequisites;
 };

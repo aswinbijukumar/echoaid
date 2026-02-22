@@ -17,6 +17,11 @@ const skillSchema = new mongoose.Schema({
     enum: ['basics', 'alphabet', 'numbers', 'phrases', 'family', 'activities', 'advanced'],
     required: true
   },
+  language: {
+    type: String,
+    enum: ['ASL', 'ISL', 'BSL'],
+    default: 'ASL'
+  },
   level: {
     type: Number,
     default: 0,

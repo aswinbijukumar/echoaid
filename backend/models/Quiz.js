@@ -66,8 +66,20 @@ const quizSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['alphabet', 'phrases', 'family', 'activities', 'advanced', 'mixed'],
+    enum: ['alphabet', 'phrases', 'family', 'activities', 'advanced', 'mixed', 'arena'],
     default: 'mixed'
+  },
+  quizType: {
+    type: String,
+    enum: ['standard', 'mastery', 'arena'],
+    default: 'standard',
+    required: true
+  },
+  level: {
+    type: Number,
+    default: 1,
+    min: 1,
+    max: 10
   },
   difficulty: {
     type: String,

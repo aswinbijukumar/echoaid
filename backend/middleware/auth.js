@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { AppError } from '../utils/errorHandler.js';
 
+
 // Protect routes
 export const protect = async (req, res, next) => {
   let token;
@@ -24,7 +25,7 @@ export const protect = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await User.findById(decoded.id);
-    
+
     if (!user) {
       return next(new AppError('User not found', 401));
     }
@@ -33,11 +34,39 @@ export const protect = async (req, res, next) => {
     if (!user.isActive) {
       return next(new AppError('Account is deactivated', 401));
     }
-    
+
     req.user = user;
     next();
   } catch (err) {
     return next(new AppError('Not authorized to access this route', 401));
+  }
+};
+
+// Optional authentication
+export const protectOptional = async (req, res, next) => {
+  let token;
+
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer')
+  ) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+    if (user && user.isActive) {
+      req.user = user;
+    }
+    next();
+  } catch (err) {
+    // Ignore invalid tokens for optional auth
+    next();
   }
 };
 

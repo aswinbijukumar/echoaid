@@ -7,7 +7,7 @@ import logger from '../utils/prettyLogger.js';
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [_token, _setToken] = useState(localStorage.getItem('token'));
   const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'));
 
   // Define logout function first
@@ -19,7 +19,7 @@ export function AuthProvider({ children }) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${_token}`
           },
           body: JSON.stringify({ refreshToken })
         });
@@ -28,27 +28,27 @@ export function AuthProvider({ children }) {
       logger.errorWithStack('Logout error', error, 'AUTH');
     } finally {
       setUser(null);
-      setToken(null);
+      _setToken(null);
       setRefreshToken(null);
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       // Cleanup modern session management
       modernSessionManager.destroy();
     }
-  }, [refreshToken, token]);
+  }, [refreshToken, _token]);
 
   // Check if user is logged in on app start
   useEffect(() => {
     const checkAuth = async () => {
-      if (token) {
+      if (_token) {
         try {
-          logger.auth('Checking authentication', { tokenPreview: token.substring(0, 20) + '...' }, 'AUTH');
+          logger.auth('Checking authentication', { tokenPreview: _token.substring(0, 20) + '...' }, 'AUTH');
           const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
             headers: {
-              'Authorization': `Bearer ${token}`
+              'Authorization': `Bearer ${_token}`
             }
           });
-          
+
           if (response.ok) {
             const data = await response.json();
             logger.auth('Authentication successful', { user: data.user.name, email: data.user.email }, 'AUTH');
@@ -57,26 +57,38 @@ export function AuthProvider({ children }) {
             modernSessionManager.initialize(
               () => logout(), // onSessionExpired
               (newToken, newRefreshToken) => { // onTokenRefreshed
-                setToken(newToken);
+                _setToken(newToken);
                 setRefreshToken(newRefreshToken);
               }
             );
           } else {
+            // Try to parse error body
+            let errorBody = {};
+            try {
+              errorBody = await response.clone().json();
+            } catch (e) {
+              errorBody = { error: 'Could not parse error body' };
+            }
+            // STRINGIFY the body for easier user reporting
             logger.warning('Authentication failed', { status: response.status, statusText: response.statusText }, 'AUTH');
-            // Token is invalid or expired, remove it
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
-            setToken(null);
-            setRefreshToken(null);
-            setUser(null);
-            modernSessionManager.destroy();
+
+            // Only clear token if authorized (401) or forbidden (403)
+            // This prevents logout on server errors (500) or network issues
+            if (response.status === 401 || response.status === 403) {
+              localStorage.removeItem('token');
+              localStorage.removeItem('refreshToken');
+              _setToken(null);
+              setRefreshToken(null);
+              setUser(null);
+              modernSessionManager.destroy();
+            }
           }
         } catch (error) {
           logger.errorWithStack('Auth check error', error, 'AUTH');
           // Clear all auth data on error
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
-          setToken(null);
+          _setToken(null);
           setRefreshToken(null);
           setUser(null);
           modernSessionManager.destroy();
@@ -89,7 +101,7 @@ export function AuthProvider({ children }) {
     };
 
     checkAuth();
-  }, [token, logout]);
+  }, [_token, logout]);
 
   const login = async (credentials) => {
     try {
@@ -115,7 +127,7 @@ export function AuthProvider({ children }) {
 
       logger.auth('Login successful', { user: data.user.name, email: data.user.email }, 'AUTH');
       setUser(data.user);
-      setToken(data.token);
+      _setToken(data.token);
       setRefreshToken(data.refreshToken);
       localStorage.setItem('token', data.token);
       localStorage.setItem('refreshToken', data.refreshToken);
@@ -123,7 +135,7 @@ export function AuthProvider({ children }) {
       modernSessionManager.initialize(
         () => logout(), // onSessionExpired
         (newToken, newRefreshToken) => { // onTokenRefreshed
-          setToken(newToken);
+          _setToken(newToken);
           setRefreshToken(newRefreshToken);
         }
       );
@@ -135,7 +147,7 @@ export function AuthProvider({ children }) {
   };
 
   const signup = async (userData) => {
-      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -150,13 +162,13 @@ export function AuthProvider({ children }) {
     }
 
     setUser(data.user);
-    setToken(data.token);
+    _setToken(data.token);
     localStorage.setItem('token', data.token);
     return data;
   };
 
   const googleAuth = async (googleToken) => {
-      const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -171,14 +183,14 @@ export function AuthProvider({ children }) {
     }
 
     setUser(data.user);
-    setToken(data.token);
+    _setToken(data.token);
     localStorage.setItem('token', data.token);
     return data;
   };
 
   const forgotPassword = async (email) => {
     // cspell:ignore forgotpassword
-      const response = await fetch(`${API_BASE_URL}/api/auth/forgotpassword`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/forgotpassword`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -196,14 +208,14 @@ export function AuthProvider({ children }) {
   };
 
   const refreshUser = useCallback(async () => {
-    if (token) {
+    if (_token) {
       try {
         const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${_token}`
           }
         });
-        
+
         if (response.ok) {
           const data = await response.json();
           setUser(data.user);
@@ -214,11 +226,18 @@ export function AuthProvider({ children }) {
       }
     }
     return null;
-  }, [token]);
+  }, [_token]);
+
+  const setToken = useCallback((newToken) => {
+    _setToken(newToken);
+    if (newToken) {
+      setLoading(true); // Set loading true immediately to prevent race conditions
+    }
+  }, []);
 
   const value = {
     user,
-    token,
+    token: _token,
     refreshToken,
     loading,
     login,

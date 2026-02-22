@@ -5,7 +5,7 @@ const practiceLaterSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
-    index: true
+
   },
   sign: {
     type: mongoose.Schema.Types.ObjectId,

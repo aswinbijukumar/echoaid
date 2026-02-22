@@ -7,7 +7,7 @@ dotenv.config();
 
 const createSampleQuiz = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/echoaid');
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
 
     // Find an admin user to assign as creator

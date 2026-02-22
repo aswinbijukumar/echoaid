@@ -48,7 +48,7 @@ export default function AccessibilitySettings() {
     const token = localStorage.getItem('token');
     if (!token) return;
     // Save notifications
-    fetch('http://localhost:5000/api/auth/notifications', {
+      fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/notifications`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -60,7 +60,7 @@ export default function AccessibilitySettings() {
         pushNotifications: settings.pushNotifications
       })
     }).catch(() => {});
-    fetch('http://localhost:5000/api/auth/privacy', {
+      fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/privacy`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -237,7 +237,7 @@ function TwoFactorSettings() {
     // Fetch current state via /auth/me
     const token = localStorage.getItem('token');
     if (!token) return;
-    fetch('http://localhost:5000/api/auth/me', {
+      fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     .then(r => r.json())
@@ -250,7 +250,7 @@ function TwoFactorSettings() {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('token');
-      const resp = await fetch('http://localhost:5000/api/auth/2fa/setup', {
+      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/2fa/setup`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -272,7 +272,7 @@ function TwoFactorSettings() {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('token');
-      const resp = await fetch('http://localhost:5000/api/auth/2fa/enable', {
+      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/2fa/enable`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ token: code })
@@ -295,7 +295,7 @@ function TwoFactorSettings() {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('token');
-      const resp = await fetch('http://localhost:5000/api/auth/2fa/disable', {
+      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/2fa/disable`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });

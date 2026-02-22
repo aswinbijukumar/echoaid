@@ -2,6 +2,8 @@
 // Handles background token refresh, activity tracking, and session management
 // without intrusive UI elements
 
+import { ENV_CONFIG } from '../config/prettyConfig.js';
+
 export class ModernSessionManager {
   constructor() {
     this.SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
@@ -181,7 +183,7 @@ export class ModernSessionManager {
         throw new Error('No refresh token available');
       }
 
-      const response = await fetch('http://localhost:5000/api/auth/refresh', {
+      const response = await fetch(`${ENV_CONFIG.API_BASE_URL}/api/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

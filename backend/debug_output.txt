@@ -1,0 +1,80 @@
+Most Recent Attempt:
+User: ASWIN (aswinblm10@gmail.com)
+Quiz: Level 0 Mastery Quizz
+Score: 0%
+Passed: false
+Attempt ID: 6985961ca29415c0a39d6794
+
+--- Answers Analysis ---
+{
+  "question": "identify?",
+  "userSelected": "ANGRY",
+  "correctAnswer": "You",
+  "isMatch": false,
+  "backendIsCorrect": false,
+  "userSelectedType": "string",
+  "correctAnswerType": "string"
+}
+{
+  "question": "identify?",
+  "userSelected": "HAPPY",
+  "correctAnswer": "Worry",
+  "isMatch": false,
+  "backendIsCorrect": false,
+  "userSelectedType": "string",
+  "correctAnswerType": "string"
+}
+{
+  "question": "identify this?",
+  "userSelected": "You",
+  "correctAnswer": "What",
+  "isMatch": false,
+  "backendIsCorrect": false,
+  "userSelectedType": "string",
+  "correctAnswerType": "string"
+}
+{
+  "question": "What sign is this?",
+  "userSelected": "Sorry",
+  "correctAnswer": "ANGRY",
+  "isMatch": false,
+  "backendIsCorrect": false,
+  "userSelectedType": "string",
+  "correctAnswerType": "string"
+}
+{
+  "question": "identify this?",
+  "userSelected": "Worry",
+  "correctAnswer": "HAPPY",
+  "isMatch": false,
+  "backendIsCorrect": false,
+  "userSelectedType": "string",
+  "correctAnswerType": "string"
+}
+{
+  "question": "Which word matches this sign?",
+  "userSelected": "What",
+  "correctAnswer": "Who",
+  "isMatch": false,
+  "backendIsCorrect": false,
+  "userSelectedType": "string",
+  "correctAnswerType": "string"
+}
+{
+  "question": "What sign is this?",
+  "userSelected": "Who",
+  "correctAnswer": "Thanks",
+  "isMatch": false,
+  "backendIsCorrect": false,
+  "userSelectedType": "string",
+  "correctAnswerType": "string"
+}
+{
+  "question": "Identify the sign ",
+  "userSelected": "Thanks",
+  "correctAnswer": "Sorry",
+  "isMatch": false,
+  "backendIsCorrect": false,
+  "userSelectedType": "string",
+  "correctAnswerType": "string"
+}

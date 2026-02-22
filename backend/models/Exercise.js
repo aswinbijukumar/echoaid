@@ -1,62 +1,6 @@
 import mongoose from 'mongoose';
 
 const exerciseSchema = new mongoose.Schema({
-  lesson: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Lesson',
-    required: true
-  },
-  order: {
-    type: Number,
-    required: true
-  },
-  type: {
-    type: String,
-    enum: ['sign-recognition', 'sign-production', 'translation', 'matching', 'fill-blank'],
-    required: true
-  },
-  targetSign: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Sign'
-  },
-  question: {
-    type: String,
-    maxlength: [300, 'Question cannot be more than 300 characters']
-  },
-  mediaUrl: { type: String },
-  imagePath: { type: String },
-  audioPath: { type: String },
-  videoPath: { type: String },
-  options: [{
-    text: { type: String },
-  }],
-  correctAnswer: { type: String },
-  explanation: { type: String, maxlength: [300, 'Explanation cannot be more than 300 characters'] },
-  timeLimit: { type: Number, default: 30 },
-  xpReward: { type: Number, default: 10 },
-  isActive: { type: Boolean, default: true },
-  accessibility: {
-    captions: { type: Boolean, default: true },
-    largeIcons: { type: Boolean, default: true },
-    colorSafe: { type: Boolean, default: true }
-  },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  }
-}, {
-  timestamps: true
-});
-
-exerciseSchema.index({ lesson: 1, order: 1 });
-exerciseSchema.index({ type: 1, isActive: 1 });
-
-export default mongoose.model('Exercise', exerciseSchema);
-
-import mongoose from 'mongoose';
-
-const exerciseSchema = new mongoose.Schema({
   title: {
     type: String,
     required: [true, 'Please provide an exercise title'],
@@ -71,10 +15,10 @@ const exerciseSchema = new mongoose.Schema({
     type: String,
     enum: [
       'video-tutorial',
-      'sign-recognition', 
-      'sign-production', 
-      'translation', 
-      'matching', 
+      'sign-recognition',
+      'sign-production',
+      'translation',
+      'matching',
       'fill-blank',
       'multiple-choice',
       'true-false',

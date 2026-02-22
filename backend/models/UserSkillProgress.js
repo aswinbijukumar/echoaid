@@ -26,6 +26,10 @@ const userSkillProgressSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     },
+    isRelearning: {
+      type: Boolean,
+      default: false
+    },
     completedAt: Date,
     lastPracticed: Date,
     totalXP: {
@@ -76,7 +80,7 @@ const userSkillProgressSchema = new mongoose.Schema({
 });
 
 // Index for efficient queries
-userSkillProgressSchema.index({ user: 1 });
+
 userSkillProgressSchema.index({ 'skills.skill': 1 });
 userSkillProgressSchema.index({ lastActiveDate: 1 });
 

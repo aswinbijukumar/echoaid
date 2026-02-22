@@ -1,4 +1,5 @@
 import express from 'express';
+// Force restart 5
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -24,7 +25,9 @@ import messagesRoutes from './routes/messages.js';
 import quizGeneratorRoutes from './routes/quizGenerator.js';
 import legalRoutes from './routes/legal.js';
 import streakRoutes from './routes/streak.js';
+
 import achievementRoutes from './routes/achievements.js';
+import certificateRoutes from './routes/certificates.js';
 import { getAllCategories, getCategoryById, createSignWithVariants } from './controllers/contentController.js';
 import { errorHandler } from './utils/errorHandler.js';
 import { protect, adminAndSuperAdmin, canManageContent } from './middleware/roleAuth.js';
@@ -44,7 +47,16 @@ cloudinary.config({
   secure: true
 });
 
+if (!process.env.JWT_SECRET) {
+  logger.error('FATAL: JWT_SECRET is not defined!', null, 'CONFIG');
+} else {
+  logger.info('JWT_SECRET loaded successfully', null, 'CONFIG');
+}
+
 const app = express();
+
+// Trust first proxy (Railway)
+app.set('trust proxy', 1);
 
 // Body parser - increase limit for image uploads
 app.use(express.json({ limit: '10mb' }));
@@ -54,24 +66,25 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cors({
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:5173',
+    'https://echoaid.vercel.app',
     'http://localhost:3000',
     'http://localhost:5173',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:3000'
   ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-update-existing'],
   optionsSuccessStatus: 200
 }));
 
 // Manual CORS headers as backup
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-update-existing');
   res.header('Access-Control-Allow-Credentials', 'true');
-  
+
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
   } else {
@@ -121,6 +134,7 @@ app.use('/api/admin/quiz-generator', quizGeneratorRoutes);
 app.use('/api/legal', legalRoutes);
 app.use('/api/streak', streakRoutes);
 app.use('/api/achievements', achievementRoutes);
+app.use('/api/certificates', certificateRoutes);
 
 // Public aliases for categories so user Dictionary can access them without auth
 app.get('/api/content/categories', getAllCategories);
@@ -157,9 +171,9 @@ app.get('/api/upload/test', (req, res) => {
 });
 
 // Public route for bulk variants (with authentication)
-app.post('/api/content/signs/bulk-variants', 
-  protect, 
-  adminAndSuperAdmin, 
+app.post('/api/content/signs/bulk-variants',
+  protect,
+  adminAndSuperAdmin,
   canManageContent,
   fileUpload({
     limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
@@ -170,17 +184,27 @@ app.post('/api/content/signs/bulk-variants',
   createSignWithVariants
 );
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'EchoAid Backend API is running',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
 // Health check route
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    success: true, 
+  res.json({
+    success: true,
     message: 'EchoAid API is running',
     timestamp: new Date().toISOString()
   });
 });
 
 // Debug file upload route
-app.post('/api/debug/upload', 
+app.post('/api/debug/upload',
   fileUpload({
     limits: { fileSize: 50 * 1024 * 1024 },
     abortOnLimit: true,
@@ -189,7 +213,7 @@ app.post('/api/debug/upload',
   }),
   (req, res) => {
     logger.debug('Debug upload request received', { files: req.files, body: req.body }, 'UPLOAD');
-    
+
     if (req.files) {
       Object.keys(req.files).forEach(key => {
         const file = req.files[key];
@@ -201,7 +225,7 @@ app.post('/api/debug/upload',
         }, 'UPLOAD');
       });
     }
-    
+
     res.json({
       success: true,
       message: 'Debug upload successful',
@@ -210,6 +234,48 @@ app.post('/api/debug/upload',
     });
   }
 );
+
+// Debug Status Endpoint
+app.get('/api/debug/status', async (req, res) => {
+  try {
+    const mongooseState = mongoose.connection.readyState;
+    const states = {
+      0: 'disconnected',
+      1: 'connected',
+      2: 'connecting',
+      3: 'disconnecting',
+    };
+
+    // Check if we can perform a simple DB operation
+    let dbCheck = 'failed';
+    try {
+      if (mongooseState === 1) {
+        // Try to list collections or just count users (limit 1)
+        const collections = await mongoose.connection.db.listCollections().toArray();
+        dbCheck = `success (${collections.length} collections)`;
+      }
+    } catch (e) {
+      dbCheck = `error: ${e.message}`;
+    }
+
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      database: {
+        state: states[mongooseState] || 'unknown',
+        connectionString: process.env.MONGODB_URI ? 'Set (Hidden)' : 'Not Set',
+        operationCheck: dbCheck
+      },
+      environment: {
+        nodeEnv: process.env.NODE_ENV,
+        hasRazorpayKey: !!process.env.RAZORPAY_KEY_ID,
+        hasRazorpaySecret: !!process.env.RAZORPAY_KEY_SECRET
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // 404 handler
 app.use('*', (req, res, next) => {
@@ -227,7 +293,7 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   const services = [
     'Authentication',
-    'Content Management', 
+    'Content Management',
     'Practice System',
     'Quiz Engine',
     'Gamification',
@@ -235,6 +301,6 @@ app.listen(PORT, () => {
     'Admin Dashboard',
     'Subscription Management'
   ];
-  
+
   logger.startup(PORT, process.env.NODE_ENV || 'development', services);
 });

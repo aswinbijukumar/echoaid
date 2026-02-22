@@ -1,7 +1,7 @@
 import express from 'express';
 import fileUpload from 'express-fileupload';
 import { protect, adminAndSuperAdmin } from '../middleware/roleAuth.js';
-import { recognize, recentAttempts, addPracticeLater, removePracticeLater, listPracticeLater, updateUserProgress, getUserProgress, scoreLandmarks } from '../controllers/practiceController.js';
+import { recognize, recentAttempts, addPracticeLater, removePracticeLater, listPracticeLater, updateUserProgress, getUserProgress, scoreLandmarks, recordAttempt } from '../controllers/practiceController.js';
 
 const router = express.Router();
 
@@ -23,6 +23,7 @@ router.post('/later', addPracticeLater);
 router.get('/later', listPracticeLater);
 router.delete('/later/:id', removePracticeLater);
 router.post('/progress', updateUserProgress);
+router.post('/attempt', recordAttempt);
 router.get('/progress', getUserProgress);
 
 export default router;

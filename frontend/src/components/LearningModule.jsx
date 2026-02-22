@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContextConstants';
 import { API_BASE_URL } from '../constants/api';
@@ -15,10 +16,11 @@ import {
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
 
-export default function LearningModule({ skill, onComplete, onBack }) {
+export default function LearningModule({ skill, onComplete, onBack, nextSkill, onNext }) {
+  const navigate = useNavigate();
   const { darkMode } = useTheme();
   const { token } = useAuth();
-  
+
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [completedCards, setCompletedCards] = useState(new Set());
@@ -29,18 +31,19 @@ export default function LearningModule({ skill, onComplete, onBack }) {
   const [level, setLevel] = useState('easy'); // 'easy' | 'medium' | 'hard'
   const levelOrder = ['easy', 'medium', 'hard'];
   const thresholds = { easy: 70, medium: 85 }; // percent thresholds to advance
-  
+
   // Level-up animation states
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpData, setLevelUpData] = useState({ newLevel: 0, xpGained: 0, streak: 0 });
-  
+
   // Flashcard flip state
   const [isFlipped, setIsFlipped] = useState(false);
-  
+
   // Progression message states
   const [showProgressionMessage, setShowProgressionMessage] = useState(false);
   const [progressionMessage, setProgressionMessage] = useState('');
   const [showQuizButton, setShowQuizButton] = useState(false);
+  const [unlockedQuizInfo, setUnlockedQuizInfo] = useState(null); // Store {id, level, isRelearning}
 
   // Reset flip state when card changes
   useEffect(() => {
@@ -54,13 +57,13 @@ export default function LearningModule({ skill, onComplete, onBack }) {
   // Determine which mode to show
   const isFlashcardMode = skill.moduleType === 'flashcards' || skill.moduleType === 'mixed';
   const isQuizMode = skill.moduleType === 'quiz' || skill.moduleType === 'mixed';
-  
+
   const flashcardsAll = skill.flashcards || [];
   const quizQuestionsAll = skill.quizQuestions || [];
   // Derive per-level content slices if available; fallback to full arrays
   const flashcards = flashcardsAll;
   const quizQuestions = quizQuestionsAll;
-  
+
   const totalCards = flashcards.length;
   const totalQuestions = quizQuestions.length;
 
@@ -69,7 +72,7 @@ export default function LearningModule({ skill, onComplete, onBack }) {
     const newCompletedCards = new Set([...completedCards, cardIndex]);
     setCompletedCards(newCompletedCards);
     console.log('Completed cards:', newCompletedCards.size, 'out of', totalCards);
-    
+
     // Check if all cards are completed
     if (newCompletedCards.size >= totalCards) {
       console.log('All cards completed, completing module...');
@@ -107,21 +110,16 @@ export default function LearningModule({ skill, onComplete, onBack }) {
   const handleModuleComplete = async () => {
     setIsCompleted(true);
     setShowResults(true);
-    
-    // Show progression message
-    setProgressionMessage(`🎉 Module "${skill.title}" completed! Moving to next module...`);
+
+    // Progression message for initial complete
+    setProgressionMessage(`🎉 Module "${skill.title}" completed!`);
     setShowProgressionMessage(true);
-    
-    // Hide progression message after 3 seconds
+
+    // Hide initial message after 1.5 seconds to make room for follow-up
     setTimeout(() => {
       setShowProgressionMessage(false);
-    }, 3000);
-    
-    // Notify parent component about completion
-    if (onComplete) {
-      onComplete(skill);
-    }
-    
+    }, 1500);
+
     // Send completion to backend
     try {
       const response = await fetch(`${API_BASE_URL}/api/skills/${skill._id}/complete`, {
@@ -141,7 +139,7 @@ export default function LearningModule({ skill, onComplete, onBack }) {
       if (response.ok) {
         const data = await response.json();
         console.log('Module completed successfully', data);
-        
+
         // Show level-up animation if user leveled up
         if (data.user && data.user.levelUp) {
           setLevelUpData({
@@ -151,24 +149,45 @@ export default function LearningModule({ skill, onComplete, onBack }) {
           });
           setShowLevelUp(true);
         }
-        
-        // Check if this is the last module in the level
-        if (data.isLastModuleInLevel) {
+
+        // Check if a quiz was unlocked (specifically for relearning or first time level completion)
+        if (data.quizUnlocked) {
           setTimeout(() => {
-            setProgressionMessage(`🎯 Level ${skill.level} completed! Time for the quiz!`);
+            setUnlockedQuizInfo({
+              id: data.unlockedQuizId,
+              level: data.unlockedQuizLevel,
+              isRelearning: true
+            });
+            setProgressionMessage(`🔓 Quiz Re-opened! Level ${data.unlockedQuizLevel} Mastery Quiz is now available with fresh attempts.`);
             setShowProgressionMessage(true);
             setShowQuizButton(true);
-          }, 2000);
+
+            // Auto redirect smoothly after shorter delay if they don't click
+            setTimeout(() => {
+              if (window.location.pathname.includes('/learn')) {
+                navigate(`/quiz/${data.unlockedQuizId}`, { replace: true });
+              }
+            }, 2500);
+          }, 800);
+        } else if (data.isLastModuleInLevel) {
+          setTimeout(() => {
+            setProgressionMessage(`🎯 Level ${skill.level} completed! Time for the Level ${skill.level} Mastery Quiz!`);
+            setShowProgressionMessage(true);
+            setShowQuizButton(true);
+          }, 1000);
+        }
+
+        // Notify parent about completion with full data
+        if (onComplete) {
+          onComplete({
+            ...skill,
+            ...data,
+            quizUnlocked: data.quizUnlocked
+          });
         }
       }
     } catch (error) {
       console.error('Error completing module:', error);
-    }
-
-    // Notify parent about completion; mark mastered only if at HARD
-    if (typeof onComplete === 'function') {
-      const percent = totalQuestions > 0 ? Math.round((quizScore / totalQuestions) * 100) : 100;
-      onComplete({ mastered: level === 'hard', level, percent });
     }
   };
 
@@ -255,7 +274,7 @@ export default function LearningModule({ skill, onComplete, onBack }) {
                   </div>
                 </div>
               )}
-              
+
               {isQuizMode && (
                 <div className="p-4 bg-green-100 dark:bg-green-900 rounded-lg">
                   <div className="text-2xl font-bold text-green-600 dark:text-green-400">
@@ -266,7 +285,7 @@ export default function LearningModule({ skill, onComplete, onBack }) {
                   </div>
                 </div>
               )}
-              
+
               <div className="p-4 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
                 <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
                   +{skill.xpReward}
@@ -279,14 +298,24 @@ export default function LearningModule({ skill, onComplete, onBack }) {
 
             {/* Actions */}
             <div className="space-y-4">
-              <button
-                onClick={() => onComplete && onComplete(skill)}
-                className="w-full px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center space-x-2"
-              >
-                <CheckCircleIcon className="w-5 h-5" />
-                <span>Continue Learning</span>
-              </button>
-              
+              {nextSkill ? (
+                <button
+                  onClick={() => onNext && onNext(nextSkill)}
+                  className="w-full px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center space-x-2"
+                >
+                  <CheckCircleIcon className="w-5 h-5" />
+                  <span>Next Lesson: {nextSkill.title}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => onComplete && onComplete(skill)}
+                  className="w-full px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center space-x-2"
+                >
+                  <CheckCircleIcon className="w-5 h-5" />
+                  <span>Complete & Return</span>
+                </button>
+              )}
+
               <button
                 onClick={() => {
                   setCurrentCardIndex(0);
@@ -337,7 +366,7 @@ export default function LearningModule({ skill, onComplete, onBack }) {
                 </span>
               </div>
             </div>
-            
+
             <div className="text-right">
               <div className="text-sm text-gray-400 mb-1">
                 Progress
@@ -350,7 +379,7 @@ export default function LearningModule({ skill, onComplete, onBack }) {
 
           {/* Progress Bar */}
           <div className="mt-4 w-full bg-white/10 rounded-full h-2">
-            <div 
+            <div
               className="bg-blue-500 h-2 rounded-full transition-all duration-300"
               style={{ width: `${getCompletionPercentage()}%` }}
             ></div>
@@ -417,7 +446,7 @@ export default function LearningModule({ skill, onComplete, onBack }) {
           </div>
         )}
       </div>
-      
+
       {/* Progression Message */}
       {showProgressionMessage && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -435,39 +464,49 @@ export default function LearningModule({ skill, onComplete, onBack }) {
           </div>
         </div>
       )}
-      
+
       {/* Quiz Button */}
       {showQuizButton && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl">
             <div className="text-6xl mb-4">🎯</div>
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-              Level {skill.level} Complete!
+              {unlockedQuizInfo ? `Quiz Ready!` : `Level ${skill.level} Complete!`}
             </h3>
             <p className="text-lg text-gray-600 dark:text-gray-300 mb-6">
-              You've completed all modules in Level {skill.level}. Now take the quiz to unlock Level {skill.level + 1}!
+              {unlockedQuizInfo
+                ? `Attempts have been reset. You can now take the Level ${unlockedQuizInfo.level} Mastery Quiz again!`
+                : `You've completed all modules in Level ${skill.level}. Now take the quiz to unlock Level ${skill.level + 1}!`
+              }
             </p>
             <div className="flex space-x-4 justify-center">
               <button
                 onClick={() => {
                   setShowQuizButton(false);
-                  window.location.href = '/quiz';
+                  if (unlockedQuizInfo?.id) {
+                    window.location.href = `/quiz/${unlockedQuizInfo.id}`;
+                  } else {
+                    window.location.href = '/quiz';
+                  }
                 }}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-lg shadow-blue-500/30"
               >
-                Take Quiz
+                Take Quiz Now
               </button>
               <button
-                onClick={() => setShowQuizButton(false)}
+                onClick={() => {
+                  setShowQuizButton(false);
+                  setUnlockedQuizInfo(null);
+                }}
                 className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-semibold"
               >
-                Later
+                Maybe Later
               </button>
             </div>
           </div>
         </div>
       )}
-      
+
       {/* Level Up Animation */}
       <LevelUpAnimation
         isOpen={showLevelUp}

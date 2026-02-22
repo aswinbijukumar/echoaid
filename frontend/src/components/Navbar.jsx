@@ -32,13 +32,29 @@ function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link 
-              to="/login" 
+
+
+            <Link
+              to="/login"
               className={`${text} font-bold text-base px-8 py-3 rounded-xl border-2 border-[#00CC00] ${hoverBg} transition-all duration-300 hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-[#00CC00]/50`}
             >
               Login
             </Link>
-            
+
+            <Link
+              to="/technology"
+              className={`${text} font-medium hover:text-[#00CC00] transition-colors duration-300`}
+            >
+              Technology
+            </Link>
+
+            <Link
+              to="/enterprise"
+              className={`${text} font-medium hover:text-[#00CC00] transition-colors duration-300`}
+            >
+              Enterprise
+            </Link>
+
             {/* Enhanced Theme Toggle Button */}
             <button
               onClick={toggleTheme}
@@ -73,7 +89,7 @@ function Navbar() {
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#00CC00] rounded-full animate-pulse"></div>
               </div>
             </button>
-            
+
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className={`${text} p-4 rounded-xl ${hoverBg} transition-all duration-300 hover:scale-110 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-[#00CC00]/50`}
@@ -92,8 +108,23 @@ function Navbar() {
         {isMenuOpen && (
           <div className="md:hidden">
             <div className={`px-4 pt-4 pb-6 space-y-3 ${bg} rounded-2xl mt-4 shadow-2xl border border-gray-200 dark:border-gray-700`}>
-              <Link 
-                to="/login" 
+              <Link
+                to="/technology"
+                className={`${text} block px-6 py-4 rounded-xl text-lg font-bold ${hoverBg} transition-all duration-300 hover:scale-105`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Technology
+              </Link>
+
+              <Link
+                to="/enterprise"
+                className={`${text} block px-6 py-4 rounded-xl text-lg font-bold ${hoverBg} transition-all duration-300 hover:scale-105`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Enterprise
+              </Link>
+              <Link
+                to="/login"
                 className={`${text} block px-6 py-4 rounded-xl text-lg font-bold ${hoverBg} transition-all duration-300 hover:scale-105 border-2 border-[#00CC00]`}
                 onClick={() => setIsMenuOpen(false)}
               >

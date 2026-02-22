@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
   userCode: {
     type: String,
     unique: true,
-    index: true,
+
     sparse: true,
     trim: true
   },
@@ -28,12 +28,12 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: function() {
+    required: function () {
       return !this.googleId; // Only required if not using Google OAuth
     },
     minlength: [8, 'Password must be at least 8 characters'],
     validate: {
-      validator: function(password) {
+      validator: function (password) {
         // Skip validation if password is already hashed (starts with $2a$ or $2b$)
         if (password.startsWith('$2a$') || password.startsWith('$2b$')) {
           return true;
@@ -71,6 +71,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['user', 'admin'],
     default: 'user'
+  },
+  preferredLanguage: {
+    type: String,
+    enum: ['ASL', 'ISL', 'BSL'],
+    default: 'ASL'
   },
   permissions: {
     manageUsers: {
@@ -116,7 +121,7 @@ const userSchema = new mongoose.Schema({
     },
     trialEndDate: {
       type: Date,
-      default: function() {
+      default: function () {
         // 14 days trial from now
         return new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
       }
@@ -306,7 +311,7 @@ const userSchema = new mongoose.Schema({
 });
 
 // Ensure a unique, readable userCode exists
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   if (this.userCode) return next();
   try {
     // Example: EA-<8 base36 chars>
@@ -331,29 +336,29 @@ userSchema.pre('save', async function(next) {
 });
 
 // Encrypt password before saving
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
     next();
   }
-  
+
   // Skip hashing if password is already hashed (starts with $2a$ or $2b$)
   if (this.password.startsWith('$2a$') || this.password.startsWith('$2b$')) {
     next();
     return;
   }
-  
+
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
 // Match user entered password to hashed password in database
-userSchema.methods.matchPassword = async function(enteredPassword) {
+userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
 // Generate and hash password token
-userSchema.methods.getResetPasswordToken = function() {
+userSchema.methods.getResetPasswordToken = function () {
   // Generate token
   const resetToken = crypto.randomBytes(20).toString('hex');
 
@@ -370,7 +375,7 @@ userSchema.methods.getResetPasswordToken = function() {
 };
 
 // Set permissions based on role
-userSchema.pre('save', function(next) {
+userSchema.pre('save', function (next) {
   if (this.isModified('role')) {
     switch (this.role) {
       case 'admin':

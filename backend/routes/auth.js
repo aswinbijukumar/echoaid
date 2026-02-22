@@ -1,5 +1,5 @@
 import express from 'express';
-import { 
+import {
   register,
   login,
   verifyEmail,
@@ -23,11 +23,11 @@ import {
   revokeSession,
   revokeAllSessions
 } from '../controllers/authController.js';
-import { protect } from '../middleware/auth.js';
-import { 
-  authRateLimit, 
-  otpRateLimit, 
-  passwordResetRateLimit 
+import { protect } from '../middleware/roleAuth.js';
+import {
+  authRateLimit,
+  otpRateLimit,
+  passwordResetRateLimit
 } from '../middleware/rateLimit.js';
 import {
   validateRegistration,

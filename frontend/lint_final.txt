@@ -1,0 +1,246 @@
+
+> frontend@0.0.0 lint
+> eslint . --fix
+
+
+D:\echoaid\frontend\src\components\AnimatedSkill.jsx
+  20:62  error  'userLevel' is defined but never used                                               no-unused-vars
+  26:9   error  'bg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\echoaid\frontend\src\components\BrowserRecognition.jsx
+  45:18  error  'e' is defined but never used  no-unused-vars
+
+D:\echoaid\frontend\src\components\DailyStreak.jsx
+  11:9  error    'bg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                           no-unused-vars
+  69:6  warning  React Hook useEffect has missing dependencies: 'dailyMessages', 'streakMessage', and 'streakMilestones'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\components\EnhancedQuiz.jsx
+   41:10  error    'combo' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                      no-unused-vars
+   42:10  error    'maxCombo' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                   no-unused-vars
+   48:11  error    'user' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                       no-unused-vars
+  214:6   warning  React Hook useCallback has a missing dependency: 'quiz'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\components\ErrorBoundary.jsx
+  9:35  error  'error' is defined but never used  no-unused-vars
+
+D:\echoaid\frontend\src\components\ExerciseRenderer.jsx
+  24:10  error  'isPlaying' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  28:9   error  'bg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u         no-unused-vars
+
+D:\echoaid\frontend\src\components\Flashcard.jsx
+  43:9  error  'bg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u      no-unused-vars
+  44:9  error  'text' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u    no-unused-vars
+  45:9  error  'border' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  46:9  error  'cardBg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\echoaid\frontend\src\components\LearningFlow.jsx
+   1:20  error  'useEffect' is defined but never used. Allowed unused vars must match /^[A-Z_]/u          no-unused-vars
+  12:3   error  'userProgress' is assigned a value but never used                                         no-unused-vars
+  14:11  error  'darkMode' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  15:11  error  'token' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+
+D:\echoaid\frontend\src\components\LearningModule.jsx
+   26:10  error    'isCompleted' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                            no-unused-vars
+   30:9   error    'levelOrder' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                             no-unused-vars
+   50:9   error    'bg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                     no-unused-vars
+   51:9   error    'text' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                   no-unused-vars
+  199:6   warning  React Hook useEffect has missing dependencies: 'level', 'quizScore', 'thresholds.easy', 'thresholds.medium', and 'totalQuestions'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\components\LearningProgression.jsx
+   7:3  error    'onProgressUpdate' is defined but never used                                                               no-unused-vars
+  85:6  warning  React Hook useEffect has a missing dependency: 'levels'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\components\LessonModal.jsx
+   26:10  error    'isPlaying' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                             no-unused-vars
+   39:6   warning  React Hook useEffect has a missing dependency: 'generateExercises'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  101:28  error    'type' is defined but never used                                                                                      no-unused-vars
+  109:34  error    'type' is defined but never used                                                                                      no-unused-vars
+  113:32  error    'type' is defined but never used                                                                                      no-unused-vars
+  177:9   error    'getExerciseTitle' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                      no-unused-vars
+
+D:\echoaid\frontend\src\components\LessonViewer.jsx
+  19:11  error    'user' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                 no-unused-vars
+  37:6   warning  React Hook useEffect has a missing dependency: 'fetchUnitLessons'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\components\LevelTree.jsx
+  23:42  error  'isOpen' is defined but never used  no-unused-vars
+
+D:\echoaid\frontend\src\components\MessagesNotification.jsx
+   35:9   error    'cardBg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                               no-unused-vars
+   87:14  error    'error' is defined but never used                                                                                    no-unused-vars
+  158:6   warning  React Hook useEffect has a missing dependency: 'fetchMessages'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
+  169:6   warning  React Hook useEffect has a missing dependency: 'fetchUnreadCount'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\components\PasswordStrength.jsx
+  7:11  error  'darkMode' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\echoaid\frontend\src\components\QuizCard.jsx
+   1:20  error  'useEffect' is defined but never used. Allowed unused vars must match /^[A-Z_]/u      no-unused-vars
+  33:9   error  'text' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\echoaid\frontend\src\components\QuizGenerator.jsx
+   31:9   error    'inputBg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                       no-unused-vars
+   75:15  error    'data' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                          no-unused-vars
+  150:6   warning  React Hook useEffect has a missing dependency: 'fetchAutoGeneratedQuizzes'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\components\SessionInstances.jsx
+  27:6  warning  React Hook useEffect has a missing dependency: 'fetchSessions'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\components\SessionSettings.jsx
+  15:11  error  'user' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\echoaid\frontend\src\components\Sidebar.jsx
+  69:42  error  'Icon' is defined but never used  no-unused-vars
+
+D:\echoaid\frontend\src\components\SignLearningChatbot.jsx
+   12:46  error  'isOpen' is defined but never used                                                            no-unused-vars
+  488:9   error  'splitToLines' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  580:14  error  'e' is defined but never used                                                                 no-unused-vars
+
+D:\echoaid\frontend\src\components\SignRecognition.jsx
+    14:10  error    'drawConnectors' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                      no-unused-vars
+    14:26  error    'drawLandmarks' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                       no-unused-vars
+  1215:24  warning  The ref value 'wsRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'wsRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\components\SignsManagement.jsx
+  68:6  warning  React Hook useEffect has a missing dependency: 'fetchSigns'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\components\SkillTree.jsx
+   1:20  error  'useEffect' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                no-unused-vars
+  22:59  error  'userLevel' is defined but never used                                                           no-unused-vars
+  24:10  error  'selectedRow' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  24:23  error  'setSelectedRow' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  27:9   error  'bg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u              no-unused-vars
+
+D:\echoaid\frontend\src\components\StreakNotification.jsx
+   14:9   error    'bg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                              no-unused-vars
+   15:9   error    'text' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                            no-unused-vars
+   16:9   error    'border' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                          no-unused-vars
+   27:6   warning  React Hook useEffect has a missing dependency: 'handleClose'. Either include it or remove the dependency array                  react-hooks/exhaustive-deps
+  160:10  error    Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+D:\echoaid\frontend\src\components\SubscriptionLimits.jsx
+  18:9  error    'bg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                          no-unused-vars
+  25:6  warning  React Hook useEffect has a missing dependency: 'fetchSubscriptionStatus'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\components\UnifiedLearning.jsx
+  36:10  error    'userStats' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                     no-unused-vars
+  36:21  error    'setUserStats' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                  no-unused-vars
+  48:6   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\components\UnitSelector.jsx
+  23:11  error  'user' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\echoaid\frontend\src\components\UserMessageForm.jsx
+   31:9   error  'bg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u       no-unused-vars
+   32:9   error  'text' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+   33:9   error  'cardBg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u   no-unused-vars
+   37:9   error  'hoverBg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  116:14  error  'error' is defined but never used                                                        no-unused-vars
+
+D:\echoaid\frontend\src\hooks\useUserStats.js
+  46:14  error  'e' is defined but never used  no-unused-vars
+
+D:\echoaid\frontend\src\pages\AdminDashboard.jsx
+  411:6   warning  React Hook useEffect has missing dependencies: 'fetchContentItems', 'fetchDashboardData', 'fetchPendingReviews', 'fetchUserStats', and 'fetchUsers'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  932:13  error    'result' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                   no-unused-vars
+
+D:\echoaid\frontend\src\pages\AdminMessages.jsx
+  23:11  error    'darkMode' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                          no-unused-vars
+  45:9   error    'cardBg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                            no-unused-vars
+  48:9   error    'glassHover' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                        no-unused-vars
+  55:6   warning  React Hook useEffect has a missing dependency: 'fetchMessages'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\pages\AdminProfile.jsx
+   37:10  error    'showEditProfile' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                       no-unused-vars
+   37:27  error    'setShowEditProfile' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                    no-unused-vars
+   66:5   error    'sessionInfo' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                           no-unused-vars
+   67:5   error    'isRefreshing' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                          no-unused-vars
+   68:5   error    'refreshSession' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                        no-unused-vars
+   77:9   error    'sidebarBg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                             no-unused-vars
+  113:14  error    'error' is defined but never used                                                                                     no-unused-vars
+  148:14  error    'error' is defined but never used                                                                                     no-unused-vars
+  173:14  error    'error' is defined but never used                                                                                     no-unused-vars
+  197:14  error    'error' is defined but never used                                                                                     no-unused-vars
+  315:6   warning  React Hook useEffect has a missing dependency: 'fetchUserSessions'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\pages\AdminSubscriptionPage.jsx
+  16:11  error  'user' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u    no-unused-vars
+  21:9   error  'bg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u      no-unused-vars
+  25:9   error  'border' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\echoaid\frontend\src\pages\Dashboard.jsx
+  180:6  warning  React Hook useEffect has a missing dependency: 'fetchSkillsData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\pages\EchoLinkChat.jsx
+  15:13  error    'user' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                no-unused-vars
+  47:8   warning  React Hook useEffect has a missing dependency: 'messages.length'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\pages\Enterprise.jsx
+  2:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\echoaid\frontend\src\pages\Home.jsx
+  1:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\echoaid\frontend\src\pages\Learn.jsx
+   29:11  error    'user' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                  no-unused-vars
+   56:6   warning  React Hook useEffect has a missing dependency: 'fetchUserProgress'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  102:6   warning  React Hook useEffect has a missing dependency: 'fetchUserProgress'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  397:14  error    'error' is defined but never used                                                                                     no-unused-vars
+  405:9   error    'handleUnitClick' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                       no-unused-vars
+  412:33  error    'result' is defined but never used                                                                                    no-unused-vars
+
+D:\echoaid\frontend\src\pages\PracticeNew.jsx
+  27:11  error  'user' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\echoaid\frontend\src\pages\PracticeOld.jsx
+  32:18  error    'logout' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                no-unused-vars
+  37:10  error    'practiceMode' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                          no-unused-vars
+  37:24  error    'setPracticeMode' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                       no-unused-vars
+  50:10  error    'recentSigns' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                           no-unused-vars
+  51:10  error    'weakSigns' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                             no-unused-vars
+  52:10  error    'dailyGoal' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                             no-unused-vars
+  54:10  error    'loading' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                               no-unused-vars
+  62:6   warning  React Hook useEffect has a missing dependency: 'fetchPracticeData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\echoaid\frontend\src\pages\Profile.jsx
+  47:10  error  'showEditProfile' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  47:27  error  'setShowEditProfile' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  70:9   error  'hoverBg' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u             no-unused-vars
+  72:9   error  'glassHover' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u          no-unused-vars
+
+D:\echoaid\frontend\src\pages\ResetPassword.jsx
+  5:10  error  'useAuth' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\echoaid\frontend\src\pages\Subscription.jsx
+  11:10  error  'error' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  16:11  error  'user' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u   no-unused-vars
+
+D:\echoaid\frontend\src\pages\TechShowcase.jsx
+  1:17  error  'useEffect' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  1:28  error  'useState' is defined but never used. Allowed unused vars must match /^[A-Z_]/u   no-unused-vars
+  2:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+
+D:\echoaid\frontend\src\pages\Translator.jsx
+   2:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                      no-unused-vars
+  20:12  error  'isSpeaking' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u         no-unused-vars
+  25:12  error  'signBuffer' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u         no-unused-vars
+  25:24  error  'setSignBuffer' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u      no-unused-vars
+  44:25  error  'interimTranscript' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\echoaid\frontend\src\utils\HandGeometry.js
+  109:9  error  'wrist' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\echoaid\frontend\src\utils\modernSessionManager.js
+  169:14  error  'error' is defined but never used  no-unused-vars
+  238:14  error  'error' is defined but never used  no-unused-vars
+
+D:\echoaid\frontend\src\utils\recognition.js
+  1:53  error  'imageData' is defined but never used  no-unused-vars
+
+D:\echoaid\frontend\src\utils\recognitionClient.js
+   8:11  error  Empty block statement  no-empty
+  23:11  error  Empty block statement  no-empty
+
+✖ 139 problems (116 errors, 23 warnings)
+

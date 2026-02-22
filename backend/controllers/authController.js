@@ -16,16 +16,14 @@ import { ENV_CONFIG } from '../config/prettyConfig.js';
 const FRONTEND_URL = ENV_CONFIG.FRONTEND_URL;
 const BACKEND_URL = ENV_CONFIG.BACKEND_URL;
 
-// Generate JWT Token
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+  return jwt.sign({ id }, ENV_CONFIG.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE || '24h'
   });
 };
 
-// Generate Refresh Token
 const generateRefreshToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+  return jwt.sign({ id }, ENV_CONFIG.JWT_SECRET, {
     expiresIn: process.env.JWT_REFRESH_EXPIRE || '7d'
   });
 };
@@ -66,34 +64,20 @@ export const register = async (req, res) => {
     if (!global.tempUsers) {
       global.tempUsers = new Map();
     }
-    
+
     const tempUserId = crypto.randomBytes(16).toString('hex');
     global.tempUsers.set(tempUserId, tempUserData);
 
     // Send verification email
-    const message = `
-Hello ${name || 'there'},
-
-Welcome to EchoAid! Please verify your email address by entering the following OTP:
-
-${otp}
-
-This OTP will expire in 10 minutes.
-
-If you didn't create an account with EchoAid, please ignore this email.
-
-Best regards,
-The EchoAid Team
-    `;
-
     try {
+      const { getVerificationEmail } = await import('../utils/emailTemplates.js');
       await sendEmail({
         email: email,
         subject: 'Verify your EchoAid account',
-        message
+        html: getVerificationEmail(name, otp)
       });
 
-  
+
 
       res.status(201).json({
         success: true,
@@ -104,7 +88,7 @@ The EchoAid Team
       logger.errorWithStack('Send email error', err, 'EMAIL');
       // Clean up temp data if email fails
       global.tempUsers.delete(tempUserId);
-      
+
       return res.status(500).json({
         success: false,
         message: 'Registration failed. Please check your email configuration.'
@@ -259,26 +243,12 @@ export const resendOTP = async (req, res) => {
     global.tempUsers.set(tempUserId, tempUserData);
 
     // Send verification email
-    const message = `
-Hello ${tempUserData.name || 'there'},
-
-Here's your new verification OTP for EchoAid:
-
-${otp}
-
-This OTP will expire in 10 minutes.
-
-If you didn't request this OTP, please ignore this email.
-
-Best regards,
-The EchoAid Team
-    `;
-
     try {
+      const { getVerificationEmail } = await import('../utils/emailTemplates.js');
       await sendEmail({
         email: tempUserData.email,
         subject: 'Your EchoAid verification OTP',
-        message
+        html: getVerificationEmail(tempUserData.name, otp)
       });
 
       res.status(200).json({
@@ -348,7 +318,7 @@ export const login = async (req, res) => {
       // Compute daily login streak based on previous lastLogin
       const prev = user.lastLogin ? new Date(user.lastLogin) : null;
       const today = new Date();
-      today.setHours(0,0,0,0);
+      today.setHours(0, 0, 0, 0);
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
 
@@ -358,7 +328,7 @@ export const login = async (req, res) => {
         user.learningStats.streak = Math.max(1, user.learningStats.streak || 0);
       } else {
         const prevDay = new Date(prev);
-        prevDay.setHours(0,0,0,0);
+        prevDay.setHours(0, 0, 0, 0);
         if (prevDay.getTime() === today.getTime()) {
           // Already logged in today: keep streak
         } else if (prevDay.getTime() === yesterday.getTime()) {
@@ -377,10 +347,10 @@ export const login = async (req, res) => {
     await user.save();
 
     const token = generateToken(user._id);
-    
+
     // Create secure session
     const session = await sessionSecurity.createSession(user._id, req);
-    
+
     res.status(200).json({
       success: true,
       token,
@@ -450,7 +420,7 @@ export const googleAuthInitiate = async (req, res) => {
 export const googleAuthCallback = async (req, res) => {
   try {
     const { code } = req.query;
-    
+
     if (!code) {
       return res.redirect(`${FRONTEND_URL}/login?error=google_auth_failed`);
     }
@@ -499,7 +469,7 @@ export const googleAuthCallback = async (req, res) => {
       userData = await resp.json();
     }
     const { email, name, picture, id: googleId } = userData;
-    
+
     // Check if user exists
     let user = await User.findOne({ email });
 
@@ -511,24 +481,30 @@ export const googleAuthCallback = async (req, res) => {
       await user.save();
     } else {
       // Create new user
+      // Generate a compliant password (uppercase, lowercase, number, special char)
+      const randomPassword = crypto.randomBytes(16).toString('hex') + 'A1!';
+
       user = await User.create({
         name,
         email,
         googleId,
         avatar: picture,
         isEmailVerified: true,
-        password: crypto.randomBytes(32).toString('hex') // Generate random password for Google users
+        password: randomPassword
       });
     }
 
     // Generate token
     const jwtToken = generateToken(user._id);
 
-    // Redirect to frontend with token and notice
-    res.redirect(`${FRONTEND_URL}/auth/google/success?token=${jwtToken}&notice=login_success`);
+    // Create session to get refresh token
+    const session = await sessionSecurity.createSession(user._id, req);
+
+    // Redirect to frontend with token and refresh token
+    res.redirect(`${FRONTEND_URL}/auth/google/success?token=${jwtToken}&refreshToken=${session.refreshToken}&notice=login_success`);
   } catch (error) {
     console.error('Google OAuth callback error:', error);
-    
+
     // Provide more specific error messages
     let errorMessage = 'google_auth_failed';
     if (error.message.includes('invalid_client')) {
@@ -538,7 +514,7 @@ export const googleAuthCallback = async (req, res) => {
     } else if (error.message.includes('network')) {
       errorMessage = 'google_network_error';
     }
-    
+
     res.redirect(`${FRONTEND_URL}/login?error=${errorMessage}`);
   }
 };
@@ -566,28 +542,12 @@ export const forgotPassword = async (req, res) => {
     // Create reset url
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-    const message = `
-Hello,
-
-You are receiving this email because you (or someone else) has requested the reset of your EchoAid password.
-
-Please click the link below to reset your password:
-
-${resetUrl}
-
-This link will expire in 1 hour.
-
-If you did not request this password reset, please ignore this email and your password will remain unchanged.
-
-Best regards,
-The EchoAid Team
-    `;
-
     try {
+      const { getResetPasswordEmail } = await import('../utils/emailTemplates.js');
       await sendEmail({
         email: user.email,
-        subject: 'Password reset token',
-        message
+        subject: 'Reset Your Password - EchoAid',
+        html: getResetPasswordEmail(user.name, resetUrl)
       });
 
       res.status(200).json({
@@ -744,10 +704,10 @@ export const verify2FALogin = async (req, res) => {
     user.lastLogin = Date.now();
     await user.save();
     const jwtToken = generateToken(user._id);
-    
+
     // Create secure session
     const session = await sessionSecurity.createSession(user._id, req);
-    
+
     return res.status(200).json({
       success: true,
       token: jwtToken,
@@ -792,7 +752,7 @@ export const getMe = async (req, res) => {
           longestStreak: user.learningStats?.longestStreak || 0,
           totalXP: user.learningStats?.totalXP || 0,
           level: user.learningStats?.level || 1,
-          xpToNextLevel: user.learningStats?.xpToNextLevel ?? Math.max(0, ((Math.floor((user.learningStats?.totalXP || 0) / 1000) + 1) * 1000) - (user.learningStats?.totalXP || 0)),
+          xpToNextLevel: user.learningStats?.xpToNextLevel ?? Math.max(0, ((Math.floor((user.learningStats?.totalXP || 0) / 200) + 1) * 200) - (user.learningStats?.totalXP || 0)),
           quizzesCompleted: user.learningStats?.quizzesCompleted || 0,
           perfectQuizzes: user.learningStats?.perfectQuizzes || 0,
           averageQuizScore: user.learningStats?.averageQuizScore || 0,
@@ -821,9 +781,9 @@ export const getMe = async (req, res) => {
       message: 'Server error'
     });
   }
-}; 
+};
 
- 
+
 
 // @desc    Update profile photo
 // @route   PUT /api/auth/profile-photo
@@ -913,7 +873,7 @@ export const removeProfilePhoto = async (req, res) => {
       message: 'Server error'
     });
   }
-}; 
+};
 
 // @desc    Update privacy settings
 // @route   PUT /api/auth/privacy
@@ -967,7 +927,7 @@ export const updateNotifications = async (req, res) => {
 export const refreshToken = async (req, res) => {
   try {
     const { refreshToken } = req.body;
-    
+
     if (!refreshToken) {
       return res.status(401).json({
         success: false,
@@ -977,7 +937,7 @@ export const refreshToken = async (req, res) => {
 
     // Validate refresh token
     const session = await sessionSecurity.validateRefreshToken(refreshToken);
-    
+
     if (!session) {
       return res.status(401).json({
         success: false,
@@ -986,7 +946,7 @@ export const refreshToken = async (req, res) => {
     }
 
     const user = session.userId;
-    
+
     if (!user.isActive) {
       await sessionSecurity.revokeSession(refreshToken);
       return res.status(401).json({
@@ -1011,7 +971,7 @@ export const refreshToken = async (req, res) => {
 
     // Generate new access token
     const newToken = generateToken(user._id);
-    
+
     res.status(200).json({
       success: true,
       token: newToken,
@@ -1040,11 +1000,11 @@ export const refreshToken = async (req, res) => {
 export const logout = async (req, res) => {
   try {
     const { refreshToken } = req.body;
-    
+
     if (refreshToken) {
       await sessionSecurity.revokeSession(refreshToken);
     }
-    
+
     res.status(200).json({
       success: true,
       message: 'Logged out successfully'
@@ -1064,7 +1024,7 @@ export const logout = async (req, res) => {
 export const getUserSessions = async (req, res) => {
   try {
     const sessions = await sessionSecurity.getUserSessions(req.user._id);
-    
+
     res.status(200).json({
       success: true,
       data: sessions.map(session => ({
@@ -1090,12 +1050,12 @@ export const getUserSessions = async (req, res) => {
 export const revokeSession = async (req, res) => {
   try {
     const { sessionId } = req.params;
-    
+
     await UserSession.findOneAndUpdate(
       { _id: sessionId, userId: req.user._id },
       { isActive: false }
     );
-    
+
     res.status(200).json({
       success: true,
       message: 'Session revoked successfully'
@@ -1115,7 +1075,7 @@ export const revokeSession = async (req, res) => {
 export const revokeAllSessions = async (req, res) => {
   try {
     await sessionSecurity.revokeAllUserSessions(req.user._id);
-    
+
     res.status(200).json({
       success: true,
       message: 'All sessions revoked successfully'

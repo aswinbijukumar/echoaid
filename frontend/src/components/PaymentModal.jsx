@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContextConstants';
 import { useTheme } from '../hooks/useTheme';
 import { API_BASE_URL } from '../constants/api';
-import { 
+import {
   CreditCardIcon,
   CheckCircleIcon,
   XCircleIcon,
@@ -28,25 +28,25 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, billingCyc
     try {
       setLoading(true);
       setError(null);
-      
+
       // Check if Razorpay is loaded
       if (!window.Razorpay) {
         throw new Error('Razorpay script not loaded. Please refresh the page.');
       }
-      
+
       // Create Razorpay order
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('Authentication token not found. Please log in again.');
       }
-      
+
       console.log('Creating Razorpay order with:', {
         amount: selectedPlan?.price?.[billingCycle] || getPlanPrice(selectedPlan?.id, billingCycle),
         currency: 'INR',
         plan: selectedPlan?.id,
         billingCycle: billingCycle
       });
-      
+
       const response = await fetch(`${API_BASE_URL}/api/subscription/create-order`, {
         method: 'POST',
         headers: {
@@ -68,7 +68,7 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, billingCyc
 
       const orderData = await response.json();
       console.log('Order created successfully:', orderData);
-      
+
       // Initialize Razorpay
       const options = {
         key: orderData.data.key,
@@ -118,7 +118,7 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, billingCyc
           color: '#00CC00'
         },
         modal: {
-          ondismiss: function() {
+          ondismiss: function () {
             setLoading(false);
             setError('Payment cancelled by user');
             setPaymentStatus('failed');
@@ -128,7 +128,7 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, billingCyc
 
       const razorpay = new window.Razorpay(options);
       razorpay.open();
-      
+
     } catch (err) {
       console.error('Payment initialization error:', err);
       setError(err.message);
@@ -136,6 +136,19 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, billingCyc
       setLoading(false);
     }
   }, [selectedPlan, billingCycle, _user, onSuccess]);
+
+  useEffect(() => {
+    // Manage body scroll
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     console.log('PaymentModal useEffect - isOpen:', isOpen, 'selectedPlan:', selectedPlan);

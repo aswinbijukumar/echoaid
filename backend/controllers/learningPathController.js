@@ -236,12 +236,12 @@ export const getCurrentLesson = async (req, res) => {
       // Find next available lesson
       const learningPath = await LearningPath.findById(pathId).populate('units');
       const nextLesson = findNextAvailableLesson(learningPath, userPathProgress);
-      
+
       if (nextLesson) {
         // Update user progress to next lesson
         userPathProgress.currentLesson = nextLesson._id;
         await userProgress.save();
-        
+
         const lessonWithExercises = await Lesson.findById(nextLesson._id)
           .populate('exercises', 'title type difficulty content xpReward order')
           .populate('signs', 'word category coverImage');
@@ -284,6 +284,16 @@ export const completeExercise = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Exercise not found'
+      });
+    }
+
+    // SECURITY CHECK: Prevent instant completion exploits
+    // Minimum reasonable time: 5 seconds (unless it's a very simple flashcard, but even then)
+    if (timeSpent < 5 && exercise.type !== 'flashcard') {
+      logger.warn(`Suspicious activity: User ${userId} completed exercise ${exerciseId} in ${timeSpent}s`, null, 'SECURITY');
+      return res.status(400).json({
+        success: false,
+        message: 'Exercise completed too quickly. Please review the material properly.'
       });
     }
 
@@ -348,16 +358,16 @@ export const completeExercise = async (req, res) => {
     // Update daily goals
     const today = new Date().toDateString();
     const lastReset = new Date(userProgress.dailyGoals.lastResetDate).toDateString();
-    
+
     if (today !== lastReset) {
       userProgress.dailyGoals.current = 0;
       userProgress.dailyGoals.lastResetDate = new Date();
     }
-    
+
     userProgress.dailyGoals.current += 1;
 
     // Check for level up
-    const newLevel = Math.floor(userProgress.overall.totalXP / 1000) + 1;
+    const newLevel = Math.floor(userProgress.overall.totalXP / 200) + 1;
     const leveledUp = newLevel > userProgress.overall.level;
     userProgress.overall.level = newLevel;
 
@@ -365,7 +375,7 @@ export const completeExercise = async (req, res) => {
     const lastActive = new Date(userProgress.overall.lastActiveDate);
     const todayDate = new Date();
     const daysDiff = Math.floor((todayDate - lastActive) / (1000 * 60 * 60 * 24));
-    
+
     if (daysDiff === 1) {
       userProgress.overall.streak += 1;
       userProgress.overall.maxStreak = Math.max(userProgress.overall.maxStreak, userProgress.overall.streak);
@@ -456,58 +466,58 @@ export const completeExercise = async (req, res) => {
 // Helper functions
 const checkLearningPathPrerequisites = (learningPath, userProgress) => {
   if (!userProgress) return learningPath.order === 1;
-  
+
   // Check prerequisites
   const completedPathIds = userProgress.learningPaths
     .filter(lp => lp.completedAt)
     .map(lp => lp.learningPath.toString());
-  
-  const hasPrerequisites = learningPath.prerequisites.every(prereq => 
+
+  const hasPrerequisites = learningPath.prerequisites.every(prereq =>
     completedPathIds.includes(prereq.toString())
   );
-  
+
   // Check level and XP requirements
   const meetsLevel = userProgress.overall.level >= learningPath.unlockRequirements.minLevel;
   const meetsXP = userProgress.overall.totalXP >= learningPath.unlockRequirements.minXP;
-  
+
   return hasPrerequisites && meetsLevel && meetsXP;
 };
 
 const checkUnitUnlock = (unit, userPathProgress) => {
   if (!userPathProgress) return unit.order === 1;
-  
+
   // Check prerequisites
   const completedUnitIds = userPathProgress.completedUnits.map(cu => cu.unit.toString());
-  const hasPrerequisites = unit.prerequisites.every(prereq => 
+  const hasPrerequisites = unit.prerequisites.every(prereq =>
     completedUnitIds.includes(prereq.toString())
   );
-  
+
   return hasPrerequisites;
 };
 
 const checkLessonUnlock = (lesson, userPathProgress, unit) => {
   if (!userPathProgress) return lesson.order === 1;
-  
+
   // Check prerequisites
   const completedLessonIds = userPathProgress.completedLessons.map(cl => cl.lesson.toString());
-  const hasPrerequisites = lesson.prerequisites.every(prereq => 
+  const hasPrerequisites = lesson.prerequisites.every(prereq =>
     completedLessonIds.includes(prereq.toString())
   );
-  
+
   return hasPrerequisites;
 };
 
 const findNextAvailableLesson = (learningPath, userPathProgress) => {
   const completedLessonIds = userPathProgress.completedLessons.map(cl => cl.lesson.toString());
-  
+
   for (const unit of learningPath.units) {
     for (const lesson of unit.lessons) {
-      if (!completedLessonIds.includes(lesson._id.toString()) && 
-          checkLessonUnlock(lesson, userPathProgress, unit)) {
+      if (!completedLessonIds.includes(lesson._id.toString()) &&
+        checkLessonUnlock(lesson, userPathProgress, unit)) {
         return lesson;
       }
     }
   }
-  
+
   return null;
 };

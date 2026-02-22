@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContextConstants';
 import { useTheme } from '../hooks/useTheme';
 import { CheckIcon, XMarkIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import PaymentModal from '../components/PaymentModal';
+import { apiUrl, withAuth } from '../constants/api';
 
 export default function Subscription() {
   const [subscription, setSubscription] = useState(null);
@@ -12,7 +13,7 @@ export default function Subscription() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [billingCycle, setBillingCycle] = useState('monthly');
-  
+
   const { user, refreshUser } = useAuth();
   const { darkMode } = useTheme();
   const navigate = useNavigate();
@@ -88,13 +89,7 @@ export default function Subscription() {
 
   const fetchSubscription = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/subscription', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await fetch(apiUrl('/subscription'), withAuth());
 
       if (response.ok) {
         const data = await response.json();
@@ -120,7 +115,7 @@ export default function Subscription() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/subscription/cancel', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/subscription/cancel`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -191,20 +186,19 @@ export default function Subscription() {
               <div>
                 <h3 className="text-xl font-semibold">{getCurrentPlan().name}</h3>
                 <p className="text-gray-400">
-                  {subscription.status === 'trial' 
+                  {subscription.status === 'trial'
                     ? `Trial ends in ${getTrialDaysLeft()} days`
                     : subscription.status === 'active' && subscription.subscriptionEndDate
-                    ? `Active until ${new Date(subscription.subscriptionEndDate).toLocaleDateString()}`
-                    : 'Subscription expired'
+                      ? `Active until ${new Date(subscription.subscriptionEndDate).toLocaleDateString()}`
+                      : 'Subscription expired'
                   }
                 </p>
               </div>
               <div className="flex items-center space-x-4">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  subscription.status === 'active' ? 'bg-green-100 text-green-800' :
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${subscription.status === 'active' ? 'bg-green-100 text-green-800' :
                   subscription.status === 'trial' ? 'bg-blue-100 text-blue-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
+                    'bg-red-100 text-red-800'
+                  }`}>
                   {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
                 </span>
                 {subscription.status === 'active' && (
@@ -225,21 +219,19 @@ export default function Subscription() {
           <div className={`${cardBg} p-1 rounded-lg border ${border}`}>
             <button
               onClick={() => setBillingCycle('monthly')}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                billingCycle === 'monthly' 
-                  ? 'bg-[#00CC00] text-white' 
-                  : 'text-gray-400 hover:text-white'
-              }`}
+              className={`px-4 py-2 rounded-md transition-colors ${billingCycle === 'monthly'
+                ? 'bg-[#00CC00] text-white'
+                : 'text-gray-400 hover:text-white'
+                }`}
             >
               Monthly
             </button>
             <button
               onClick={() => setBillingCycle('yearly')}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                billingCycle === 'yearly' 
-                  ? 'bg-[#00CC00] text-white' 
-                  : 'text-gray-400 hover:text-white'
-              }`}
+              className={`px-4 py-2 rounded-md transition-colors ${billingCycle === 'yearly'
+                ? 'bg-[#00CC00] text-white'
+                : 'text-gray-400 hover:text-white'
+                }`}
             >
               Yearly
               <span className="ml-1 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
@@ -254,13 +246,12 @@ export default function Subscription() {
           {subscriptionPlans.map((plan) => {
             const isCurrentPlan = subscription?.plan === plan.id;
             const isFree = plan.id === 'free';
-            
+
             return (
               <div
                 key={plan.id}
-                className={`${cardBg} rounded-2xl p-8 border ${border} relative ${
-                  plan.popular ? 'ring-2 ring-[#00CC00]' : ''
-                } ${isCurrentPlan ? 'opacity-75' : ''}`}
+                className={`${cardBg} rounded-2xl p-8 border ${border} relative ${plan.popular ? 'ring-2 ring-[#00CC00]' : ''
+                  } ${isCurrentPlan ? 'opacity-75' : ''}`}
               >
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
@@ -311,15 +302,14 @@ export default function Subscription() {
                 <button
                   onClick={() => handleUpgrade(plan)}
                   disabled={isCurrentPlan || isFree}
-                  className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
-                    isCurrentPlan
-                      ? 'bg-gray-400 text-white cursor-not-allowed'
-                      : isFree
+                  className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${isCurrentPlan
+                    ? 'bg-gray-400 text-white cursor-not-allowed'
+                    : isFree
                       ? 'bg-gray-600 text-white cursor-not-allowed'
                       : plan.popular
-                      ? 'bg-[#00CC00] text-white hover:bg-[#00AA00]'
-                      : 'bg-gray-600 text-white hover:bg-gray-700'
-                  }`}
+                        ? 'bg-[#00CC00] text-white hover:bg-[#00AA00]'
+                        : 'bg-gray-600 text-white hover:bg-gray-700'
+                    }`}
                 >
                   {isCurrentPlan ? 'Current Plan' : isFree ? 'Free Forever' : 'Upgrade Now'}
                 </button>

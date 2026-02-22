@@ -1,414 +1,233 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContextConstants';
-import LearningProgression from './LearningProgression';
+import SignRecognition from './SignRecognition'; // Integrated the ML Component
+import { ArrowLeftIcon, SignalIcon, ClockIcon, TrophyIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api`;
 
-export default function LearningFlow({ 
-  selectedSign, 
-  onBack, 
-  userProgress = {} 
+export default function LearningFlow({
+  selectedSign,
+  onBack,
+  onComplete, // New prop for completion callback
+  userProgress = {}
 }) {
   const { darkMode } = useTheme();
   const { token } = useAuth();
-  
-  // Learning flow states (level-based)
-  const [currentStep, setCurrentStep] = useState('easy'); // 'easy', 'medium', 'hard'
+
+  const [currentStep, setCurrentStep] = useState('easy'); // easy -> medium -> hard
   const [sessionData, setSessionData] = useState({
     attempts: [],
     startTime: new Date(),
     bestScore: 0,
-    averageScore: 0,
-    totalTime: 0
+    averageScore: 0
   });
-  const [isActive, setActive] = useState(false);
+
   const [recognitionResult, setRecognitionResult] = useState(null);
-  const [showProgression, setShowProgression] = useState(false);
-  const [userStats, setUserStats] = useState({
-    practiceCount: 0,
-    accuracy: 0,
-    bestScore: 0,
-    level: 1
-  });
 
-  // Initialize user stats
-  useEffect(() => {
-    if (selectedSign && userProgress[selectedSign._id]) {
-      setUserStats(userProgress[selectedSign._id]);
-    }
-  }, [selectedSign, userProgress]);
-
+  // --- Session Logic ---
   const handleRecognition = (result) => {
-    const newAttempt = {
-      id: Date.now(),
-      timestamp: new Date(),
-      confidence: result.confidence,
-      isCorrect: result.isCorrect,
-      feedback: result.feedback,
-      landmarks: result.landmarks,
-      improvements: result.improvements
-    };
+    // Only process valid results
+    if (!result || !result.confidence) return;
 
+    setRecognitionResult(result);
+
+    // Update Session Stats
     setSessionData(prev => {
-      const newAttempts = [...prev.attempts, newAttempt];
+      const newAttempts = [...prev.attempts, result];
       const scores = newAttempts.map(a => a.confidence);
-      const bestScore = Math.max(...scores);
-      const averageScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-
       return {
         ...prev,
         attempts: newAttempts,
-        bestScore,
-        averageScore: Math.round(averageScore),
-        totalTime: Math.round((new Date() - prev.startTime) / 1000)
+        bestScore: Math.max(prev.bestScore, result.confidence),
+        averageScore: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
       };
     });
 
-    setRecognitionResult(result);
-    
-    // Auto-advance between levels if score is good
-    if (currentStep === 'easy' && result.confidence >= 70) {
-      setTimeout(() => {
-        setCurrentStep('medium');
-      }, 2000);
-    } else if (currentStep === 'medium' && result.confidence >= 85) {
-      setTimeout(() => {
-        setCurrentStep('hard');
-      }, 2000);
+    // Auto-advance Logic (Simple Gamification)
+    if (result.isCorrect) {
+      if (currentStep === 'easy' && result.confidence > 80) setTimeout(() => setCurrentStep('medium'), 1500);
+      if (currentStep === 'medium' && result.confidence > 90) setTimeout(() => setCurrentStep('hard'), 1500);
     }
-  };
-
-  const getStepTitle = () => {
-    switch (currentStep) {
-      case 'easy': return 'Level 1: Easy';
-      case 'medium': return 'Level 2: Medium';
-      case 'hard': return 'Level 3: Hard';
-      default: return 'Level 1: Easy';
-    }
-  };
-
-  const getStepDescription = () => {
-    switch (currentStep) {
-      case 'easy': return 'Start with a simple attempt of ' + selectedSign.word + ' (basic clarity).';
-      case 'medium': return 'Increase accuracy and steadiness for better recognition.';
-      case 'hard': return 'Aim for high precision and consistency (advanced mastery).';
-      default: return 'Start with a simple attempt of ' + selectedSign.word + '.';
-    }
-  };
-
-  const getStepIcon = () => {
-    switch (currentStep) {
-      case 'easy': return '🟢';
-      case 'medium': return '🟡';
-      case 'hard': return '🔴';
-      default: return '🟢';
-    }
-  };
-
-  const getProgressPercentage = () => {
-    const totalSteps = 3;
-    const currentStepIndex = ['easy', 'medium', 'hard'].indexOf(currentStep);
-    return ((currentStepIndex + 1) / totalSteps) * 100;
-  };
-
-  const handleStepChange = (step) => {
-    setCurrentStep(step);
-    setRecognitionResult(null);
   };
 
   const handleComplete = async () => {
-    // Update user progress
-    const signId = selectedSign._id;
-    const newProgress = {
-      ...userProgress,
-      [signId]: {
-        practiceCount: (userProgress[signId]?.practiceCount || 0) + sessionData.attempts.length,
-        accuracy: sessionData.averageScore,
-        bestScore: Math.max(userProgress[signId]?.bestScore || 0, sessionData.bestScore),
-        lastPractice: new Date(),
-        level: sessionData.bestScore >= 90 ? 4 : sessionData.bestScore >= 75 ? 3 : sessionData.bestScore >= 60 ? 2 : 1
-      }
-    };
-    
-    // Save progress to backend
+    // Save all valid attempts to backend
     try {
-      await fetch(`${API_BASE_URL}/practice/progress`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          signId,
-          progress: newProgress[signId]
-        })
-      });
+      if (sessionData.attempts.length > 0) {
+        // We can save the best attempt or all of them. For now, let's save the best one if it's good enough
+        // or just mark the session complete if we have a robust session endpoint.
+        // Since we only have /practice/attempt, let's save the best successful result.
+
+        const bestAttempt = sessionData.attempts.reduce((prev, current) =>
+          (prev.confidence > current.confidence) ? prev : current
+          , sessionData.attempts[0]);
+
+        if (bestAttempt && (bestAttempt.isCorrect || bestAttempt.confidence > 0.8)) {
+          await fetch(`${API_BASE_URL}/practice/attempt`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              signId: selectedSign._id || selectedSign.id,
+              word: selectedSign.word,
+              correct: true,
+              confidence: bestAttempt.confidence,
+              mode: 'webcam-flow'
+            })
+          });
+        }
+      }
     } catch (error) {
-      console.error('Failed to save progress:', error);
+      console.error("Failed to save session:", error);
+    } finally {
+      // Notify parent to refresh data
+      if (userProgress && userProgress.onRefresh) {
+        userProgress.onRefresh();
+      }
+      if (onComplete) {
+        onComplete();
+      }
+      onBack(true); // associated with refresh
     }
-    
-    onBack();
   };
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-[#1A1A1A]' : 'bg-white'} ${darkMode ? 'text-white' : 'text-[#23272F]'}`}>
-      {/* Top Status Bar */}
-      <div className={`${darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100'} border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'} px-4 py-3`}>
-        <div className="flex items-center justify-between max-w-6xl mx-auto">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={onBack}
-              className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"
-            >
-              <span>←</span>
-              <span>Back to Learning</span>
-            </button>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <span className="font-semibold">7</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="font-semibold">1250</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="font-semibold">5</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="font-semibold">User</span>
-            </div>
-          </div>
+    <div className={`min-h-screen relative text-white bg-transparent p-6`}>
+      {/* BACKGROUND IS HANDLED BY APP CONTENT (StarField) */}
+
+      {/* Header (Floating Glass) */}
+      <div className="absolute top-6 left-6 right-6 z-20 flex justify-between items-center">
+        <button
+          onClick={onBack}
+          className="px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full hover:bg-white/20 transition-all flex items-center gap-2"
+        >
+          <ArrowLeftIcon className="w-5 h-5" />
+          Back
+        </button>
+
+        <div className="px-6 py-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full font-mono text-blue-300">
+          Target: <span className="text-white font-bold text-xl ml-2">{selectedSign.word}</span>
         </div>
+
+        <button
+          onClick={handleComplete}
+          className="px-4 py-2 bg-green-500/80 backdrop-blur-md rounded-full hover:bg-green-500 transition-all font-bold shadow-[0_0_15px_rgba(34,197,94,0.4)]"
+        >
+          Complete Session
+        </button>
       </div>
 
-      <div className="flex">
-        {/* Fixed Left Sidebar - Navigation */}
-        <div className="w-64 bg-[#1A1A1A] border-r border-gray-700">
-          <div className="p-6">
-            <div className="text-center">
-              <h2 className="text-xl font-bold text-white mb-2">{selectedSign.word}</h2>
-              <p className="text-gray-400 text-sm">{selectedSign.category}</p>
+      {/* Main Content Grid */}
+      <div className="flex h-[85vh] mt-20 gap-6">
+
+        {/* LEFT PANEL: Instructions & Steps */}
+        <div className="w-1/4 flex flex-col gap-4">
+          {/* Step Card */}
+          <div className="bg-black/30 backdrop-blur-xl border border-white/10 rounded-2xl p-6 flex-1 relative overflow-hidden group hover:border-blue-500/50 transition-colors">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+            <h3 className="text-gray-400 uppercase text-xs font-bold tracking-wider mb-2">Current Level</h3>
+            <div className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-white mb-4">
+              {currentStep.toUpperCase()}
+            </div>
+
+            <div className="space-y-4">
+              <StepIndicator step="easy" current={currentStep} label="1. Basic Shape" />
+              <StepIndicator step="medium" current={currentStep} label="2. Hold Steady" />
+              <StepIndicator step="hard" current={currentStep} label="3. Perfect Angle" />
+            </div>
+
+            <div className="mt-8 p-4 bg-white/5 rounded-xl border border-white/5">
+              <p className="text-sm text-gray-300 leading-relaxed">
+                {currentStep === 'easy' && "Focus on getting the general hand shape correct. Don't worry about perfect angles yet."}
+                {currentStep === 'medium' && "Hold the sign steady for at least 3 seconds. Watch your finger alignment."}
+                {currentStep === 'hard' && "Perfect your rotation and finger spacing. You need >90% accuracy."}
+              </p>
+            </div>
+          </div>
+
+          {/* Stats Mini Cards */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-4 text-center">
+              <SignalIcon className="w-6 h-6 text-green-400 mx-auto mb-2" />
+              <div className="text-2xl font-bold">{sessionData.bestScore}%</div>
+              <div className="text-xs text-gray-500">Best Accuracy</div>
+            </div>
+            <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-4 text-center">
+              <TrophyIcon className="w-6 h-6 text-yellow-400 mx-auto mb-2" />
+              <div className="text-2xl font-bold">{sessionData.attempts.length}</div>
+              <div className="text-xs text-gray-500">Attempts</div>
             </div>
           </div>
         </div>
 
-        {/* Main Content Area with Left Margin */}
-        <div className={`flex-1 ml-64 ${darkMode ? 'bg-[#1A1A1A]' : 'bg-white'}`}>
-          <div className="max-w-7xl mx-auto">
-            <div className="flex">
-              {/* Main Content */}
-              <div className="flex-1 p-6">
-                {/* Section Header */}
-                <div className="bg-green-500 text-white p-4 rounded-lg mb-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div>
-                        <h1 className="text-sm font-medium">LEARNING SESSION</h1>
-                        <h2 className="text-xl font-bold">Practice "{selectedSign.word}"</h2>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-4">
-                      <button
-                        onClick={() => setShowProgression(!showProgression)}
-                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                      >
-                        {showProgression ? 'Hide' : 'Show'} Progress
-                      </button>
-                      <button
-                        onClick={handleComplete}
-                        className="px-4 py-2 bg-white text-green-500 rounded-lg hover:bg-gray-100 transition-colors"
-                      >
-                        Complete
-                      </button>
-                    </div>
-                  </div>
+        {/* CENTER PANEL: Camera / ML */}
+        <div className="flex-1 bg-black/50 backdrop-blur-sm rounded-3xl border border-white/10 overflow-hidden relative shadow-2xl">
+          {/* The Recognition Component */}
+          <div className="h-full w-full flex flex-col">
+            <SignRecognition
+              targetSign={selectedSign}
+              onRecognition={handleRecognition}
+              mode="webcam"
+            />
+          </div>
+        </div>
+
+        {/* RIGHT PANEL: Live Feedback */}
+        <div className="w-1/4 flex flex-col gap-4">
+          <div className="bg-black/30 backdrop-blur-xl border border-white/10 rounded-2xl p-6 h-full relative overflow-hidden">
+            <h3 className="text-gray-400 uppercase text-xs font-bold tracking-wider mb-4">AI Tutor Feedback</h3>
+
+            {recognitionResult ? (
+              <div className="animate-fade-in">
+                <div className={`text-4xl font-bold mb-2 ${recognitionResult.isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                  {recognitionResult.isCorrect ? 'Perfect!' : 'Adjust...'}
                 </div>
+                <div className="text-6xl font-mono opacity-20 absolute top-4 right-4">{recognitionResult.confidence}</div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-                  {/* Main Learning Area */}
-                  <div className="lg:col-span-2 space-y-6">
-                    {/* Progress Steps */}
-                    <div className={`${darkMode ? 'bg-[#23272F]' : 'bg-gray-50'} rounded-lg border ${darkMode ? 'border-gray-600' : 'border-gray-300'} p-6`}>
-                      <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold">{getStepTitle()}</h2>
-                        <span className="text-2xl">{getStepIcon()}</span>
-                      </div>
-                      
-                      <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-6`}>
-                        {getStepDescription()}
-                      </p>
-
-                      {/* Step Progress */}
-                      <div className="mb-6">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm font-medium">Progress</span>
-                          <span className="text-sm">{Math.round(getProgressPercentage())}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="h-2 bg-gradient-to-r from-blue-500 to-green-500 rounded-full transition-all duration-500"
-                            style={{ width: `${getProgressPercentage()}%` }}
-                          ></div>
-                        </div>
-                      </div>
-
-                      {/* Level Navigation */}
-                      <div className="flex space-x-2">
-                        {['easy', 'medium', 'hard'].map((step, index) => (
-                          <button
-                            key={step}
-                            onClick={() => handleStepChange(step)}
-                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                              currentStep === step
-                                ? 'bg-green-500 text-white'
-                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                            }`}
-                          >
-                            {step.charAt(0).toUpperCase() + step.slice(1)}
-                          </button>
-                        ))}
-                      </div>
+                <div className="mt-6 space-y-3">
+                  {recognitionResult.feedback && (
+                    <div className="p-3 bg-white/5 border-l-4 border-blue-500 rounded-r-lg">
+                      <p className="text-lg text-blue-200">{recognitionResult.feedback}</p>
                     </div>
+                  )}
 
-                    {/* Sign Display */}
-                    <div className={`${darkMode ? 'bg-[#23272F]' : 'bg-gray-50'} rounded-lg border ${darkMode ? 'border-gray-600' : 'border-gray-300'} p-0`}>
-                      <div className="flex">
-                        {['webcam','upload'].map(tab => (
-                          <button
-                            key={tab}
-                            onClick={() => setActive(true)}
-                            className={`flex-1 py-3 md:py-4 text-sm md:text-base font-semibold rounded-t-lg bg-green-500 text-white`}
-                          >
-                            {tab === 'webcam' ? '📹 Webcam' : '📷 Upload'}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="p-6">
-                        <div className="text-center mb-6">
-                          <div className="text-8xl mb-4">🤟</div>
-                          <h3 className="text-3xl font-bold text-green-500 mb-2">
-                            {selectedSign.word}
-                          </h3>
-                          <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                            Show this sign to the camera or upload an image
-                          </p>
-                        </div>
-
-                        {/* Sign Recognition */}
-                        <div className="text-center">
-                          <div className="w-64 h-48 bg-gray-200 dark:bg-gray-700 rounded-lg mx-auto mb-4 flex items-center justify-center">
-                            <span className="text-gray-500">Camera Preview</span>
-                          </div>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Sign recognition will be available when camera is connected
-                          </p>
-                        </div>
-                      </div>
+                  {/* Detailed tips from geometry engine */}
+                  {recognitionResult.improvements?.map((tip, i) => (
+                    <div key={i} className="flex items-start gap-3 text-sm text-gray-300">
+                      <ArrowPathIcon className="w-4 h-4 mt-1 text-yellow-500 shrink-0" />
+                      <span>{tip}</span>
                     </div>
-
-                    {/* Recognition Result */}
-                    {recognitionResult && (
-                      <div className={`${darkMode ? 'bg-[#23272F]' : 'bg-gray-50'} rounded-lg border ${darkMode ? 'border-gray-600' : 'border-gray-300'} p-6`}>
-                        <div className={`p-4 rounded-lg ${
-                          recognitionResult.isCorrect 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-semibold">
-                              {recognitionResult.isCorrect ? '✅ Great!' : '⚠️ Keep trying!'}
-                            </span>
-                            <span className="text-lg font-bold">
-                              {recognitionResult.confidence}% Confidence
-                            </span>
-                          </div>
-                          <p>{recognitionResult.feedback}</p>
-                        </div>
-
-                        {/* Improvement Suggestions */}
-                        {recognitionResult.improvements.length > 0 && (
-                          <div className="mt-4 bg-blue-50 p-4 rounded-lg">
-                            <h4 className="font-semibold text-blue-800 mb-2">💡 Tips:</h4>
-                            <ul className="list-disc list-inside space-y-1 text-blue-700">
-                              {recognitionResult.improvements.map((tip, index) => (
-                                <li key={index}>{tip}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Sidebar */}
-                  <div className="space-y-4 lg:space-y-6 lg:sticky lg:top-6 self-start">
-                    {/* Session Stats */}
-                    <div className={`${darkMode ? 'bg-[#23272F]' : 'bg-gray-50'} rounded-lg border ${darkMode ? 'border-gray-600' : 'border-gray-300'} p-6`}>
-                      <h3 className="text-xl font-bold mb-4">Session Stats</h3>
-                      <div className="space-y-4">
-                        <div className="flex justify-between">
-                          <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Attempts:</span>
-                          <span className="font-semibold">{sessionData.attempts.length}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Best Score:</span>
-                          <span className="font-semibold text-green-500">{sessionData.bestScore}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Average:</span>
-                          <span className="font-semibold text-blue-500">{sessionData.averageScore}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Time:</span>
-                          <span className="font-semibold">{Math.round(sessionData.totalTime / 60)}m</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Learning Progression */}
-                    {showProgression && (
-                      <LearningProgression
-                        sign={selectedSign}
-                        userProgress={userStats}
-                        onProgressUpdate={(progress) => {
-                          setUserStats(progress);
-                        }}
-                      />
-                    )}
-
-                    {/* Practice Controls */}
-                    <div className={`${darkMode ? 'bg-[#23272F]' : 'bg-gray-50'} rounded-lg border ${darkMode ? 'border-gray-600' : 'border-gray-300'} p-6`}>
-                      <h3 className="text-xl font-bold mb-4">Practice Controls</h3>
-                      <div className="space-y-4">
-                        <button
-                          onClick={() => setActive(!isActive)}
-                          className={`w-full py-3 rounded-lg font-semibold transition-colors ${
-                            isActive
-                              ? 'bg-red-500 text-white hover:bg-red-600'
-                              : 'bg-green-500 text-white hover:bg-green-600'
-                          }`}
-                        >
-                          {isActive ? '⏸️ Pause' : '▶️ Start'} Practice
-                        </button>
-                        
-                        <button
-                          onClick={() => setRecognitionResult(null)}
-                          className="w-full py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                        >
-                          Clear Results
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full opacity-30 text-center">
+                <div className="text-6xl mb-4">✋</div>
+                <p>Waiting for hand...</p>
+              </div>
+            )}
           </div>
         </div>
+
       </div>
     </div>
   );
 }
+
+const StepIndicator = ({ step, current, label }) => {
+  const steps = ['easy', 'medium', 'hard'];
+  const idx = steps.indexOf(step);
+  const currentIdx = steps.indexOf(current);
+  const active = idx <= currentIdx;
+  const currentActive = idx === currentIdx;
+
+  return (
+    <div className={`flex items-center gap-3 transition-opacity duration-300 ${active ? 'opacity-100' : 'opacity-30'}`}>
+      <div className={`w-3 h-3 rounded-full ${active ? 'bg-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.5)]' : 'bg-gray-600'}`}></div>
+      <span className={`text-sm ${currentActive ? 'text-white font-bold' : 'text-gray-400'}`}>{label}</span>
+    </div>
+  );
+};

@@ -189,7 +189,7 @@ const userProgressSchema = new mongoose.Schema({
 });
 
 // Index for efficient queries
-userProgressSchema.index({ user: 1 });
+
 userProgressSchema.index({ 'learningPaths.learningPath': 1 });
 userProgressSchema.index({ 'learningPaths.currentUnit': 1 });
 userProgressSchema.index({ 'learningPaths.currentLesson': 1 });

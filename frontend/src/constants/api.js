@@ -3,6 +3,22 @@ import { ENV_CONFIG } from '../config/prettyConfig.js';
 
 export const API_BASE_URL = ENV_CONFIG.API_BASE_URL;
 
+// Helper to build full API URL
+export const apiUrl = (path) => {
+  const safePath = path.startsWith('/') ? path : `/${path}`;
+  return `${API_BASE_URL}/api${safePath}`;
+};
+
+// Helper to include Bearer token automatically
+export const withAuth = (options = {}) => {
+  const token = localStorage.getItem('token');
+  const headers = {
+    ...(options.headers || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+  return { ...options, headers };
+};
+
 // API endpoints
 export const ENDPOINTS = {
   AUTH: {

@@ -12,7 +12,8 @@ import {
   createUser,
   getAdminDashboard,
   getUserStats,
-  toggleUserStatus
+  toggleUserStatus,
+  uploadMedia
 } from '../controllers/adminController.js';
 import { protect, adminAndSuperAdmin, canManageUsers, canViewAnalytics } from '../middleware/roleAuth.js';
 
@@ -39,5 +40,8 @@ router.get('/users/:id', adminAndSuperAdmin, canManageUsers, getUserById);
 router.put('/users/:id', adminAndSuperAdmin, canManageUsers, updateUser);
 router.patch('/users/:id/toggle-status', adminAndSuperAdmin, canManageUsers, toggleUserStatus);
 router.delete('/users/:id', adminAndSuperAdmin, canManageUsers, deleteUser);
+
+// Media upload route (Admin and Super Admin)
+router.post('/upload', adminAndSuperAdmin, canManageUsers, uploadMedia);
 
 export default router; 

@@ -141,13 +141,24 @@ function deriveCategoryFromPath(p) {
   return null;
 }
 
-signSchema.virtual('imageUrl').get(function() {
+signSchema.virtual('imageUrl').get(function () {
+  if (this.imagePath && (this.imagePath.startsWith('http') || this.imagePath.startsWith('https'))) {
+    return this.imagePath;
+  }
   const fileName = this.imagePath ? this.imagePath.split('/').pop() : '';
   const actualCategory = deriveCategoryFromPath(this.imagePath) || this.category;
   return `/api/dictionary/signs/${actualCategory}/${fileName}`;
 });
 
-signSchema.virtual('thumbnailUrl').get(function() {
+signSchema.virtual('thumbnailUrl').get(function () {
+  if (this.thumbnailPath && (this.thumbnailPath.startsWith('http') || this.thumbnailPath.startsWith('https'))) {
+    return this.thumbnailPath;
+  }
+  // Fallback to imagePath if thumbnailPath is missing but imagePath is a URL
+  if (!this.thumbnailPath && this.imagePath && (this.imagePath.startsWith('http') || this.imagePath.startsWith('https'))) {
+    return this.imagePath; // Cloudinary usually handles resizing via params, but for now return base
+  }
+
   const fileName = this.thumbnailPath ? this.thumbnailPath.split('/').pop() : (this.imagePath ? this.imagePath.split('/').pop() : '');
   const actualCategory = deriveCategoryFromPath(this.thumbnailPath) || deriveCategoryFromPath(this.imagePath) || this.category;
   return `/api/dictionary/signs/${actualCategory}/${fileName}?width=200&height=200&quality=80`;

@@ -1,5 +1,5 @@
 import express from 'express';
-import { protect } from '../middleware/auth.js';
+import { protect, protectOptional } from '../middleware/auth.js';
 import {
   getQuizzes,
   getQuiz,
@@ -13,7 +13,7 @@ import {
 const router = express.Router();
 
 // Public routes
-router.get('/', getQuizzes);
+router.get('/', protectOptional, getQuizzes);
 router.get('/:id', getQuiz);
 
 // Protected routes

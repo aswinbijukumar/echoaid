@@ -5,32 +5,36 @@ import User from '../models/User.js';
 import Achievement from '../models/Achievement.js';
 import UserAchievement from '../models/UserAchievement.js';
 import QuestionBank from '../models/QuestionBank.js';
+import Skill from '../models/Skill.js';
+import UserSkillProgress from '../models/UserSkillProgress.js';
+import Certificate from '../models/Certificate.js';
+import { generateCertificatePDF } from '../utils/pdfGenerator.js';
 import { checkSubscriptionAccess, checkDailyLimits } from '../middleware/subscriptionAuth.js';
 import { updateUserStreak } from './streakController.js';
 
 // Get all quizzes with filtering and pagination
 export const getQuizzes = async (req, res) => {
   try {
-    const { 
-      category, 
-      difficulty, 
-      page = 1, 
-      limit = 10, 
+    const {
+      category,
+      difficulty,
+      page = 1,
+      limit = 10,
       search,
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = req.query;
 
     const filter = { isActive: true };
-    
+
     if (category && category !== 'all') {
       filter.category = category;
     }
-    
+
     if (difficulty && difficulty !== 'all') {
       filter.difficulty = difficulty;
     }
-    
+
     if (search) {
       filter.$or = [
         { title: { $regex: search, $options: 'i' } },
@@ -42,12 +46,54 @@ export const getQuizzes = async (req, res) => {
     const sort = {};
     sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-    const quizzes = await Quiz.find(filter)
+    let quizzes = await Quiz.find(filter)
       .populate('createdBy', 'name')
       .sort(sort)
       .limit(limit * 1)
       .skip((page - 1) * limit)
       .lean();
+
+    // If user is authenticated, attach their progress
+    if (req.user) {
+      const quizIds = quizzes.map(q => q._id);
+      const attempts = await QuizAttempt.find({
+        userId: req.user._id,
+        quizId: { $in: quizIds }
+      });
+
+      quizzes = await Promise.all(quizzes.map(async quiz => {
+        const quizAttempts = attempts.filter(a => a.quizId.toString() === quiz._id.toString());
+        const passed = quizAttempts.some(a => a.passed);
+        const bestScore = quizAttempts.reduce((max, a) => Math.max(max, a.percentage), 0);
+
+        // Check Lock Status for Mastery Quizzes
+        let isLocked = false;
+        let lockReason = null;
+        if (quiz.title.includes('Level') && quiz.title.includes('Mastery Quiz')) {
+          const levelMatch = quiz.title.match(/Level (\d+)/);
+          if (levelMatch) {
+            const targetLevel = parseInt(levelMatch[1]);
+            const unlocked = await checkLevelMasteryQuizUnlock(req.user._id, targetLevel);
+            if (!unlocked) {
+              isLocked = true;
+              lockReason = `Complete Level ${targetLevel} modules to unlock`;
+            }
+          }
+        }
+
+        return {
+          ...quiz,
+          isLocked,
+          lockReason,
+          userStatus: {
+            completed: passed,
+            passed: passed,
+            bestScore: bestScore,
+            attempts: quizAttempts.length
+          }
+        };
+      }));
+    }
 
     const total = await Quiz.countDocuments(filter);
 
@@ -69,7 +115,7 @@ export const getQuizzes = async (req, res) => {
 export const getQuiz = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const quiz = await Quiz.findById(id)
       .populate('createdBy', 'name')
       .populate('questions.signReference', 'word imageUrl')
@@ -81,6 +127,24 @@ export const getQuiz = async (req, res) => {
 
     if (!quiz.isActive) {
       return res.status(403).json({ success: false, message: 'Quiz is not available' });
+    }
+
+    // Attach user status if authenticated
+    if (req.user) {
+      const attempts = await QuizAttempt.find({
+        userId: req.user._id,
+        quizId: quiz._id
+      });
+
+      const passed = attempts.some(a => a.passed);
+      const bestScore = attempts.reduce((max, a) => Math.max(max, a.percentage), 0);
+
+      quiz.userStatus = {
+        completed: passed,
+        passed: passed,
+        bestScore: bestScore,
+        attempts: attempts.length
+      };
     }
 
     res.json({ success: true, data: quiz });
@@ -108,77 +172,94 @@ export const startQuiz = async (req, res) => {
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      
+
       const todayAttempts = await QuizAttempt.countDocuments({
         userId,
         createdAt: { $gte: today, $lt: tomorrow }
       });
-      
+
       const maxDailyAttempts = 5; // Free trial users get 5 quiz attempts per day
       if (todayAttempts >= maxDailyAttempts) {
         return res.status(403).json({
           success: false,
           message: `Free trial limit reached. You can attempt ${maxDailyAttempts} quizzes per day. Upgrade to Pro for unlimited quizzes.`,
-          data: { 
-            maxDailyAttempts, 
+          data: {
+            maxDailyAttempts,
             currentAttempts: todayAttempts,
-            upgradeRequired: true 
+            upgradeRequired: true
           }
         });
       }
     }
 
-  // Check if this is a level mastery quiz and if user has completed required modules
-  if (quiz.title.includes('Level') && quiz.title.includes('Mastery Quiz')) {
-    const levelMatch = quiz.title.match(/Level (\d+)/);
-    if (levelMatch) {
-      const targetLevel = parseInt(levelMatch[1]);
-      const isUnlocked = await checkLevelMasteryQuizUnlock(userId, targetLevel);
-      
-      if (!isUnlocked) {
+    // Check if this is a level mastery quiz and if user has completed required modules
+    if (quiz.title.includes('Level') && quiz.title.includes('Mastery Quiz')) {
+      const levelMatch = quiz.title.match(/Level (\d+)/);
+      if (levelMatch) {
+        const targetLevel = parseInt(levelMatch[1]);
+        const isUnlocked = await checkLevelMasteryQuizUnlock(userId, targetLevel);
+
+        if (!isUnlocked) {
+          return res.status(403).json({
+            success: false,
+            message: `Complete all Level ${targetLevel} modules to unlock this quiz.`,
+            data: {
+              requiredLevel: targetLevel,
+              quizTitle: quiz.title,
+              unlockType: 'module_completion'
+            }
+          });
+        }
+      }
+    }
+
+    // Simple gating: require prior passes in category for higher difficulties
+    if (quiz.difficulty === 'Intermediate' || quiz.difficulty === 'Advanced') {
+      const requiredPasses = quiz.difficulty === 'Advanced' ? 3 : 2;
+      const passes = await QuizAttempt.countDocuments({ userId, category: quiz.category, passed: true });
+      if (passes < requiredPasses) {
         return res.status(403).json({
           success: false,
-          message: `Complete all Level ${targetLevel} modules to unlock this quiz.`,
-          data: { 
-            requiredLevel: targetLevel,
-            quizTitle: quiz.title,
-            unlockType: 'module_completion'
-          }
+          message: `Unlock requirement: Pass ${requiredPasses} ${quiz.category} quiz${requiredPasses > 1 ? 'zes' : ''} to access ${quiz.difficulty}.`,
+          data: { requiredPasses, currentPasses: passes, category: quiz.category, difficulty: quiz.difficulty }
         });
       }
     }
-  }
-
-  // Simple gating: require prior passes in category for higher difficulties
-  if (quiz.difficulty === 'Intermediate' || quiz.difficulty === 'Advanced') {
-    const requiredPasses = quiz.difficulty === 'Advanced' ? 3 : 2;
-    const passes = await QuizAttempt.countDocuments({ userId, category: quiz.category, passed: true });
-    if (passes < requiredPasses) {
-      return res.status(403).json({
-        success: false,
-        message: `Unlock requirement: Pass ${requiredPasses} ${quiz.category} quiz${requiredPasses>1?'zes':''} to access ${quiz.difficulty}.`,
-        data: { requiredPasses, currentPasses: passes, category: quiz.category, difficulty: quiz.difficulty }
-      });
-    }
-  }
 
     // Check if user has remaining attempts
     const attempts = await QuizAttempt.find({ userId, quizId });
-    if (attempts.length >= quiz.maxAttempts) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Maximum attempts reached for this quiz' 
-      });
+    if (attempts.length >= (quiz.maxAttempts || 3)) {
+      // For Mastery quizzes, check if they've finished relearning even if attempts weren't cleared
+      const isMastery = quiz.quizType === 'mastery' || quiz.title.includes('Mastery');
+      if (isMastery) {
+        const levelMatch = quiz.title.match(/Level (\d+)/);
+        const targetLevel = levelMatch ? parseInt(levelMatch[1]) : quiz.level;
+        const isUnlocked = await checkLevelMasteryQuizUnlock(userId, targetLevel);
+
+        if (!isUnlocked) {
+          return res.status(400).json({
+            success: false,
+            message: 'Maximum attempts reached. Please review the learning modules for this level before retrying.'
+          });
+        }
+        // If isUnlocked is true, we allow them to proceed (bypass the attempts block)
+        logger.info(`🔓 Bypassing attempts limit for Mastery Quiz ${quiz._id} as requirements are met.`, null, 'CONTROLLER');
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Maximum attempts reached for this quiz'
+        });
+      }
     }
 
     // Get adaptive questions based on user performance
     const adaptiveQuestions = await getAdaptiveQuestions(quiz, user);
 
-  // Compute today's XP for daily ring
-  const startOfDay = new Date();
-  startOfDay.setHours(0,0,0,0);
-  const todayAttempts = await QuizAttempt.find({ userId, completedAt: { $gte: startOfDay } }, { xpEarned: 1 }).lean();
-  const xpToday = todayAttempts.reduce((s,a)=> s + (a.xpEarned||0), 0);
+    // Compute today's XP for daily ring
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const todayAttempts = await QuizAttempt.find({ userId, completedAt: { $gte: startOfDay } }, { xpEarned: 1 }).lean();
+    const xpToday = todayAttempts.reduce((s, a) => s + (a.xpEarned || 0), 0);
 
     res.json({
       success: true,
@@ -190,12 +271,12 @@ export const startQuiz = async (req, res) => {
         questions: adaptiveQuestions,
         totalQuestions: adaptiveQuestions.length,
         attemptNumber: attempts.length + 1,
-      maxAttempts: quiz.maxAttempts,
-      learning: {
-        streak: user.learningStats?.streak || 0,
-        dailyGoal: user.learningStats?.dailyGoal || 100,
-        xpToday
-      }
+        maxAttempts: quiz.maxAttempts,
+        learning: {
+          streak: user.learningStats?.streak || 0,
+          dailyGoal: user.learningStats?.dailyGoal || 100,
+          xpToday
+        }
       }
     });
   } catch (error) {
@@ -216,7 +297,7 @@ export const submitQuiz = async (req, res) => {
 
     // Calculate score and results
     const results = calculateQuizResults(quiz, answers, timeSpent);
-    
+
     // Fetch user before stats update to detect level-up
     const prevUser = await User.findById(userId).lean();
     const prevLevel = prevUser?.learningStats?.level || 1;
@@ -246,6 +327,8 @@ export const submitQuiz = async (req, res) => {
 
     await quizAttempt.save();
 
+    logger.info(`📝 Quiz submission: User ${userId} got ${results.percentage}% on "${quiz.title}". Passed: ${quizAttempt.passed}`, null, 'CONTROLLER');
+
     // Update user stats and check achievements
     await updateUserStats(userId, quizAttempt);
     const newAchievements = await checkAchievements(userId, quizAttempt);
@@ -269,13 +352,50 @@ export const submitQuiz = async (req, res) => {
 
     // Check if this is a level mastery quiz and unlock next level
     let nextLevelUnlocked = false;
-    if (quiz.title.includes('Level') && quizAttempt.passed) {
-      const levelMatch = quiz.title.match(/Level (\d+)/);
-      if (levelMatch) {
-        const completedLevel = parseInt(levelMatch[1]);
-        logger.info('🎯 Level ${completedLevel} quiz passed, unlocking Level ${completedLevel + 1}', null, 'CONTROLLER');
+    let earnedCertificate = null;
+
+    // Robust check using quizType or regex (captures Mastery, Challenge, Check etc.)
+    const isMastery = quiz.quizType === 'mastery' || /level\s*\d+.*(mastery|challenge|check)/i.test(quiz.title);
+
+    if (isMastery && quizAttempt.passed) {
+      // Prefer explicit level field, fallback to parsing title
+      let completedLevel = quiz.level;
+      if ((completedLevel === undefined || completedLevel === null) && quiz.title.match(/Level (\d+)/)) {
+        completedLevel = parseInt(quiz.title.match(/Level (\d+)/)[1]);
+      }
+
+      if (completedLevel !== undefined && completedLevel !== null) {
+        logger.info(`🎯 Level ${completedLevel} mastery passed, unlocking Level ${completedLevel + 1}`, null, 'CONTROLLER');
         nextLevelUnlocked = true;
-        // The skill unlocking logic will be handled by the frontend when it refreshes
+
+        // Issue Certificate for Level Mastery
+        try {
+          // Check if already issued
+          const existingCert = await Certificate.findOne({
+            user: userId,
+            title: new RegExp(`^Level ${completedLevel} Mastery$`, 'i'),
+            type: 'level_mastery'
+          });
+
+          if (!existingCert) {
+            let certTitle = `Level ${completedLevel} Mastery`;
+            if (completedLevel === 0) certTitle = 'Level 0 Mastery';
+            else if (completedLevel === 2) certTitle = 'Level 2 Intermediate';
+            else if (completedLevel === 3) certTitle = 'Level 3 Advanced';
+
+            earnedCertificate = new Certificate({
+              user: userId,
+              title: certTitle,
+              type: 'level_mastery',
+              referenceId: quizId,
+              referenceModel: 'Quiz'
+            });
+            await earnedCertificate.save();
+            logger.info(`📜 Certificate issued: ${earnedCertificate.certificateCode} - ${certTitle}`, null, 'CONTROLLER');
+          }
+        } catch (certError) {
+          logger.errorWithStack('Failed to issue certificate', certError, 'CONTROLLER');
+        }
       }
     }
 
@@ -283,6 +403,35 @@ export const submitQuiz = async (req, res) => {
     const updatedUser = await User.findById(userId).lean();
     const learningStats = updatedUser?.learningStats || {};
     const levelUp = (learningStats.level || 1) > prevLevel;
+
+    // Check if max attempts reached on failure
+    if (results.percentage < quiz.passingScore) {
+      const totalAttempts = await QuizAttempt.countDocuments({ userId, quizId });
+
+      if (totalAttempts >= quiz.maxAttempts) {
+        logger.info(`🚫 Max attempts reached for quiz ${quizId}. Triggering relearning protocol.`, null, 'CONTROLLER');
+        await enforceRelearning(userId, quiz);
+
+        // Modify response to inform frontend
+        res.json({
+          success: true,
+          data: {
+            attemptId: quizAttempt._id,
+            score: results.score,
+            percentage: results.percentage,
+            passed: false,
+            xpEarned: 0,
+            streak: 0,
+            feedback: "Maximum attempts reached. You must review the learning modules before retrying.",
+            relearningTriggered: true,
+            learningStats,
+            levelUp: false,
+            nextLevelUnlocked: false
+          }
+        });
+        return;
+      }
+    }
 
     res.json({
       success: true,
@@ -300,11 +449,59 @@ export const submitQuiz = async (req, res) => {
         timeSpent,
         learningStats,
         levelUp,
-        nextLevelUnlocked
+        nextLevelUnlocked,
+        newCertificate: earnedCertificate
       }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Helper to reset progress if max attempts failed
+const enforceRelearning = async (userId, quiz) => {
+  try {
+    let filter = {};
+    const isMastery = quiz.quizType === 'mastery' || /mastery|challenge|check/i.test(quiz.title);
+
+    // Determine level/category to reset
+    if (isMastery) {
+      let level = quiz.level;
+      if (!level && quiz.title.match(/Level (\d+)/)) {
+        level = parseInt(quiz.title.match(/Level (\d+)/)[1]);
+      }
+      if (level) filter = { level: level };
+    }
+
+    // If we found a valid level filter, reset those skills
+    if (filter.level) {
+      const skillsToReset = await Skill.find(filter).select('_id');
+      const skillIds = skillsToReset.map(s => s._id.toString());
+
+      if (skillIds.length > 0) {
+        // Find existing progress
+        const userProgress = await UserSkillProgress.findOne({ user: userId });
+        if (userProgress) {
+          let updatedCount = 0;
+          userProgress.skills.forEach(skillProgress => {
+            if (skillIds.includes(skillProgress.skill.toString())) {
+              skillProgress.isCompleted = false;
+              skillProgress.isRelearning = true;
+              updatedCount++;
+            }
+          });
+
+          if (updatedCount > 0) {
+            await userProgress.save();
+            logger.info(`🔄 Reset ${updatedCount} skills for user ${userId} to relearning status due to quiz failure.`, null, 'CONTROLLER');
+          } else {
+            logger.warn(`⚠️ No matching skills found in user progress for Level ${filter.level} despite quiz failure.`, null, 'CONTROLLER');
+          }
+        }
+      }
+    }
+  } catch (error) {
+    logger.errorWithStack('Failed to enforce relearning', error, 'CONTROLLER');
   }
 };
 
@@ -345,7 +542,7 @@ export const getUserAttempts = async (req, res) => {
 export const getUserProgress = async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     const user = await User.findById(userId)
       .populate('achievements.achievementId')
       .lean();
@@ -440,10 +637,29 @@ const calculateQuizResults = (quiz, answers, timeSpent) => {
   const processedAnswers = [];
 
   answers.forEach((answer, index) => {
-    const question = quiz.questions[index];
-    const isCorrect = answer.selectedAnswer === question.correctAnswer;
+    // Find question by ID if available, else fallback to index (risky if shuffled)
+    let question;
+    if (answer.questionId) {
+      question = quiz.questions.find(q => q._id.toString() === answer.questionId.toString());
+    }
+
+    // Fallback if not found or no ID
+    if (!question) {
+      question = quiz.questions[index];
+    }
+
+    if (!question) return; // Should not happen
+
+    const correctOption = question.options.find(opt => opt.isCorrect);
+    // Flexible matching: trim whitespace and case-insensitive check optional but safer
+    // Note: options usually case-sensitive, but let's be strict first.
+    // Actually, let's normalize by trimming.
+    const selected = (answer.selectedAnswer || '').trim();
+    const correctText = (correctOption ? correctOption.text : question.correctAnswer || '').trim();
+
+    const isCorrect = selected === correctText;
     const pointsEarned = isCorrect ? question.points : 0;
-    
+
     score += pointsEarned;
     totalPoints += question.points;
 
@@ -457,7 +673,7 @@ const calculateQuizResults = (quiz, answers, timeSpent) => {
   });
 
   const percentage = Math.round((score / totalPoints) * 100);
-  
+
   // Calculate XP with bonuses
   let xpEarned = score; // Base XP = score
   if (percentage === 100) xpEarned += 50; // Perfect score bonus
@@ -476,9 +692,9 @@ const calculateQuizResults = (quiz, answers, timeSpent) => {
 
 const generateFeedback = (percentage, timeSpent, timeLimit) => {
   const timeRatio = timeSpent / (timeLimit * 60);
-  
+
   if (percentage >= 90) {
-    return timeRatio < 0.5 ? 
+    return timeRatio < 0.5 ?
       "Excellent! Perfect score and lightning fast! 🚀" :
       "Excellent work! Great accuracy! 🎯";
   } else if (percentage >= 80) {
@@ -493,10 +709,10 @@ const generateFeedback = (percentage, timeSpent, timeLimit) => {
 const calculateStreak = async (userId) => {
   const user = await User.findById(userId);
   const currentStreak = user.learningStats?.streak || 0;
-  
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
@@ -536,13 +752,13 @@ const calculateStreak = async (userId) => {
 
 const updateUserStats = async (userId, quizAttempt) => {
   const user = await User.findById(userId);
-  
+
   // Update basic stats
   user.learningStats.quizzesCompleted += 1;
   user.learningStats.totalXP += quizAttempt.xpEarned;
   user.learningStats.weeklyXP += quizAttempt.xpEarned;
   user.learningStats.monthlyXP += quizAttempt.xpEarned;
-  
+
   if (quizAttempt.percentage === 100) {
     user.learningStats.perfectQuizzes += 1;
   }
@@ -628,10 +844,10 @@ const checkAchievements = async (userId, quizAttempt) => {
       });
 
       await userAchievement.save();
-      
+
       if (isEarned) {
         newAchievements.push(achievement);
-        
+
         // Add XP reward
         const user = await User.findById(userId);
         user.learningStats.totalXP += achievement.xpReward;
@@ -649,60 +865,60 @@ const checkAchievements = async (userId, quizAttempt) => {
 
 const updateQuizStats = async (quizId, percentage) => {
   const quiz = await Quiz.findById(quizId);
-  
+
   quiz.stats.totalAttempts += 1;
-  
+
   // Update average score
   const allAttempts = await QuizAttempt.find({ quizId });
   const totalScore = allAttempts.reduce((sum, attempt) => sum + attempt.percentage, 0);
   quiz.stats.averageScore = Math.round(totalScore / allAttempts.length);
-  
+
   // Update completion rate
   const completedAttempts = allAttempts.filter(attempt => attempt.passed).length;
   quiz.stats.completionRate = Math.round((completedAttempts / allAttempts.length) * 100);
-  
+
   await quiz.save();
 };
 
 // Check if user has completed all modules in a specific level
 const checkLevelMasteryQuizUnlock = async (userId, targetLevel) => {
   try {
-    logger.info('🔍 Checking Level ${targetLevel} mastery quiz unlock for user ${userId}', null, 'CONTROLLER');
-    
+    logger.info(`🔍 Checking Level ${targetLevel} mastery quiz unlock for user ${userId}`, null, 'CONTROLLER');
+
     // Get all skills in the target level
-    const skillsInLevel = await Skill.find({ 
-      level: targetLevel, 
-      isActive: true 
+    const skillsInLevel = await Skill.find({
+      level: targetLevel,
+      isActive: true
     }).sort({ order: 1 });
-    
+
     if (skillsInLevel.length === 0) {
-      logger.info('❌ No skills found for Level ${targetLevel}', null, 'CONTROLLER');
+      logger.info(`❌ No skills found for Level ${targetLevel}`, null, 'CONTROLLER');
       return false;
     }
-    
-    logger.info('📚 Found ${skillsInLevel.length} skills in Level ${targetLevel}', null, 'CONTROLLER');
-    
+
+    logger.info(`📚 Found ${skillsInLevel.length} skills in Level ${targetLevel}`, null, 'CONTROLLER');
+
     // Get user progress
     const userProgress = await UserSkillProgress.findOne({ user: userId });
     if (!userProgress) {
-      logger.info('❌ No user progress found for user ${userId}', null, 'CONTROLLER');
+      logger.info(`❌ No user progress found for user ${userId}`, null, 'CONTROLLER');
       return false;
     }
-    
+
     // Check if all skills in the level are completed
-    const completedSkillsInLevel = skillsInLevel.filter(skill => 
-      userProgress.skills.some(sp => 
-        sp.skill.toString() === skill._id.toString() && sp.isCompleted
+    const completedSkillsInLevel = skillsInLevel.filter(skill =>
+      userProgress.skills.some(sp =>
+        sp.skill.toString() === skill._id.toString() && sp.isCompleted === true && sp.isRelearning === false
       )
     );
-    
+
     const allCompleted = completedSkillsInLevel.length === skillsInLevel.length;
-    
-    logger.info('📊 Level ${targetLevel} completion: ${completedSkillsInLevel.length}/${skillsInLevel.length} skills completed', null, 'CONTROLLER');
-    logger.info('🔓 Level ${targetLevel} mastery quiz unlocked: ${allCompleted}', null, 'CONTROLLER');
-    
+
+    logger.info(`📊 Level ${targetLevel} completion: ${completedSkillsInLevel.length}/${skillsInLevel.length} skills completed`, null, 'CONTROLLER');
+    logger.info(`🔓 Level ${targetLevel} mastery quiz unlocked: ${allCompleted}`, null, 'CONTROLLER');
+
     return allCompleted;
-    
+
   } catch (error) {
     logger.errorWithStack('Error checking level mastery quiz unlock:', error, error, 'CONTROLLER');
     return false;
@@ -714,24 +930,24 @@ export const purchaseStreakFreeze = async (req, res) => {
   try {
     const userId = req.user.id;
     const user = await User.findById(userId);
-    
+
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     const xpCost = 100; // Cost in XP for one streak freeze
-    
+
     if (user.learningStats.totalXP < xpCost) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Insufficient XP. Need 100 XP to purchase streak freeze.' 
+      return res.status(400).json({
+        success: false,
+        message: 'Insufficient XP. Need 100 XP to purchase streak freeze.'
       });
     }
 
     // Deduct XP and add streak freeze
     user.learningStats.totalXP -= xpCost;
     user.learningStats.streakFreeze += 1;
-    
+
     await user.save();
 
     res.json({

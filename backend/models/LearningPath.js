@@ -9,68 +9,6 @@ const learningPathSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    maxlength: [500, 'Description cannot be more than 500 characters']
-  },
-  shortDescription: {
-    type: String,
-    maxlength: [200, 'Short description cannot be more than 200 characters']
-  },
-  order: {
-    type: Number,
-    required: true
-  },
-  levelRange: {
-    min: { type: Number, default: 1 },
-    max: { type: Number, default: 5 }
-  },
-  coverImage: {
-    type: String
-  },
-  icon: {
-    type: String,
-    default: 'AcademicCapIcon'
-  },
-  color: {
-    type: String,
-    default: 'bg-blue-500'
-  },
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  isPublished: {
-    type: Boolean,
-    default: false
-  },
-  stats: {
-    totalLearners: { type: Number, default: 0 },
-    totalCompletions: { type: Number, default: 0 }
-  },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  }
-}, {
-  timestamps: true
-});
-
-learningPathSchema.index({ order: 1 });
-learningPathSchema.index({ isActive: 1, isPublished: 1 });
-
-export default mongoose.model('LearningPath', learningPathSchema);
-
-import mongoose from 'mongoose';
-
-const learningPathSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: [true, 'Please provide a learning path title'],
-    trim: true,
-    maxlength: [100, 'Title cannot be more than 100 characters']
-  },
-  description: {
-    type: String,
     required: [true, 'Please provide a learning path description'],
     maxlength: [500, 'Description cannot be more than 500 characters']
   },
