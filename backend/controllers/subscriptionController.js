@@ -619,7 +619,6 @@ export const verifyRazorpayPayment = async (req, res) => {
         new Date().toLocaleDateString()
       );
 
-<<<<<<< HEAD
       await sendEmail({
         email: user.email,
         subject: 'Payment Successful - EchoAid Subscription',
@@ -631,31 +630,6 @@ export const verifyRazorpayPayment = async (req, res) => {
       logger.error('Failed to send payment confirmation email', emailError, 'CONTROLLER');
       // Don't fail the request
     }
-=======
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL || 'https://echoaid.vercel.app'}/dashboard" style="background: #00CC00; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-                Start Learning Now
-              </a>
-            </div>
-
-            <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #00CC00;">
-              <p style="margin: 0; color: #666; font-size: 14px;">
-                <strong>Need Help?</strong> Contact our support team at support@echoaid.com or visit our help center.
-              </p>
-            </div>
-          </div>
-          
-          <div style="background: #23272F; padding: 20px; text-align: center;">
-            <p style="color: #ccc; margin: 0; font-size: 12px;">
-              © 2024 EchoAid. All rights reserved.<br>
-              This is an automated email. Please do not reply.
-            </p>
-          </div>
-        </div>
-      `,
-      attachments: attachments
-    });
->>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
 
     res.status(200).json({
       success: true,
