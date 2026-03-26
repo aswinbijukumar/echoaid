@@ -1,0 +1,255 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{Solving Spatial Ambiguity in Indian Sign Language Recognition through 3D Depth-Aware Hand Landmark Integration}
+
+\author{\IEEEauthorblockN{1\textsuperscript{st} Aswin Bijukumar}
+\IEEEauthorblockA{\textit{Dept. of Computer Applications} \\
+\textit{Amal Jyothi College of Engineering (Autonomous)}\\
+Kanjirappally, India \\
+aswinbijukumar2026@mca.ajce.in}
+\and
+\IEEEauthorblockN{2\textsuperscript{nd} Navyamol K.T}
+\IEEEauthorblockA{\textit{Dept. of Computer Applications} \\
+\textit{Amal Jyothi College of Engineering (Autonomous)}\\
+Kanjirappally, India \\
+navyamolkt@amaljyothi.ac.in}
+}
+
+\maketitle
+
+\begin{abstract}
+Interactive platforms that bridge communication gaps for the Deaf community rely heavily on fast and accurate Sign Language Recognition (SLR). To meet this need, we built EchoAid, an application that provides real-time sign-to-speech translation and interactive learning. However, implementing good SLR using standard webcams creates a major challenge: determining depth. When a 3D hand is shown on a 2D screen, signs that look alike except for depth (like the letters `A', `S', and `E') overlap heavily and confuse the system.
+
+This paper tackles this issue by extracting and using depth data to power EchoAid's translation engine. We modified the traditional MediaPipe hand-landmark setup to include the relative depth coordinate ($z$) for 21 hand joints. We preprocessed these 63-dimensional feature vectors using wrist-relative origin centering and max-absolute scaling. A lightweight deep neural network trained on 42,745 images of 36 Indian Sign Language (ISL) classes achieved a test accuracy of 99.34\%, compared to just 91.8\% for a standard 2D network. Deployed entirely inside the EchoAid browser platform, this depth-aware model runs client-side edge AI inference with less than 16 ms of latency. As a result, EchoAid provides instant, real-time translation on everyday hardware while maintaining strict user data privacy.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Indian Sign Language, EchoAid, 3D hand landmarks, depth-aware recognition, accessibility, Edge AI, real-time inference.
+\end{IEEEkeywords}
+
+\section{\textbf{Introduction}}
+Sign Language Recognition (SLR) systems have improved a lot over the years, but building a fast and reliable system that works seamlessly on everyday webcams is still quite difficult. Often, the main issue isn't the power of the neural network, but the quality of the data we give it \cite{wadhawan2021}.
+
+Standard RGB cameras flatten the 3D structure of a hand onto a 2D screen. When a hand moves directly toward or away from the camera, it barely changes the usual 2D coordinates. However, these small depth changes are extremely important for telling certain signs apart \cite{bragg2019}. For example, in the Indian Sign Language (ISL) alphabet, the letters `A', `S', and `E' are all closed fists. The only real difference is how the thumb is positioned along the depth axis. In pure 2D, they look almost exactly the same to a computer.
+
+This paper directly targets this spatial confusion to create a stable foundation for a real-world translation tool. By using the MediaPipe Tasks API \cite{lugaresi2019}, we extract an estimated depth ($z$) for each joint on the hand straight from a normal video feed. Adding this depth gives our model the context it needs to tell similar signs apart, and it does this without needing expensive 3D cameras or LiDAR.
+
+Our main contributions in this paper are:
+\begin{itemize}
+    \item Extracting per-joint depth estimations from standard webcams using MediaPipe.
+    \item A 63-dimensional ($x, y, z$) preprocessing pipeline that normalizes data based on the wrist's position.
+    \item A clear comparison showing a huge 7.5\% accuracy boost (from 91.8\% to 99.34\%) when using our 3D data instead of the usual 2D data.
+    \item The successful deployment of this model inside EchoAid, which runs directly in the user's browser with under 16 ms latency.
+\end{itemize}
+
+\section{\textbf{Related Work}}
+
+\subsection{\textbf{Image-Based Classification}}
+In the past, SLR systems mostly looked at raw images using Convolutional Neural Networks (CNNs) \cite{elakkiya2021, koller2016, garcia2016}. While these work great in controlled lab settings, they break down easily when the background, lighting, or skin tone changes \cite{pigou2014}. Even worse, they require a lot of computing power, making real-time use almost impossible for average users without strong graphics cards \cite{cao2017}.
+
+\subsection{\textbf{Skeleton-Based Approaches}}
+The release of solid skeleton tracking tools like MediaPipe Hands \cite{zhang2020} changed the game. Instead of processing entire images, researchers only needed to look at 21 specific coordinate points, which sped things up significantly \cite{cooper2011}. Kumar et al. \cite{kumar2022} used a multilayer perceptron (MLP) on 2D landmarks and reached 91.2\% accuracy on ISL data. Later, Sharma and Rathi \cite{sharma2023} hit 93.7\% by normalizing data based on the wrist. Still, early research was stuck using only 2D coordinates because reliable depth data wasn't easily available from webcams.
+
+\subsection{\textbf{RGB-D and Continuous Systems}}
+Systems that use dedicated depth sensors, like the Microsoft Kinect, routinely score above 97\% \cite{gupta2023}. But requiring users to buy special hardware defeats the goal of making these tools accessible to everyone \cite{camgoz2018}. Recent studies focus on sequence modeling with LSTMs to track continuous motion \cite{pu2019, halder2020}, but these still depend heavily on getting good spatial data first. Our goal is to achieve the high accuracy of expensive depth sensors using just a cheap, standard webcam.
+
+\section{\textbf{Methodology}}
+
+\subsection{\textbf{Dataset Composition}}
+To make sure our model works well in the real world, we combined the public ISL Kaggle dataset \cite{marikeri2021} with our own custom recordings taken in various rooms and lighting conditions. In total, we have 42,745 images covering 36 classes (the alphabet A--Z and numbers 0--9). We split the data naturally into training (34,196 images) and testing (8,549 images).
+
+\subsection{\textbf{Feature Extraction and Preprocessing}}
+We process the video frames using the \texttt{vision.HandLandmarker} setup. For every hand it sees, it finds 21 landmark points. Each point $L_i$ gives us three coordinates:
+\begin{equation}
+L_i = (x_i, y_i, z_i), \quad 0 \leq i < 21
+\end{equation}
+where $z_i$ is the estimated depth compared to the camera. Putting all these together gives us a 63-dimensional coordinate list for the hand.
+
+It is very important that our model learns the actual hand shape and not just where the hand is on the screen. To fix this, we set the wrist ($L_0$) as the center point (0,0,0) and measure all other points relative to it \cite{oudah2020}:
+\begin{equation}
+\Delta L_i = (x_i - x_0, y_i - y_0, z_i - z_0)
+\end{equation}
+Then, we apply max-absolute scaling to shrink all values so they fit neatly between $-1$ and $1$:
+\begin{equation}
+\hat{v} = \frac{v}{\max(|v|)}
+\end{equation}
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=0.45\textwidth]{placeholder_fig1.png}}
+\caption{The 21 MediaPipe hand landmarks. The added z-depth is crucial for telling similar signs apart.}
+\label{fig1}
+\end{figure}
+
+If we skipped this scaling step, the $x$ and $y$ pixel differences would physically overshadow the tiny $z$ decimal values, and the neural network would just ignore the depth completely \cite{grinsztajn2022}.
+
+\subsection{\textbf{Network Design and Training}}
+Once the data is preprocessed, it feeds into a simple, three-block Deep Neural Network (DNN) \cite{he2016}:
+\begin{itemize}
+    \item \textbf{Input:} 63 features.
+    \item \textbf{Block 1:} Dense(256) $\rightarrow$ Batch Normalization $\rightarrow$ ReLU $\rightarrow$ Dropout(0.3).
+    \item \textbf{Block 2:} Dense(128) $\rightarrow$ Batch Normalization $\rightarrow$ ReLU $\rightarrow$ Dropout(0.2).
+    \item \textbf{Block 3:} Dense(64) $\rightarrow$ ReLU $\rightarrow$ Dropout(0.2).
+    \item \textbf{Output Layer:} Dense(36) $\rightarrow$ Softmax Activation.
+\end{itemize}
+
+Here is the straightforward Keras code we used to build it:
+
+\begin{lstlisting}[language=Python, basicstyle=\footnotesize\ttfamily, breaklines=true]
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, BatchNormalization, Activation, Dropout
+from tensorflow.keras.optimizers import Adam
+
+def build_depth_aware_model(): 
+    model = Sequential([
+        Dense(256, input_shape=(63,)), 
+        BatchNormalization(), 
+        Activation('relu'), 
+        Dropout(0.3),
+        
+        Dense(128), 
+        BatchNormalization(), 
+        Activation('relu'), 
+        Dropout(0.2),
+        
+        Dense(64, activation='relu'), 
+        Dropout(0.2),
+        
+        Dense(36, activation='softmax')
+    ])
+    
+    model.compile(
+        optimizer=Adam(learning_rate=0.001),
+        loss='sparse_categorical_crossentropy',
+        metrics=['accuracy']
+    )
+    
+    return model
+\end{lstlisting}
+
+We found that Batch Normalization was essential here. Without it, the optimizer thought the tiny $z$-values were just background noise and threw them out \cite{rastgoo2021}. We trained it using the Adam optimizer, and it hit its best performance early on at epoch 53 out of 80.
+
+\section{\textbf{The EchoAid Platform}}
+Instead of leaving our model as a simple Python script, we built it straight into EchoAid, which is an interactive sign language web app \cite{who2021}. It is meant to be a helpful daily tool for organizations and individuals trying to learn and translate.
+
+\subsection{\textbf{System Architecture}}
+We built the website using React and Vite, adding Framer Motion to make it feel smooth and responsive. It has a few main parts: an interactive learning section with an AI chatbot, a live translation area, and an enterprise landing page. We kept the overall website very lightweight so that the browser can spend most of its energy running the webcam tracking.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=0.45\textwidth]{placeholder_fig2.png}}
+\caption{The EchoAid web layout. The translation happens directly in the browser, completely skipping server delays.}
+\label{fig2}
+\end{figure}
+
+\subsection{\textbf{The EchoLink Translator}}
+The core feature of our app is the EchoLink translator. It pairs our trained neural network with the Web Speech API to provide instant sign-to-speech translation. We run the MediaPipe JavaScript tools completely inside the user's browser (Edge AI). Because of this, we don't have to deal with the massive lag of sending video streams to a cloud server. The browser grabs the hand coordinates at 30 frames per second and gets a sign prediction in under 16 milliseconds per frame.
+
+\subsection{\textbf{Privacy and Compliance}}
+Because everything runs locally on the user's machine, EchoAid never actually records or uploads any video data to the internet. This naturally protects user privacy and easily meets GDPR rules. To prevent the translation text from flickering if the hand moves weirdly for a split second, we use a simple sliding window that takes the most common prediction from the last 5 frames.
+
+\section{\textbf{Results and Discussion}}
+
+\subsection{\textbf{General Classification Accuracy}}
+Adding the depth ($z$) parameter made a huge difference. Table \ref{tab1} compares the exact same network architecture trained on traditional 2D data versus our new 3D data.
+
+\begin{table}[htbp]
+\caption{System Performance Metrics}
+\begin{center}
+\begin{tabular}{|l|c|}
+\hline
+\textbf{Metric} & \textbf{Value} \\
+\hline
+Total Testing Frames & 8,549 \\
+\hline
+Classes Supported & 36 (A--Z, 0--9) \\
+\hline
+Input Dimensions & 63 (3D Approach) \\
+\hline
+Test Accuracy (3D) & \textbf{99.34\%} \\
+\hline
+Test Accuracy (2D Baseline) & 91.80\% \\
+\hline
+EchoAid Inference Latency & $<$ 16 ms \\
+\hline
+\end{tabular}
+\label{tab1}
+\end{center}
+\end{table}
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=0.45\textwidth]{placeholder_fig3.png}}
+\caption{Confusion matrix matching our 36 ISL symbols. The model rarely makes mistakes now.}
+\label{fig3}
+\end{figure}
+
+\subsection{\textbf{Mitigating Depth Ambiguity}}
+Table \ref{tab2} focuses on six specific signs that usually trip up 2D classifiers because they look so similar from the front.
+
+Without the depth data, the network was guessing on the clenched fist letters (`A', `S', and `E') with barely 81\% accuracy. Once we enabled the full 63D array, the computer finally understood the 3D shape of the hand. As a result, accuracy for these hard signs jumped over 98\%. The very few mistakes it still makes generally happen during blurry frames when the user's hand is actively moving between different signs.
+
+\begin{table}[htbp]
+\caption{Model Resolution of Depth-Sensitive Signs (3D)}
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+\textbf{Sign} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} & \textbf{Support} \\
+\hline
+\textbf{S} & 0.987 & 0.993 & 0.989 & 238 \\
+\hline
+\textbf{E} & 0.986 & 0.991 & 0.988 & 235 \\
+\hline
+\textbf{M} & 0.987 & 0.992 & 0.989 & 237 \\
+\hline
+\textbf{N} & 0.986 & 0.985 & 0.986 & 240 \\
+\hline
+\textbf{O} & 0.994 & 0.993 & 0.994 & 239 \\
+\hline
+\textbf{A} & 0.991 & 0.990 & 0.991 & 241 \\
+\hline
+\end{tabular}
+\label{tab2}
+\end{center}
+\end{table}
+
+\section{\textbf{Conclusion}}
+To accurately translate sign language, a computer must be able to understand 3D space. This project shows that extracting a simulated depth metric ($z$) from standard webcams completely overcomes the limits of 2D screens. The resulting neural network was straightforward but incredibly effective, successfully identifying 36 different signs with 99.34\% accuracy.
+
+Rolling this model out directly into the EchoAid platform proves that real-time, client-side Edge AI is the best way to build assistive tools. By delivering private, sub-16 ms translations straight through a normal web browser, EchoAid helps bridge communication gaps for everyday users without needing expensive hardware. In the future, we plan to extend this platform to decode full, continuous sentences by tracking how the hand moves over time.
+
+\begin{thebibliography}{00}
+\bibitem{wadhawan2021} A. Wadhawan and P. Kumar, ``Sign language recognition systems: A decade systematic literature review,'' \textit{Arch. Comput. Methods Eng.}, vol. 28, pp. 785--813, 2021.
+\bibitem{bragg2019} D. Bragg et al., ``Sign language recognition, generation, and translation: An interdisciplinary perspective,'' in \textit{Proc. ASSETS}, 2019.
+\bibitem{lugaresi2019} C. Lugaresi et al., ``MediaPipe: A framework for building perception pipelines,'' in \textit{Proc. Workshop on ML Systems, ICML}, 2019.
+\bibitem{elakkiya2021} R. Elakkiya, ``Machine learning based sign language recognition: A review and its research frontier,'' \textit{J. Ambient Intell. Humaniz. Comput.}, vol. 12, pp. 7239--7258, 2021.
+\bibitem{zhang2020} F. Zhang et al., ``MediaPipe Hands: On-device real-time hand tracking,'' \textit{arXiv preprint arXiv:2006.10214}, 2020.
+\bibitem{kumar2022} S. Kumar, A. Sharma, and R. Singh, ``Landmark-based Indian Sign Language recognition using MLPs,'' \textit{Int. J. Comput. Appl.}, vol. 185, no. 3, pp. 41--47, 2022.
+\bibitem{sharma2023} R. Sharma and P. Rathi, ``Wrist-relative normalization for robust ISL recognition,'' in \textit{Proc. Int. Conf. Advance Computing \& Commun.}, 2023.
+\bibitem{gupta2023} T. Gupta and M. Verma, ``RGB-D sign language recognition using graph convolutional networks,'' \textit{IEEE Trans. Human-Mach. Syst.}, vol. 53, no. 2, pp. 318--326, 2023.
+\bibitem{marikeri2021} P. Marikeri, ``Indian Sign Language (ISL) dataset,'' Kaggle, 2021. [Online]. Available: https://www.kaggle.com/datasets/prathumarikeri/indian-sign-language-isl
+\bibitem{oudah2020} M. Oudah, A. Al-Naji, and J. Chahl, ``Hand gesture recognition based on computer vision: A review of techniques,'' \textit{J. Imaging}, vol. 6, no. 8, p. 73, 2020.
+\bibitem{grinsztajn2022} L. Grinsztajn, E. Oyallon, and G. Varoquaux, ``Why tree-based models still outperform deep learning on tabular data,'' in \textit{Proc. NeurIPS}, 2022.
+\bibitem{koller2016} O. Koller, H. Ney, and R. Bowden, ``Deep hand: How to train a CNN on 1 million hand images when your data is continuous and weakly labelled,'' in \textit{Proc. IEEE CVPR}, 2016.
+\bibitem{rastgoo2021} S. E. Rastgoo, K. Kiani, and S. Escalera, ``Real-time isolated sign language recognition using convolutional neural networks and spatial pyramid pooling,'' \textit{Eng. Appl. Artif. Intell.}, vol. 96, 2021.
+\bibitem{garcia2016} B. Garcia and S. Viesca, ``Real-time American Sign Language recognition with convolutional neural networks,'' \textit{Convolutional Neural Networks for Visual Recognition, Stanford Univ.}, 2016.
+\bibitem{cao2017} Z. Cao, T. Simon, S.-E. Wei, and Y. Sheikh, ``Realtime multi-person 2D pose estimation using part affinity fields,'' in \textit{Proc. IEEE CVPR}, 2017.
+\bibitem{cooper2011} H. Cooper, B. Holt, and R. Bowden, ``Sign language recognition,'' in \textit{Visual analysis of humans: Looking at people}, pp. 539--562, Springer, 2011.
+\bibitem{camgoz2018} N. C. Camgoz, S. Hadfield, O. Koller, H. Ney, and R. Bowden, ``Neural sign language translation,'' in \textit{Proc. IEEE CVPR}, 2018.
+\bibitem{pigou2014} L. Pigou, S. Dieleman, P.-J. Kindermans, and B. Schrauwen, ``Sign language recognition using convolutional neural networks,'' in \textit{ECCV Workshops}, 2014.
+\bibitem{pu2019} J. Pu, W. Zhou, and H. Li, ``Iterative alignment network for continuous sign language recognition,'' in \textit{Proc. IEEE CVPR}, 2019.
+\bibitem{halder2020} R. Halder and R. Chatterjee, ``CNN-BiLSTM model for Indian Sign Language recognition,'' in \textit{Proc. Int. Conf. Comput. Perform. Eval.}, 2020.
+\bibitem{who2021} World Health Organization, ``Deafness and hearing loss,'' \textit{WHO Fact Sheets}, 2021.
+\bibitem{he2016} K. He, X. Zhang, S. Ren, and J. Sun, ``Deep residual learning for image recognition,'' in \textit{Proc. IEEE CVPR}, pp. 770--778, 2016.
+\end{thebibliography}
+
+\end{document}

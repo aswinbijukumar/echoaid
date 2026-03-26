@@ -186,8 +186,13 @@ app.post('/api/content/signs/bulk-variants',
 
 // Root endpoint
 app.get('/', (req, res) => {
+<<<<<<< HEAD
   res.json({
     success: true,
+=======
+  res.json({ 
+    success: true, 
+>>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
     message: 'EchoAid Backend API is running',
     timestamp: new Date().toISOString(),
     version: '1.0.0'

@@ -73,6 +73,40 @@ export default function Dashboard() {
 
   // API base URL
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+<<<<<<< HEAD
+=======
+
+  // Function to fetch skills data
+  const fetchSkillsData = useCallback(async () => {
+    try {
+      const skillsResponse = await fetch(`${API_BASE_URL}/api/skills`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const skillsData = await skillsResponse.json();
+      
+      if (skillsData.success && skillsData.data) {
+        console.log('Fetched learning modules:', skillsData.data);
+        // Update learning modules with real data
+        setLearningModules(skillsData.data.map(skill => ({
+          id: skill._id,
+          title: skill.title,
+          description: skill.description,
+          icon: getSkillIcon(skill.category),
+          progress: skill.progress || 0,
+          color: getSkillColor(skill.category),
+          status: getSkillStatus(skill),
+          level: skill.level,
+          isUnlocked: skill.isUnlocked,
+          isCompleted: skill.isCompleted
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching skills data:', error);
+    }
+  }, [API_BASE_URL]);
+>>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
 
   // Check for streak milestones and show notifications
   useEffect(() => {

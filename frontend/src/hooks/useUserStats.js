@@ -18,7 +18,11 @@ export function useUserStats() {
       if (!token) {
         throw new Error('No authentication token found');
       }
+<<<<<<< HEAD
 
+=======
+      
+>>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
       const response = await fetch(`${ENV_CONFIG.API_BASE_URL}/api/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
