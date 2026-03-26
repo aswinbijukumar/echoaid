@@ -303,7 +303,7 @@ export default function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       // Get content statistics
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/stats`, {
+      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/content/stats`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -323,7 +323,7 @@ export default function AdminDashboard() {
 
   const fetchContentItems = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs?limit=1`, {
+      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/content/signs?limit=1`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -345,7 +345,7 @@ export default function AdminDashboard() {
 
   const fetchUserStats = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/stats`, {
+      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/stats`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -360,7 +360,7 @@ export default function AdminDashboard() {
 
   const fetchPendingReviews = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/queue`, {
+      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/content/queue`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -436,7 +436,7 @@ export default function AdminDashboard() {
   const handleCreateAdmin = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/admins`, {
+      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/admins`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1003,7 +1003,7 @@ export default function AdminDashboard() {
     formData.append('file', uploadForm.file);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/content/signs`, {
+      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/content/signs`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -1032,7 +1032,7 @@ export default function AdminDashboard() {
   const handleEdit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/content/${selectedContent.id}`, {
+      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/content/${selectedContent.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1056,7 +1056,7 @@ export default function AdminDashboard() {
 
   const handleDelete = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/${selectedContent.id}`, {
+      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/content/signs/${selectedContent.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -1078,7 +1078,7 @@ export default function AdminDashboard() {
   // User Support Functions
   const handleReply = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/support/tickets/${selectedQuery.id}/reply`, {
+      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/support/tickets/${selectedQuery.id}/reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

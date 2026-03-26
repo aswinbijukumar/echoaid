@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContextConstants';
 import SignRecognition from './SignRecognition'; // Integrated the ML Component
 import { ArrowLeftIcon, SignalIcon, ClockIcon, TrophyIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api`;
+const API_BASE_URL = `${'https://echoaidbackend.onrender.com'}/api`;
 
 export default function LearningFlow({
   selectedSign,

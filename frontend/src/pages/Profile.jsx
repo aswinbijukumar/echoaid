@@ -104,7 +104,7 @@ export default function Profile() {
       setAchievementsLoading(true);
       const token = localStorage.getItem('token');
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/achievements`, {
+      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/achievements`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -131,7 +131,7 @@ export default function Profile() {
       setStatsLoading(true);
       const token = localStorage.getItem('token');
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/me`, {
+      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -209,7 +209,7 @@ export default function Profile() {
 
         try {
           // Send to backend
-          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/profile-photo`, {
+          const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/auth/profile-photo`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
@@ -260,7 +260,7 @@ export default function Profile() {
     if (!confirm(message)) return;
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/profile-photo`, {
+      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/auth/profile-photo`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`

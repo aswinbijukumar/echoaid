@@ -115,7 +115,7 @@ export default function Subscription() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/subscription/cancel`, {
+      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/subscription/cancel`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
