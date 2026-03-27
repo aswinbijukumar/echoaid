@@ -607,10 +607,22 @@ export default function SignRecognition({
           const video = videoRef.current;
 
           if (video && video.videoWidth > 0) {
-            // Simplified bounding box (covers all detected hands)
             setHandDetected(true);
 
-            // --- Geometric Analysis Integration (Enhanced for ISL) ---
+            // --- Draw hand skeleton on overlay canvas ---
+            if (overlayRef.current) {
+              const canvas = overlayRef.current;
+              const ctx = canvas.getContext('2d');
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              for (const landmarks of multiLandmarks) {
+                drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: '#00FF88', lineWidth: 3 });
+                drawLandmarks(ctx, landmarks, { color: '#FF3366', lineWidth: 1, radius: 5 });
+              }
+            }
+
+
             const currentMode = currentModeRef.current;
             const targetSign = targetSignRef.current;
 
@@ -656,6 +668,12 @@ export default function SignRecognition({
         } else {
           setHandDetected(false);
           setHandBoundingBox(null);
+          // Clear canvas when no hand detected
+          if (overlayRef.current) {
+            const canvas = overlayRef.current;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+          }
         }
       });
 
