@@ -1,14 +1,20 @@
 // API configuration constants
 import { ENV_CONFIG } from '../config/prettyConfig.js';
 
-// Ensure the base URL ends with /api but doesn't have it twice
-const rawBase = ENV_CONFIG.API_BASE_URL.replace(/\/api\/?$/, '').replace(/\/$/, '');
-export const API_BASE_URL = `${rawBase}/api`;
+// Base domain (no /api)
+export const API_BASE_URL = ENV_CONFIG.API_BASE_URL.replace(/\/api\/?$/, '').replace(/\/$/, '');
+
+// Full API root (includes /api)
+export const API_URL = `${API_BASE_URL}/api`;
 
 // Helper to build full API URL
 export const apiUrl = (path) => {
   const safePath = path.startsWith('/') ? path : `/${path}`;
-  return `${API_BASE_URL}${safePath}`;
+  // Prevent double /api if path already has it
+  if (safePath.startsWith('/api/')) {
+    return `${API_BASE_URL}${safePath}`;
+  }
+  return `${API_URL}${safePath}`;
 };
 
 // Helper to include Bearer token automatically
