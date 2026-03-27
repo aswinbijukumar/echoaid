@@ -1162,51 +1162,7 @@ export default function SignRecognition({
   }, [mode, isWebcamActive, isVideoReady, isProcessing, handleWebcamCapture]);
 
   // Draw detection area and results overlay
-  useEffect(() => {
-    if (!overlayRef.current || !videoRef.current) return;
-
-    const canvas = overlayRef.current;
-    const ctx = canvas.getContext('2d');
-    const video = videoRef.current;
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw hand detection area
-    const detectionArea = getDetectionArea();
-    if (detectionArea) {
-      const { x, y, width, height } = detectionArea;
-
-      if (handDetected && handBoundingBox) {
-        // Draw hand detection area in green
-        ctx.strokeStyle = '#22c55e';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([5, 5]);
-        ctx.strokeRect(x, y, width, height);
-        ctx.setLineDash([]);
-
-        // Add label
-        ctx.fillStyle = '#22c55e';
-        ctx.font = '14px Arial';
-        ctx.fillText('Hand Detected', x + 5, y - 5);
-      } else {
-        // Draw fallback area in orange
-        ctx.strokeStyle = '#f59e0b';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([3, 3]);
-        ctx.strokeRect(x, y, width, height);
-        ctx.setLineDash([]);
-
-        // Add label
-        ctx.fillStyle = '#f59e0b';
-        ctx.font = '12px Arial';
-        ctx.fillText('Detection Area', x + 5, y - 5);
-      }
-    }
-
-    // Don't draw YOLOv5 results on overlay since they're in cropped space
-    // Results are shown in the UI below the video instead
-  }, [recognitionResult, getDetectionArea, handDetected, handBoundingBox]);
+  // Detection area overlay removed — MediaPipe draws directly via onResults callback
 
   // Initialize webcam when component mounts
   useEffect(() => {
@@ -1399,21 +1355,23 @@ export default function SignRecognition({
               </button>
             )}
 
-            {/* Manual Test Button */}
-            <button
-              onClick={() => {
-                if (!isWebcamActive || !isVideoReady) {
-                  setError('Please start the webcam first');
-                  return;
-                }
-                console.log('[manual-test] Manual detection trigger');
-                handleWebcamCapture();
-              }}
-              disabled={!isWebcamActive || !isVideoReady || isProcessing}
-              className="px-6 py-3 bg-purple-500 text-white rounded-xl hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isProcessing ? 'Testing...' : 'Test Detection'}
-            </button>
+            {/* Mirror Button */}
+            {isWebcamActive && (
+              <button
+                onClick={() => {
+                  const v = videoRef.current;
+                  const o = overlayRef.current;
+                  if (v) {
+                    const mirrored = v.style.transform === 'scaleX(-1)';
+                    v.style.transform = mirrored ? 'scaleX(1)' : 'scaleX(-1)';
+                    if (o) o.style.transform = mirrored ? 'scaleX(1)' : 'scaleX(-1)';
+                  }
+                }}
+                className="px-6 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors"
+              >
+                🪞 Mirror
+              </button>
+            )}
 
           </div>
         </div>
