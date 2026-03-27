@@ -479,10 +479,11 @@ export default function SignRecognition({
         return `✅ Good! You're learning the ${signInfo?.name || detection.label}!`;
       }
     } else {
+      const label = detection.label === 'Unknown' ? 'an unclear sign' : detection.label;
       if (expected) {
-        return `🎯 You made ${detection.label}, but we're practicing ${expected}. Keep trying!`;
+        return `🎯 I detected ${label}, but we're practicing "${expected}". Give it another try!`;
       } else {
-        return `🤔 I see ${detection.label}! ${confidence >= 50 ? 'Nice work!' : 'Try to make it clearer!'}`;
+        return `🤔 I see ${label}! ${confidence >= 50 ? 'Nice work!' : 'Try to make it clearer!'}`;
       }
     }
   };
@@ -599,7 +600,7 @@ export default function SignRecognition({
 
       hands.setOptions({
         maxNumHands: 2, // Track 2 hands for stable overlapping/occlusion
-        modelComplexity: 1,
+        modelComplexity: 0, // Lite model for ultra-low latency
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.7 // Increased for better hand "stickiness"
       });
@@ -1832,14 +1833,26 @@ export default function SignRecognition({
                 </div>
               </div>
 
-              {/* Expected vs Detected */}
-              {targetSign?.word && (
-                <div className="text-lg mb-4">
-                  <span className="font-medium">Expected: </span>
-                  <span className="font-bold text-blue-600">{targetSign.word}</span>
-                  <span className="mx-2">•</span>
-                  <span className="font-medium">Detected: </span>
-                  <span className="font-bold text-purple-600">{recognitionResult.label}</span>
+              {/* Expected vs Detected Comparison (NEW) */}
+              {!recognitionResult.isCorrect && targetSign?.word && (
+                <div className="mt-6 p-4 bg-orange-100 rounded-xl border border-orange-200">
+                  <div className="flex items-center justify-center space-x-8 text-center">
+                    <div>
+                      <div className="text-[10px] text-orange-600 font-bold uppercase mb-1">Target</div>
+                      <div className="text-3xl font-black text-orange-800">{targetSign.word.toUpperCase()}</div>
+                    </div>
+                    <div className="text-orange-400">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-orange-600 font-bold uppercase mb-1">Detected</div>
+                      <div className="text-3xl font-black text-red-700">
+                        {recognitionResult.label === 'Unknown' ? '???' : recognitionResult.label}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

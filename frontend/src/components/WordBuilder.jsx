@@ -81,7 +81,7 @@ export default function WordBuilder({ onComplete, onExit }) {
     });
     hands.setOptions({
       maxNumHands: 2, // Track 2 hands for stable overlapping/occlusion
-      modelComplexity: 1,
+      modelComplexity: 0,
       minDetectionConfidence: 0.5,
       minTrackingConfidence: 0.7,
     });
