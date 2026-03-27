@@ -76,11 +76,6 @@ export default function SignsManagement() {
         ...filters
       });
 
-<<<<<<< HEAD
-      const response = await fetch(`${API_BASE_URL}/api/admin/content/signs?${params}`, {
-=======
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs?${params}`, {
->>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -119,11 +114,6 @@ export default function SignsManagement() {
     }
 
     try {
-<<<<<<< HEAD
-      const response = await fetch(`${API_BASE_URL}/api/admin/content/signs`, {
-=======
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs`, {
->>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -163,11 +153,6 @@ export default function SignsManagement() {
     }
 
     try {
-<<<<<<< HEAD
-      const response = await fetch(`${API_BASE_URL}/api/admin/content/signs/${selectedSign._id}`, {
-=======
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/${selectedSign._id}`, {
->>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -191,11 +176,6 @@ export default function SignsManagement() {
 
   const handleDeleteSign = async () => {
     try {
-<<<<<<< HEAD
-      const response = await fetch(`${API_BASE_URL}/api/admin/content/signs/${selectedSign._id}`, {
-=======
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/${selectedSign._id}`, {
->>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -215,11 +195,6 @@ export default function SignsManagement() {
   // eslint-disable-next-line no-unused-vars
   const handleBulkOperation = async (operation, signIds) => {
     try {
-<<<<<<< HEAD
-      const response = await fetch(`${API_BASE_URL}/api/admin/content/signs/bulk`, {
-=======
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/bulk`, {
->>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -336,11 +311,6 @@ export default function SignsManagement() {
           <button
             onClick={() => {
               const link = document.createElement('a');
-<<<<<<< HEAD
-              link.href = `${API_BASE_URL}/api/admin/content/signs/export?format=csv`;
-=======
-              link.href = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/export?format=csv`;
->>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
               link.download = 'signs-export.csv';
               link.click();
             }}

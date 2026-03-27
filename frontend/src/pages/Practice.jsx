@@ -24,11 +24,6 @@ import {
   LockClosedIcon
 } from '@heroicons/react/24/outline';
 
-<<<<<<< HEAD
-const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api`;
-=======
-  const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api`;
->>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
 
 export default function Practice() {
   const { darkMode } = useTheme();

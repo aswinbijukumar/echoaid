@@ -89,17 +89,6 @@ export default function Subscription() {
 
   const fetchSubscription = async () => {
     try {
-<<<<<<< HEAD
-      const response = await fetch(apiUrl('/subscription'), withAuth());
-=======
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/subscription`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
->>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
 
       if (response.ok) {
         const data = await response.json();

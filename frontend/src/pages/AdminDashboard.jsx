@@ -71,11 +71,6 @@ const QuizAnalyticsSection = () => {
     const fetchQuizAnalytics = async () => {
       try {
         setLoading(true);
-<<<<<<< HEAD
-        const response = await fetch(`${API_BASE_URL}/api/admin/quiz/dashboard/overview`, {
-=======
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/quiz/dashboard/overview`, {
->>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -417,122 +412,6 @@ export default function AdminDashboard() {
 
   // Fetch dashboard data
   useEffect(() => {
-<<<<<<< HEAD
-=======
-    const fetchDashboardData = async () => {
-      try {
-        // Get content statistics
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/stats`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setDashboardData(data.data);
-          setContentItemsCount(data.data.totalSigns || 0);
-        }
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const fetchContentItems = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs?limit=1`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          // Use pagination total if available
-          if (data.pagination && data.pagination.totalItems !== undefined) {
-            setContentItemsCount(data.pagination.totalItems);
-          }
-          setContentItems(data.data || []);
-        }
-      } catch (error) {
-        console.error('Error fetching content items:', error);
-        setContentItems([]);
-      }
-    };
-
-    const fetchUserStats = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/stats`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setTotalUsersCount(data.data.totalUsers || 0);
-          setActiveUsersCount(data.data.activeUsers || 0);
-        }
-      } catch (e) {
-        console.error('Error fetching user stats:', e);
-      }
-    };
-
-    const fetchPendingReviews = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/queue`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setPendingReviewsCount((data.data || []).length);
-        }
-      } catch (e) {
-        console.error('Error fetching pending reviews:', e);
-      }
-    };
-
-    const fetchUserQueries = async () => {
-      // Mock user queries data since the endpoint doesn't exist
-      setUserQueries([
-        {
-          id: 1,
-          subject: 'Need help with sign language',
-          user: 'john.doe@example.com',
-          priority: 'medium',
-          status: 'open',
-          createdAt: new Date(Date.now() - 86400000) // 1 day ago
-        },
-        {
-          id: 2,
-          subject: 'Question about advanced signs',
-          user: 'jane.smith@example.com',
-          priority: 'low',
-          status: 'resolved',
-          createdAt: new Date(Date.now() - 172800000) // 2 days ago
-        }
-      ]);
-    };
-
-    
-
-    const fetchUsers = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/users`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setUsers(data.data);
-        }
-      } catch (error) {
-        console.error('Error fetching users:', error);
-      }
-    };
-
->>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
     if (token) {
       fetchDashboardData();
       fetchContentItems();
@@ -1227,11 +1106,6 @@ export default function AdminDashboard() {
 
   const handleReportIssue = async () => {
     try {
-<<<<<<< HEAD
-      const response = await fetch(`${API_BASE_URL}/api/support/report`, {
-=======
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/support/report`, {
->>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1852,11 +1726,6 @@ export default function AdminDashboard() {
                                     if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${userItem.name || userItem.email}?`)) return;
 
                                     try {
-<<<<<<< HEAD
-                                      const res = await fetch(`${API_BASE_URL}/api/admin/users/${userItem._id}/toggle-status`, {
-=======
-                                      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/users/${userItem._id}/toggle-status`, {
->>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
                                         method: 'PATCH',
                                         headers: {
                                           'Content-Type': 'application/json',
