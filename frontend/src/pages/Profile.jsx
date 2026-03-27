@@ -257,11 +257,17 @@ export default function Profile() {
 
     if (!confirm(message)) return;
 
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://echoaidbackend.onrender.com'}/api/auth/profile-photo`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
 
       const data = await response.json();
 
       if (data.success) {
-        // Update user context
         setUser(prev => ({ ...prev, avatar: '' }));
         setShowPhotoOptions(false);
         alert(isGoogleUser() ? 'Google profile photo removed successfully! You can now upload your own photo.' : 'Profile photo removed successfully!');
