@@ -597,7 +597,7 @@ export default function SignRecognition({
       });
 
       hands.setOptions({
-        maxNumHands: 1, // Keras model expects 63-dim vector (one hand)
+        maxNumHands: 2, // Track 2 hands for stable overlapping/occlusion
         modelComplexity: 1,
         minDetectionConfidence: 0.75,
         minTrackingConfidence: 0.75

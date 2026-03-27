@@ -79,7 +79,7 @@ export default function WordBuilder({ onComplete, onExit }) {
       locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
     });
     hands.setOptions({
-      maxNumHands: 1, // Keras model expects 63-dim vector
+      maxNumHands: 2, // Track 2 hands for stable overlapping/occlusion
       modelComplexity: 1,
       minDetectionConfidence: 0.75,
       minTrackingConfidence: 0.75,
