@@ -112,12 +112,12 @@ export const recognize = async (req, res) => {
           logger.debug('Python service response after init:', data, 'CONTROLLER');
         } else {
           const errTxt = await retry.text().catch(() => '');
-          logger.errorWithStack('Retry after init failed:', retry.status, errTxt, error, 'CONTROLLER');
+          logger.errorWithStack('Retry after init failed:', retry.status, errTxt, e, 'CONTROLLER');
           throw new Error(`HTTP ${retry.status}: ${errTxt}`);
         }
       } else {
         const errorText = await resp.text().catch(() => '');
-        logger.errorWithStack('Python service error:', resp.status, errorText, error, 'CONTROLLER');
+        logger.errorWithStack('Python service error:', resp.status, errorText, e, 'CONTROLLER');
         throw new Error(`HTTP ${resp.status}: ${errorText}`);
       }
     } catch (e) {
