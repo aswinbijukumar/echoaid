@@ -609,19 +609,28 @@ export default function SignRecognition({
           const lm = multiLandmarks[0];
 
           // 1. Extract 63-dim landmark vector (x, y, z) for Keras
+          // Scale by actual video width/height to restore aspect ratio before normalize
           const vector = [];
+          const vw = videoRef.current ? (videoRef.current.videoWidth || 640) : 640;
+          const vh = videoRef.current ? (videoRef.current.videoHeight || 480) : 480;
+          
           lm.forEach(p => {
-            vector.push(p.x, p.y, p.z);
+            vector.push(p.x * vw, p.y * vh, p.z);
           });
 
           // 2. Send to WebSocket for real-time Keras inference
           if (wsRef.current && wsReadyRef.current) {
-            wsRef.current.send(JSON.stringify({ landmarks: vector }));
+            wsRef.current.send(JSON.stringify({ landmarks: vector, width: vw, height: vh }));
           }
 
           // 3. Keep drawing overlay
           const canvasElement = overlayRef.current;
-          if (canvasElement) {
+          const videoElement = videoRef.current;
+          if (canvasElement && videoElement && videoElement.videoWidth) {
+            if (canvasElement.width !== videoElement.videoWidth || canvasElement.height !== videoElement.videoHeight) {
+              canvasElement.width = videoElement.videoWidth;
+              canvasElement.height = videoElement.videoHeight;
+            }
             const canvasCtx = canvasElement.getContext('2d');
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -889,8 +898,7 @@ export default function SignRecognition({
 
   // Initialize WebSocket to Python realtime endpoint
   const openWebSocket = useCallback(() => {
-    // WebSocket disabled: Python service does not expose ws endpoint. Using HTTP /detect.
-    wsReadyRef.current = false;
+    // Handled by the useEffect above
   }, []);
 
   // Landmark scoring removed; MediaPipe + model.h5 runs purely on images server-side
@@ -1396,7 +1404,7 @@ export default function SignRecognition({
             {/* Overlay for detections */}
             <canvas
               ref={overlayRef}
-              className="pointer-events-none absolute inset-0 w-full h-96 rounded-xl"
+              className="pointer-events-none absolute inset-0 w-full h-96 object-cover rounded-xl"
             />
             <canvas ref={canvasRef} className="hidden" />
 

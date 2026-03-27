@@ -288,14 +288,19 @@ async def websocket_endpoint(websocket: WebSocket):
             # Reshape to [21, 3]
             lm_array = []
             for i in range(0, 63, 3):
-                # Scale if they are normalized 0-1 (which frontend sends)
-                # Training used pixel coordinates on 640x480 (or flipped BGR)
-                # We'll use 640 and 480 as standard scale factors
-                lm_array.append([
-                    landmarks_list[i] * 640,
-                    landmarks_list[i+1] * 480,
-                    landmarks_list[i+2]
-                ])
+                # Coordinates from frontend are now raw pixel coordinates (x * vw, y * vh)
+                # which perfectly preserves the physical aspect ratio of the user's camera.
+                # If they are legacy (normalized 0-1), scale them back, otherwise use as is.
+                x = landmarks_list[i]
+                y = landmarks_list[i+1]
+                z = landmarks_list[i+2]
+                
+                if x <= 1.0 and y <= 1.0 and x >= 0.0 and y >= 0.0:
+                    # Legacy fallback for cached frontends
+                    x *= 640
+                    y *= 480
+                    
+                lm_array.append([x, y, z])
 
             # Pre-process
             processed_vector = pre_process_landmark(lm_array)
