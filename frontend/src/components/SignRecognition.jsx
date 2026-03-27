@@ -601,7 +601,7 @@ export default function SignRecognition({
         maxNumHands: 2, // Track 2 hands for stable overlapping/occlusion
         modelComplexity: 1,
         minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
+        minTrackingConfidence: 0.7 // Increased for better hand "stickiness"
       });
 
       hands.onResults((results) => {
@@ -878,7 +878,11 @@ export default function SignRecognition({
         const data = JSON.parse(event.data);
         if (data.detections && data.detections.length > 0) {
           const top = data.detections[0];
-          setKerasPrediction(top);
+          setKerasPrediction({
+            ...top,
+            time_ms: data.time_ms,
+            landmark_count: data.landmark_count
+          });
           setDetailedDetections(data.detections);
 
           // Update guidance based on top prediction
@@ -990,7 +994,9 @@ export default function SignRecognition({
         signDescription: signInfo?.description || '',
         signUsage: signInfo?.usage || '',
         signTips: signInfo?.tips || [],
-        commonMistakes: signInfo?.commonMistakes || []
+        commonMistakes: signInfo?.commonMistakes || [],
+        time_ms: data.time_ms,
+        landmark_count: data.landmark_count
       };
 
       console.log('[recognition] Processed result:', result);
@@ -1446,6 +1452,42 @@ export default function SignRecognition({
               </div>
             )}
 
+            {/* Real-time Analysis Breakdown (NEW) */}
+            {isWebcamActive && isVideoReady && (
+              <div className="absolute top-20 left-4 z-20 max-w-[200px]">
+                <div className="bg-gray-900/80 backdrop-blur-md rounded-xl p-3 border border-white/10 shadow-2xl">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className={`w-2 h-2 rounded-full ${handDetected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                    <span className="text-white text-[10px] font-bold uppercase tracking-wider">
+                      {handDetected ? 'Hand Tracked' : 'Searching...'}
+                    </span>
+                  </div>
+                  
+                  {kerasPrediction && (
+                    <div className="space-y-2">
+                       <div className="flex justify-between items-center text-[10px]">
+                         <span className="text-gray-400">Confidence</span>
+                         <span className="text-white font-mono">{kerasPrediction.confidence}%</span>
+                       </div>
+                       <div className="w-full bg-gray-700 h-1 rounded-full overflow-hidden">
+                         <div 
+                           className={`h-full transition-all duration-300 ${
+                             kerasPrediction.confidence > 70 ? 'bg-green-500' : 
+                             kerasPrediction.confidence > 40 ? 'bg-yellow-500' : 'bg-red-500'
+                           }`}
+                           style={{ width: `${kerasPrediction.confidence}%` }}
+                         ></div>
+                       </div>
+                       <div className="flex justify-between items-center text-[9px] text-gray-400">
+                         <span>Latency</span>
+                         <span>{kerasPrediction.time_ms || 0}ms</span>
+                       </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Mirroring Toggle */}
             {isWebcamActive && (
               <div className="absolute top-4 right-4 z-20">
@@ -1761,6 +1803,34 @@ export default function SignRecognition({
                   </span>
                 </div>
               )}
+
+              {/* Detailed Sign Analysis Breakdown (NEW) */}
+              <div className="mt-6 bg-white/50 backdrop-blur-sm rounded-xl p-4 border border-black/5 text-left">
+                <h4 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Detailed Performance Analysis
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-3 bg-white rounded-lg shadow-sm">
+                    <div className="text-[10px] text-gray-400 font-semibold uppercase">Prediction</div>
+                    <div className="text-lg font-bold text-gray-800">{recognitionResult.label}</div>
+                  </div>
+                  <div className="p-3 bg-white rounded-lg shadow-sm">
+                    <div className="text-[10px] text-gray-400 font-semibold uppercase">Confidence</div>
+                    <div className="text-lg font-bold text-blue-600">{recognitionResult.confidence}%</div>
+                  </div>
+                  <div className="p-3 bg-white rounded-lg shadow-sm">
+                    <div className="text-[10px] text-gray-400 font-semibold uppercase">Latency</div>
+                    <div className="text-lg font-bold text-purple-600">{recognitionResult.time_ms || '—'} ms</div>
+                  </div>
+                  <div className="p-3 bg-white rounded-lg shadow-sm">
+                    <div className="text-[10px] text-gray-400 font-semibold uppercase">Landmarks</div>
+                    <div className="text-lg font-bold text-green-600">{recognitionResult.landmark_count || '21'} pts</div>
+                  </div>
+                </div>
+              </div>
 
               {/* Expected vs Detected */}
               {targetSign?.word && (

@@ -207,7 +207,7 @@ def process_pil_image(pil_img, t0, is_mirrored=True):
         return {
             "detections": [],
             "message": "No hand detected in image",
-            "time_ms": round(float((time.time() - t0) * 1000), 1)
+            "time_ms": round(float((time.time() - t0) * 1000))
         }
     
     # Convert to pixel coordinates as per training script
@@ -222,8 +222,9 @@ def process_pil_image(pil_img, t0, is_mirrored=True):
     detections = predict_landmarks(processed_vector, top_k=5)
     return {
         "detections": detections,
-        "time_ms": round(float((time.time() - t0) * 1000), 1),
-        "landmarks_detected": True
+        "time_ms": round(float((time.time() - t0) * 1000)),
+        "landmarks_detected": True,
+        "landmark_count": len(landmarks_raw)
     }
 
 
@@ -302,6 +303,7 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             # Expecting a JSON with a 'landmarks' key: [x1, y1, z1, ..., x21, y21, z21]
             data = await websocket.receive_json()
+            t_recv = time.time()
             landmarks_list = data.get("landmarks")
             vw = data.get("width", 640)
             is_mirrored = data.get("isMirrored", True)
@@ -333,9 +335,12 @@ async def websocket_endpoint(websocket: WebSocket):
             # Predict
             detections = predict_landmarks(processed_vector, top_k=3)
             
+            t_end = time.time()
             await websocket.send_json({
                 "detections": detections,
-                "timestamp": time.time()
+                "timestamp": t_end,
+                "time_ms": round(float((t_end - t_recv) * 1000)),
+                "landmark_count": 21
             })
     except WebSocketDisconnect:
         logger.info("🔌 WebSocket disconnected")

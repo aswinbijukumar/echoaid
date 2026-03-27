@@ -83,7 +83,7 @@ export default function WordBuilder({ onComplete, onExit }) {
       maxNumHands: 2, // Track 2 hands for stable overlapping/occlusion
       modelComplexity: 1,
       minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5,
+      minTrackingConfidence: 0.7,
     });
     hands.onResults((results) => {
       const multiLandmarks = results.multiHandLandmarks;
