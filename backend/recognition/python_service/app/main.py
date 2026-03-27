@@ -64,12 +64,26 @@ MODEL_PATH = os.path.join(BASE_DIR, "model.h5")
 model = None
 
 try:
-    import tensorflow as tf
-    model = tf.keras.models.load_model(MODEL_PATH)
-    # Warm up
-    dummy = np.zeros((1, 63), dtype=np.float32)
-    model.predict(dummy, verbose=0)
-    logger.info(f"✅ Keras model loaded: {MODEL_PATH} | input shape: {model.input_shape}")
+    # Try importing standalone keras (v3+) first for better H5 compatibility
+    try:
+        import keras
+        model = keras.models.load_model(MODEL_PATH)
+        logger.info(f"✅ Model loaded using standalone Keras {keras.__version__}")
+    except (ImportError, Exception):
+        import tensorflow as tf
+        model = tf.keras.models.load_model(MODEL_PATH)
+        logger.info("✅ Model loaded using tf.keras")
+    
+    if model:
+        # Warm up
+        dummy = np.zeros((1, 63), dtype=np.float32)
+        model.predict(dummy, verbose=0)
+        # Handle different Keras versions for input_shape
+        try:
+            in_shape = model.input_shape
+        except:
+            in_shape = "unknown"
+        logger.info(f"✅ Keras model ready | input shape: {in_shape}")
 except Exception as e:
     logger.error(f"❌ Could not load Keras model: {e}")
     logger.error(traceback.format_exc())
