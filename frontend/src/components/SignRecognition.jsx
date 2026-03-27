@@ -35,6 +35,7 @@ export default function SignRecognition({
   const [selectedCameraId, setSelectedCameraId] = useState('');
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [handDetected, setHandDetected] = useState(false);
+  const [isMirrored, setIsMirrored] = useState(true);
   const [handBoundingBox, setHandBoundingBox] = useState(null);
   // Floating chatbot now replaces inline toggle
   const wsRef = useRef(null);
@@ -622,7 +623,12 @@ export default function SignRecognition({
           // 2. Send to WebSocket ONLY if previous frame finished, to prevent lag queueing
         if (wsRef.current && wsReadyRef.current && !isProcessingWsRef.current) {
           isProcessingWsRef.current = true;
-          wsRef.current.send(JSON.stringify({ landmarks: vector, width: vw, height: vh }));
+          wsRef.current.send(JSON.stringify({ 
+            landmarks: vector, 
+            width: vw, 
+            height: vh,
+            isMirrored: isMirrored 
+          }));
           // Safety timeout to prevent WS freezing
           setTimeout(() => { isProcessingWsRef.current = false; }, 200);
         }
@@ -924,7 +930,7 @@ export default function SignRecognition({
       console.log('[recognition] Starting detection for image:', imageDataUrl?.substring(0, 50) + '...');
 
       // Use the new data URL function
-      const data = await detectImageFromDataUrl(imageDataUrl);
+      const data = await detectImageFromDataUrl(imageDataUrl, { signId, isMirrored });
       const expected = getExpectedLabel();
 
       // Map YOLO detections to a single result for session scoring
@@ -1390,11 +1396,13 @@ export default function SignRecognition({
                   : 'bg-gray-200'
                 : ''
                 } ${darkMode ? 'ring-1 ring-gray-700' : 'ring-1 ring-gray-200'}`}
+              style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }}
             />
             {/* Overlay for detections */}
             <canvas
               ref={overlayRef}
               className="pointer-events-none absolute inset-0 w-full h-96 object-cover rounded-xl"
+              style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }}
             />
             <canvas ref={canvasRef} className="hidden" />
 
@@ -1430,6 +1438,27 @@ export default function SignRecognition({
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Mirroring Toggle */}
+            {isWebcamActive && (
+              <div className="absolute top-4 right-4 z-20">
+                <button
+                  onClick={() => setIsMirrored(!isMirrored)}
+                  className={`p-2 rounded-xl backdrop-blur-md shadow-lg transition-all flex items-center space-x-2 border ${
+                    isMirrored 
+                      ? 'bg-blue-600/80 text-white border-blue-400' 
+                      : 'bg-gray-900/80 text-gray-300 border-gray-700'
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                  <span className="text-xs font-bold uppercase tracking-wider">
+                    {isMirrored ? 'Mirrored' : 'Normal'}
+                  </span>
+                </button>
               </div>
             )}
           </div>

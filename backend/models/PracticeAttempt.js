@@ -36,31 +36,17 @@ const practiceAttemptSchema = new mongoose.Schema({
     trim: true
   },
   landmarks: {
-    handShape: {
-      type: String,
-      enum: ['correct', 'needs_adjustment'],
-      default: 'needs_adjustment'
-    },
-    position: {
-      type: String,
-      enum: ['correct', 'needs_adjustment'],
-      default: 'needs_adjustment'
-    },
-    orientation: {
-      type: String,
-      enum: ['correct', 'needs_adjustment'],
-      default: 'needs_adjustment'
-    },
-    movement: {
-      type: String,
-      enum: ['correct', 'needs_adjustment'],
-      default: 'needs_adjustment'
-    },
-    timing: {
-      type: String,
-      enum: ['correct', 'needs_adjustment'],
-      default: 'needs_adjustment'
-    }
+    modelLabel: String,
+    bbox: [Number],
+    keypoints: [mongoose.Schema.Types.Mixed],
+    predictions: [mongoose.Schema.Types.Mixed],
+    modelSource: String,
+    // Add legacy fields back but optional for compatibility
+    handShape: { type: String, default: 'needs_adjustment' },
+    position: { type: String, default: 'needs_adjustment' },
+    orientation: { type: String, default: 'needs_adjustment' },
+    movement: { type: String, default: 'needs_adjustment' },
+    timing: { type: String, default: 'needs_adjustment' }
   },
   improvements: [{
     type: String,

@@ -18,7 +18,8 @@ export const recognize = async (req, res) => {
       contentType: req.headers['content-type']
     }, 'PRACTICE');
 
-    const { signId } = req.body;
+    const { signId, isMirrored: rawIsMirrored } = req.body;
+    const isMirrored = rawIsMirrored === 'true' || rawIsMirrored === true;
     let sign = null;
     if (signId) {
       sign = await Sign.findById(signId).catch(() => null);
@@ -81,13 +82,14 @@ export const recognize = async (req, res) => {
     }, 'PYTHON');
 
     // Use the working /score endpoint with proper image format
+    let data;
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 15000); // Increased timeout
       const resp = await fetch(`${pyUrl}/score`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: imageDataUrl, isISL: true, signId }),
+        body: JSON.stringify({ image: imageDataUrl, isISL: true, signId, isMirrored }),
         signal: controller.signal
       }).finally(() => clearTimeout(timer));
 

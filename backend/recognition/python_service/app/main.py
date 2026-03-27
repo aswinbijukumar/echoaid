@@ -179,10 +179,11 @@ def health():
     }
 
 
-def process_pil_image(pil_img, t0):
+def process_pil_image(pil_img, t0, is_mirrored=True):
     """Internal helper to process a PIL image and return Keras detections."""
-    # FLIP IMAGE to match training-time 'cv2.flip(img, 1)'
-    pil_img = pil_img.transpose(Image.FLIP_LEFT_RIGHT)
+    if is_mirrored:
+        # FLIP IMAGE to match training-time 'cv2.flip(img, 1)'
+        pil_img = pil_img.transpose(Image.FLIP_LEFT_RIGHT)
     
     img_rgb = np.array(pil_img)
     h, w = img_rgb.shape[:2]
@@ -230,7 +231,7 @@ def extract_landmarks_raw(image_rgb: np.ndarray):
 
 
 @app.post("/detect")
-async def detect(image: UploadFile = File(...)):
+async def detect(image: UploadFile = File(...), isMirrored: bool = True):
     t0 = time.time()
     if model is None: raise HTTPException(503, "Keras model not loaded")
     if mp_hands is None: raise HTTPException(503, "MediaPipe not available")
@@ -238,19 +239,20 @@ async def detect(image: UploadFile = File(...)):
     contents = await image.read()
     try:
         pil_img = Image.open(io.BytesIO(contents)).convert("RGB")
-        return process_pil_image(pil_img, t0)
+        return process_pil_image(pil_img, t0, is_mirrored=isMirrored)
     except Exception as e:
         raise HTTPException(400, f"Cannot read image: {e}")
 
 
 @app.post("/detect_base64")
 async def detect_base64(data: dict):
-    """Accepts JSON { 'image': 'data:image/jpeg;base64,...' } for Node.js compatibility."""
+    """Accepts JSON { 'image': 'data:image/jpeg;base64,...', 'isMirrored': true } for Node.js compatibility."""
     t0 = time.time()
     if model is None: raise HTTPException(503, "Keras model not loaded")
     if mp_hands is None: raise HTTPException(503, "MediaPipe not available")
 
     image_data = data.get("image")
+    is_mirrored = data.get("isMirrored", True)
     if not image_data:
         raise HTTPException(400, "Missed 'image' key in JSON")
 
@@ -261,7 +263,7 @@ async def detect_base64(data: dict):
         import base64
         contents = base64.b64decode(image_data)
         pil_img = Image.open(io.BytesIO(contents)).convert("RGB")
-        return process_pil_image(pil_img, t0)
+        return process_pil_image(pil_img, t0, is_mirrored=is_mirrored)
     except Exception as e:
         raise HTTPException(400, f"Invalid base64 image: {e}")
 
@@ -273,9 +275,9 @@ async def score(data: dict):
 
 
 @app.post("/recognize")
-async def recognize(image: UploadFile = File(...)):
+async def recognize(image: UploadFile = File(...), isMirrored: bool = True):
     """Alias for /detect — for backwards compatibility."""
-    return await detect(image)
+    return await detect(image, isMirrored=isMirrored)
 
 
 @app.websocket("/ws/recognize")
@@ -288,7 +290,7 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_json()
             landmarks_list = data.get("landmarks")
             vw = data.get("width", 640)
-            # vh = data.get("height", 480) # not strictly needed if x is already pixel-scaled
+            is_mirrored = data.get("isMirrored", True)
             
             if not landmarks_list or len(landmarks_list) != 63:
                 continue
@@ -296,18 +298,18 @@ async def websocket_endpoint(websocket: WebSocket):
             # Reshape to [21, 3]
             lm_array = []
             for i in range(0, 63, 3):
-                # Coordinates from frontend are now raw pixel coordinates (x * vw, y * vh)
                 x = landmarks_list[i]
                 y = landmarks_list[i+1]
                 z = landmarks_list[i+2]
                 
                 if x <= 1.0 and y <= 1.0 and x >= 0.0 and y >= 0.0:
-                    # Legacy fallback for cached frontends
+                    # Legacy fallback
                     x *= 640
                     y *= 480
                 
-                # MIRROR X to match training-time flip
-                x = vw - x
+                if is_mirrored:
+                    # MIRROR X to match training-time flip
+                    x = vw - x
                     
                 lm_array.append([x, y, z])
 

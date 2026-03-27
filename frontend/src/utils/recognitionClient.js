@@ -2,7 +2,7 @@
 import { ENV_CONFIG } from '../config/prettyConfig.js';
 const PRACTICE_RECOGNIZE_URL = `${ENV_CONFIG.API_BASE_URL}/api/practice/recognize`;
 
-export async function detectImageFromBlob(imageBlob, { signId } = {}) {
+export async function detectImageFromBlob(imageBlob, { signId, isMirrored = true } = {}) {
   try {
     console.log('[detect] sending blob', { size: imageBlob?.size });
   } catch {
@@ -11,6 +11,7 @@ export async function detectImageFromBlob(imageBlob, { signId } = {}) {
   const form = new FormData();
   form.append('image', imageBlob, 'frame.jpg');
   if (signId) form.append('signId', signId);
+  form.append('isMirrored', isMirrored ? 'true' : 'false');
   const token = localStorage.getItem('token');
   const res = await fetch(PRACTICE_RECOGNIZE_URL, {
     method: 'POST',
@@ -29,7 +30,7 @@ export async function detectImageFromBlob(imageBlob, { signId } = {}) {
 }
 
 // New function to handle data URLs (base64 images)
-export async function detectImageFromDataUrl(dataUrl, { signId } = {}) {
+export async function detectImageFromDataUrl(dataUrl, { signId, isMirrored = true } = {}) {
   try {
     console.log('[detect] sending dataURL', { length: dataUrl?.length });
 
@@ -40,6 +41,7 @@ export async function detectImageFromDataUrl(dataUrl, { signId } = {}) {
     const form = new FormData();
     form.append('image', blob, 'frame.jpg');
     if (signId) form.append('signId', signId);
+    form.append('isMirrored', isMirrored ? 'true' : 'false');
     const token = localStorage.getItem('token');
     const res = await fetch(PRACTICE_RECOGNIZE_URL, {
       method: 'POST',

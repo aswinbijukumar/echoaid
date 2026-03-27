@@ -51,6 +51,7 @@ export default function WordBuilder({ onComplete, onExit }) {
   const [kerasResult, setKerasResult] = useState(null);   // { label, confidence }
   const [feedback, setFeedback] = useState(null);          // 'correct' | 'wrong' | null
   const [error, setError] = useState('');
+  const [isMirrored, setIsMirrored] = useState(true);
   const [availableCameras, setAvailableCameras] = useState([]);
   const [selectedCameraId, setSelectedCameraId] = useState('');
 
@@ -103,7 +104,12 @@ export default function WordBuilder({ onComplete, onExit }) {
         // 2. Send to WebSocket ONLY if previous frame finished, to prevent lag queueing
         if (wsRef.current && wsReadyRef.current && !isProcessingWsRef.current) {
           isProcessingWsRef.current = true;
-          wsRef.current.send(JSON.stringify({ landmarks: vector, width: vw, height: vh }));
+          wsRef.current.send(JSON.stringify({ 
+            landmarks: vector, 
+            width: vw, 
+            height: vh,
+            isMirrored: isMirrored
+          }));
           // Safety timeout
           setTimeout(() => { isProcessingWsRef.current = false; }, 200);
         }
@@ -530,25 +536,45 @@ export default function WordBuilder({ onComplete, onExit }) {
           <div className="relative w-full h-96 bg-black rounded-xl overflow-hidden shadow-lg border border-white/10">
             <video
               ref={videoRef}
-              className="w-full h-full object-cover scale-x-[-1]"
+              autoPlay
               playsInline
               muted
+              className={`w-full h-80 object-cover rounded-xl ${!isWebcamActive
+                ? darkMode ? 'bg-gray-800' : 'bg-gray-200'
+                : ''
+                } ${darkMode ? 'ring-1 ring-white/10' : 'ring-1 ring-black/5'}`}
+              style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }}
             />
-            {/* MediaPipe skeleton overlay */}
+            {/* MediaPipe overlay */}
             <canvas
               ref={overlayRef}
-              className="absolute inset-0 w-full h-full object-cover scale-x-[-1] pointer-events-none"
-              style={{ zIndex: 10 }}
+              className="absolute inset-0 w-full h-80 object-cover pointer-events-none rounded-xl"
+              style={{ transform: isMirrored ? 'scaleX(-1)' : 'none', zIndex: 10 }}
             />
             {/* Hidden capture canvas */}
             <canvas ref={canvasRef} className="hidden" />
 
-            {/* Hand detected indicator */}
+            {/* Mirroring / Hand detected indicator */}
             {isWebcamActive && (
-              <div className={`absolute top-2 right-2 z-20 flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium
-                ${handDetected ? 'bg-green-500/80 text-white' : 'bg-black/60 text-white/60'}`}>
-                <HandRaisedIcon className="w-3 h-3" />
-                {handDetected ? 'Hand detected' : 'No hand'}
+              <div className="absolute top-2 right-2 z-20 flex items-center gap-2">
+                <button
+                  onClick={() => setIsMirrored(!isMirrored)}
+                  className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-tighter border transition-all ${
+                    isMirrored
+                      ? 'bg-blue-600/80 text-white border-blue-400'
+                      : 'bg-black/60 text-white/70 border-white/20'
+                  }`}
+                >
+                  {isMirrored ? 'Mirrored' : 'Normal'}
+                </button>
+                <div className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium shadow-md
+                  ${handDetected ? 'bg-green-500/80 text-white' : 'bg-black/60 text-white/60'}`}>
+                  {handDetected ? (
+                    <><span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" /> Hand Active</>
+                  ) : (
+                    "No Hand"
+                  )}
+                </div>
               </div>
             )}
 
