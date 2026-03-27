@@ -40,6 +40,10 @@ export default function SignRecognition({
   const wsRef = useRef(null);
   const wsReadyRef = useRef(false);
   const handsRef = useRef(null);
+  const kerasIntervalRef = useRef(null);
+  const [kerasPrediction, setKerasPrediction] = useState(null); // { label, confidence }
+  const [detailedDetections, setDetailedDetections] = useState([]);
+  const [guidanceNotes, setGuidanceNotes] = useState([]);
 
   // Refs to access latest state in callbacks
   const targetSignRef = useRef(targetSign);
@@ -592,70 +596,67 @@ export default function SignRecognition({
       });
 
       hands.setOptions({
-        maxNumHands: 2, // Upgraded for ISL Support
+        maxNumHands: 1, // Keras model expects 63-dim vector (one hand)
         modelComplexity: 1,
-        minDetectionConfidence: 0.8,
-        minTrackingConfidence: 0.8
+        minDetectionConfidence: 0.75,
+        minTrackingConfidence: 0.75
       });
 
       hands.onResults((results) => {
-        // Handle BOTH hands (ISL requires 2 hands for most signs)
         const multiLandmarks = results.multiHandLandmarks;
-        const handedness = results.multiHandedness;
-
         if (multiLandmarks && multiLandmarks.length > 0) {
-          const video = videoRef.current;
+          setHandDetected(true);
+          const lm = multiLandmarks[0];
 
-          if (video && video.videoWidth > 0) {
-            // Simplified bounding box (covers all detected hands)
-            setHandDetected(true);
+          // 1. Extract 63-dim landmark vector (x, y, z) for Keras
+          const vector = [];
+          lm.forEach(p => {
+            vector.push(p.x, p.y, p.z);
+          });
 
-            // --- Geometric Analysis Integration (Enhanced for ISL) ---
-            const currentMode = currentModeRef.current;
-            const targetSign = targetSignRef.current;
+          // 2. Send to WebSocket for real-time Keras inference
+          if (wsRef.current && wsReadyRef.current) {
+            wsRef.current.send(JSON.stringify({ landmarks: vector }));
+          }
 
-            if (currentMode === 'webcam' && targetSign?.word) {
-              const signKey = targetSign.word.charAt(0).toUpperCase();
+          // 3. Keep drawing overlay
+          const canvasElement = overlayRef.current;
+          if (canvasElement) {
+            const canvasCtx = canvasElement.getContext('2d');
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            for (const landmarks of multiLandmarks) {
+              drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 5 });
+              drawLandmarks(canvasCtx, landmarks, { color: '#FF0000', lineWidth: 2 });
+            }
+            canvasCtx.restore();
+          }
 
-              // Determine which ruleset to use (ISL or Standard)
-              // For now, we assume we check against ISL rules if available, or fallback
-              // We need to import ISL rules, but for now let's pass the raw data to analysis
-
-              // We pass ALL landmarks to the analysis function
-              const analysis = analyzeSign(multiLandmarks, handedness, signKey);
-
-              if (analysis.isMatch || analysis.score > 40) {
+          // 4. Fallback/Dual Analysis (Geometric) - ONLY if targetSign is active
+          const signKey = getExpectedLabel();
+          if (signKey) {
+             const analysis = analyzeSign(multiLandmarks, results.multiHandedness, signKey);
+             if (analysis.isMatch && !recognitionResult?.isCorrect) {
+                // Trigger success for geometric match
                 setRecognitionResult({
                   label: signKey,
                   confidence: analysis.score,
-                  isCorrect: analysis.isMatch,
-                  feedback: analysis.isMatch ? "Perfect!" : analysis.feedback[0],
-                  improvements: analysis.feedback,
-                  isValid: true,
-                  isReasonable: true,
-                  xpEarned: analysis.isMatch ? 10 : 0,
-                  achievement: analysis.isMatch ? '🌟' : '',
-                  encouragement: analysis.isMatch ? 'Great Job!' : 'Keep going!',
-                  signName: analysis.signName || signKey,
-                  signDescription: analysis.description || "Practice Sign",
-                  modelSource: 'ISL_GeometricEngine'
+                  isCorrect: true,
+                  feedback: "Geometric Match!",
+                  modelSource: 'Geometric'
                 });
-
-                if (analysis.isMatch) {
-                  if (onRecognitionRef.current) {
-                    onRecognitionRef.current({
-                      label: signKey,
-                      confidence: analysis.score,
-                      isCorrect: true
-                    });
-                  }
-                }
-              }
-            }
+             }
           }
+
         } else {
           setHandDetected(false);
-          setHandBoundingBox(null);
+          setKerasPrediction(null);
+          // Clear overlay
+          const canvasElement = overlayRef.current;
+          if (canvasElement) {
+            const canvasCtx = canvasElement.getContext('2d');
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+          }
         }
       });
 
@@ -678,7 +679,7 @@ export default function SignRecognition({
       console.error('[hand] Failed to initialize MediaPipe Hands:', error);
       setError("Failed to load hand tracking model.");
     }
-  }, []); // Empty dependency array - initialize only once
+  }, [getExpectedLabel, recognitionResult]); 
 
   // Enumerate available cameras
   const enumerateCameras = useCallback(async () => {
@@ -812,12 +813,72 @@ export default function SignRecognition({
     }
     return () => {
       // Cleanup on unmount or re-run
+      if (kerasIntervalRef.current) {
+        clearInterval(kerasIntervalRef.current);
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
       }
     };
   }, [selectedCameraId, enumerateCameras, initializeHands]);
+
+  // Periodic Keras Recognition Polling - REPLACED BY WEBSOCKET
+  useEffect(() => {
+    if (isWebcamActive && isVideoReady && currentMode === 'webcam') {
+      const wsUrl = `ws://${window.location.hostname}:8001/ws/recognize`;
+      console.log('[ws] Connecting to', wsUrl);
+      
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('[ws] Connected');
+        wsReadyRef.current = true;
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.detections && data.detections.length > 0) {
+          const top = data.detections[0];
+          setKerasPrediction(top);
+          setDetailedDetections(data.detections);
+
+          // Update guidance based on top prediction
+          if (signDictionary[top.label]) {
+            setGuidanceNotes(signDictionary[top.label].tips || []);
+          }
+
+          // Auto-trigger recognition if it matches target sign
+          const expected = getExpectedLabel();
+          if (expected && top.label === expected && top.confidence >= 65) {
+            if (onRecognitionRef.current) {
+               onRecognitionRef.current({
+                  label: top.label,
+                  confidence: top.confidence / 100,
+                  isCorrect: true,
+                  source: 'keras_websocket'
+               });
+            }
+          }
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('[ws] Disconnected');
+        wsReadyRef.current = false;
+      };
+
+      ws.onerror = (err) => {
+        console.error('[ws] Error', err);
+        wsReadyRef.current = false;
+      };
+
+      return () => {
+        ws.close();
+      };
+    }
+  }, [isWebcamActive, isVideoReady, currentMode, getExpectedLabel, signDictionary]);
 
   // Initialize WebSocket to Python realtime endpoint
   const openWebSocket = useCallback(() => {
@@ -913,12 +974,17 @@ export default function SignRecognition({
 
   // Stop webcam
   const stopWebcam = useCallback(() => {
+    if (kerasIntervalRef.current) {
+      clearInterval(kerasIntervalRef.current);
+      kerasIntervalRef.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
     setIsWebcamActive(false);
     setIsVideoReady(false);
+    setKerasPrediction(null);
   }, []);
 
   // Capture frame from webcam with optional cropping; returns null if frame is too dark/blank
@@ -1335,6 +1401,32 @@ export default function SignRecognition({
                 </div>
               </div>
             )}
+
+            {/* Keras Real-time Prediction Overlay */}
+            {isWebcamActive && isVideoReady && kerasPrediction && (
+              <div className="absolute top-4 left-4 z-20 pointer-events-none">
+                <div className="bg-black/60 backdrop-blur-md border border-blue-500/30 rounded-xl p-3 flex items-center space-x-3 shadow-lg">
+                  <div className="bg-blue-500 rounded-lg p-2 flex items-center justify-center">
+                    <span className="text-white text-xl font-bold">{kerasPrediction.label}</span>
+                  </div>
+                  <div>
+                    <div className="text-blue-400 text-xs font-semibold uppercase tracking-wider">Keras AI Prediction</div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-300 ${
+                            kerasPrediction.confidence >= 80 ? 'bg-green-500' :
+                            kerasPrediction.confidence >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                          }`}
+                          style={{ width: `${kerasPrediction.confidence}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-white text-xs font-mono">{kerasPrediction.confidence}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Webcam Controls */}
@@ -1373,6 +1465,63 @@ export default function SignRecognition({
               </button>
             )}
 
+          </div>
+
+          {/* Real-time Detailed Output & Guidance Notes */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+            {/* Detailed Output Section */}
+            <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-blue-50/50 border-blue-100'} backdrop-blur-sm`}>
+              <h4 className="text-lg font-bold mb-4 flex items-center gap-2">
+                <span className="p-2 bg-blue-500 rounded-lg text-white">📊</span>
+                Detailed Detection Insights
+              </h4>
+              <div className="space-y-4">
+                {detailedDetections.length > 0 ? (
+                  detailedDetections.map((det, idx) => (
+                    <div key={idx} className={`p-3 rounded-xl ${idx === 0 ? (darkMode ? 'bg-blue-900/30 border border-blue-500/30' : 'bg-white border border-blue-200 shadow-sm') : ''}`}>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className={`font-bold ${idx === 0 ? 'text-blue-500 text-lg' : (darkMode ? 'text-gray-400' : 'text-gray-600')}`}>
+                          {det.label} {idx === 0 && ' (Primary)'}
+                        </span>
+                        <span className="font-mono text-sm">{det.confidence}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-500 ${idx === 0 ? 'bg-blue-500' : 'bg-gray-400'}`}
+                          style={{ width: `${det.confidence}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-gray-400 italic">
+                    Waiting for hand detection...
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Guidance Notes Section */}
+            <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-orange-50/50 border-orange-100'} backdrop-blur-sm`}>
+              <h4 className="text-lg font-bold mb-4 flex items-center gap-2">
+                <span className="p-2 bg-orange-500 rounded-lg text-white">💡</span>
+                Real-time Guidance Notes
+              </h4>
+              <div className="space-y-3">
+                {guidanceNotes.length > 0 ? (
+                  guidanceNotes.map((note, idx) => (
+                    <div key={idx} className="flex items-start gap-3 p-2">
+                      <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
+                      <p className={darkMode ? 'text-gray-300' : 'text-gray-700'}>{note}</p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-gray-400 italic">
+                    Perform a sign to see helpful tips!
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       ) : (

@@ -1,16 +1,17 @@
 """
 EchoAid Python Recognition Service — Keras + MediaPipe Edition
-Endpoint: POST /detect
-Accepts: multipart/form-data with 'image' field
-Returns:  { detections: [{label,confidence},...], time_ms }
+Endpoint: POST /detect, WS /ws/recognize
+Accepts: multipart/form-data with 'image' field (HTTP), JSON with 'landmarks' [63 floats] (WS)
+Returns:  { detections: [{label,confidence},...], time_ms/timestamp }
 """
 import os
 import io
 import time
 import json
 import logging
+import traceback
 import numpy as np
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 
@@ -32,11 +33,16 @@ CLASS_MAP_PATH = os.path.join(BASE_DIR, "class_mapping.json")
 with open(CLASS_MAP_PATH) as f:
     raw = json.load(f)
 
-# Support both {index: label} and {label: index} formats
-if all(k.isdigit() for k in list(raw.keys())[:5]):
-    CLASS_MAP = {int(k): v for k, v in raw.items()}
+# Support [label, label, ...] or {index: label} or {label: index}
+if isinstance(raw, list):
+    CLASS_MAP = {i: label for i, label in enumerate(raw)}
+elif isinstance(raw, dict):
+    if all(k.isdigit() for k in list(raw.keys())[:5]):
+        CLASS_MAP = {int(k): v for k, v in raw.items()}
+    else:
+        CLASS_MAP = {v: k for k, v in raw.items()}
 else:
-    CLASS_MAP = {v: k for k, v in raw.items()}
+    raise TypeError(f"Unsupported class_mapping format: {type(raw)}")
 
 NUM_CLASSES = len(CLASS_MAP)
 logger.info(f"Loaded {NUM_CLASSES} classes from class_mapping.json")
@@ -54,6 +60,7 @@ try:
     logger.info(f"✅ Keras model loaded: {MODEL_PATH} | input shape: {model.input_shape}")
 except Exception as e:
     logger.error(f"❌ Could not load Keras model: {e}")
+    logger.error(traceback.format_exc())
 
 # ─── Load MediaPipe Hands ──────────────────────────────────────────────────────
 mp_hands = None
@@ -154,3 +161,35 @@ async def detect(image: UploadFile = File(...)):
 async def recognize(image: UploadFile = File(...)):
     """Alias for /detect — for backwards compatibility."""
     return await detect(image)
+
+
+@app.websocket("/ws/recognize")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    logger.info("🚀 WebSocket connection established")
+    try:
+        while True:
+            # Expecting a JSON with a 'landmarks' key: [x1, y1, z1, ..., x21, y21, z21]
+            data = await websocket.receive_json()
+            landmarks_list = data.get("landmarks")
+            
+            if not landmarks_list or len(landmarks_list) != 63:
+                # Silently ignore or send error
+                continue
+            
+            # Predict
+            landmarks = np.array(landmarks_list, dtype=np.float32)
+            detections = predict_landmarks(landmarks, top_k=3)
+            
+            await websocket.send_json({
+                "detections": detections,
+                "timestamp": time.time()
+            })
+    except WebSocketDisconnect:
+        logger.info("🔌 WebSocket disconnected")
+    except Exception as e:
+        logger.error(f"❌ WebSocket error: {e}")
+        try:
+            await websocket.send_json({"error": str(e)})
+        except:
+            pass

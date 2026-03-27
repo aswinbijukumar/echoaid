@@ -7,6 +7,7 @@ import logger from '../utils/prettyLogger.js';
 import Sidebar from '../components/Sidebar';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import SignRecognition from '../components/SignRecognition';
+import WordBuilder from '../components/WordBuilder';
 import {
   BoltIcon,
   FireIcon,
@@ -247,6 +248,17 @@ export default function Practice() {
             targetSign={currentSign}
             onRecognition={handleRecognitionResult}
             mode="webcam"
+          />
+        );
+
+      case 'word-builder':
+        return (
+          <WordBuilder 
+            onExit={endPracticeSession}
+            onComplete={() => {
+              // Any special completion logic
+              refreshUserStats();
+            }}
           />
         );
 
@@ -578,6 +590,86 @@ export default function Practice() {
               </div>
             </div>
 
+            {/* Practice Options */}
+            <div className={`${cardBg} rounded-lg border ${border} p-6 mb-8`}>
+              <h3 className={`text-xl font-bold ${text} mb-4`}>Practice Options</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <button
+                  onClick={() => setPracticeMode('review')}
+                  className={`p-4 rounded-lg border transition-all ${practiceMode === 'review'
+                    ? 'border-blue-500 bg-blue-500/20'
+                    : 'border-white/20 hover:border-blue-300'
+                    }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <ClockIcon className="w-6 h-6 text-blue-500" />
+                    <div className="text-left">
+                      <h4 className="font-semibold">Review Practice</h4>
+                      <p className="text-sm text-white/50">Practice recent signs</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setPracticeMode('weak')}
+                  className={`p-4 rounded-lg border transition-all ${practiceMode === 'weak'
+                    ? 'border-orange-500 bg-orange-500/20'
+                    : 'border-white/20 hover:border-orange-300'
+                    }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <ExclamationTriangleIcon className="w-6 h-6 text-orange-500" />
+                    <div className="text-left">
+                      <h4 className="font-semibold">Weak Areas</h4>
+                      <p className="text-sm text-white/50">Focus on improvement</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsPracticeSession(true);
+                    setCurrentSign({ word: 'Free Practice', id: 'free-practice' });
+                    setSessionMode('free');
+                    setExerciseType('sign-recognition');
+                  }}
+                  className={`p-4 rounded-lg border transition-all ${practiceMode === 'free'
+                    ? 'border-green-500 bg-green-500/20'
+                    : 'border-white/20 hover:border-green-300'
+                    }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <PlayIcon className="w-6 h-6 text-green-500" />
+                    <div className="text-left">
+                      <h4 className="font-semibold">Free Practice</h4>
+                      <p className="text-sm text-white/50">Practice any sign</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsPracticeSession(true);
+                    setCurrentSign({ word: 'Word Builder', id: 'word-builder' });
+                    setSessionMode('challenge');
+                    setExerciseType('word-builder');
+                  }}
+                  className={`p-4 rounded-2xl border transition-all ${exerciseType === 'word-builder'
+                    ? 'border-purple-500 bg-purple-500/20'
+                    : 'border-white/20 hover:border-purple-300'
+                    }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <PuzzlePieceIcon className="w-6 h-6 text-purple-400" />
+                    <div className="text-left">
+                      <h4 className="font-semibold text-white">Word Builder</h4>
+                      <p className="text-sm text-white/50">Spell words with signs</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             {/* Practice Modes */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               {/* Recent Signs */}
@@ -783,64 +875,6 @@ export default function Practice() {
                 </div>
               )}
 
-              {/* Practice Options */}
-              <div className={`${cardBg} rounded-lg border ${border} p-6`}>
-                <h3 className={`text-xl font-bold ${text} mb-4`}>Practice Options</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <button
-                    onClick={() => setPracticeMode('review')}
-                    className={`p-4 rounded-lg border transition-all ${practiceMode === 'review'
-                      ? 'border-blue-500 bg-blue-500/20'
-                      : 'border-white/20 hover:border-blue-300'
-                      }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <ClockIcon className="w-6 h-6 text-blue-500" />
-                      <div className="text-left">
-                        <h4 className="font-semibold">Review Practice</h4>
-                        <p className="text-sm text-white/50">Practice recent signs</p>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setPracticeMode('weak')}
-                    className={`p-4 rounded-lg border transition-all ${practiceMode === 'weak'
-                      ? 'border-orange-500 bg-orange-500/20'
-                      : 'border-white/20 hover:border-orange-300'
-                      }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <ExclamationTriangleIcon className="w-6 h-6 text-orange-500" />
-                      <div className="text-left">
-                        <h4 className="font-semibold">Weak Areas</h4>
-                        <p className="text-sm text-white/50">Focus on improvement</p>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setIsPracticeSession(true);
-                      setCurrentSign({ word: 'Free Practice', id: 'free-practice' });
-                      setSessionMode('free');
-                      setExerciseType('sign-recognition');
-                    }}
-                    className={`p-4 rounded-lg border transition-all ${practiceMode === 'free'
-                      ? 'border-green-500 bg-green-500/20'
-                      : 'border-white/20 hover:border-green-300'
-                      }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <PlayIcon className="w-6 h-6 text-green-500" />
-                      <div className="text-left">
-                        <h4 className="font-semibold">Free Practice</h4>
-                        <p className="text-sm text-white/50">Practice any sign</p>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              </div>
 
               {/* Quick Actions */}
               <div className={`${cardBg} rounded-lg border ${border} p-6 mt-8`}>
