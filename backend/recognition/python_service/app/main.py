@@ -67,16 +67,22 @@ if not os.path.exists(MODEL_PATH):
 model = None
 
 def build_sign_model(num_classes):
-    """Reconstruct exact architecture to avoid deserialization errors."""
+    """
+    Reconstruct EXACT architecture from model inspection:
+    Dense(256,relu) -> BN -> Dropout(0.4) -> Dense(128,relu) -> BN ->
+    Dropout(0.3) -> Dense(64,relu) -> Dropout(0.2) -> Dense(36,softmax)
+    """
     try:
         import keras
         m = keras.Sequential([
-            keras.layers.Input(shape=(63,)),
-            keras.layers.Dense(256, activation='relu'),
-            keras.layers.Dropout(0.2),
+            keras.layers.Dense(256, activation='relu', input_shape=(63,)),
+            keras.layers.BatchNormalization(),
+            keras.layers.Dropout(0.4),
             keras.layers.Dense(128, activation='relu'),
-            keras.layers.Dropout(0.2),
+            keras.layers.BatchNormalization(),
+            keras.layers.Dropout(0.3),
             keras.layers.Dense(64, activation='relu'),
+            keras.layers.Dropout(0.2),
             keras.layers.Dense(num_classes, activation='softmax')
         ])
         return m
