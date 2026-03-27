@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../hooks/useTheme';
-import { 
-  ChatBubbleLeftRightIcon, 
-  PlayIcon, 
+import {
+  ChatBubbleLeftRightIcon,
+  PlayIcon,
   AcademicCapIcon,
   LightBulbIcon,
   QuestionMarkCircleIcon,
@@ -11,17 +11,29 @@ import {
 
 const SignLearningChatbot = ({ detectedSign, isOpen, onClose, signDictionary }) => {
   const { darkMode } = useTheme();
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      type: 'bot',
-      content: "Hi! I'm your sign language learning assistant. I can help you understand signs, provide tips, and answer questions about sign language. What would you like to know?",
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState(() => {
+    const saved = localStorage.getItem('echoaid_chat_history');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 1,
+        type: 'bot',
+        content: "Hi! I'm your sign language learning assistant. I can help you understand signs, provide tips, and answer questions about sign language. What would you like to know?",
+        timestamp: new Date()
+      }
+    ];
+  });
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [aiEnabled] = useState(true);
+  const [sessionId] = useState(() => {
+    // Get or create session ID
+    const saved = localStorage.getItem('echoaid_session_id');
+    if (saved) return saved;
+    const newId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem('echoaid_session_id', newId);
+    return newId;
+  });
+  const [aiProvider, setAiProvider] = useState('deepseek');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -34,7 +46,7 @@ const SignLearningChatbot = ({ detectedSign, isOpen, onClose, signDictionary }) 
       responses: [
         "To make a sign clearly, follow these steps:",
         "1. Position your hand correctly in the signing space (chest to forehead)",
-        "2. Use the exact hand shape for each letter/number", 
+        "2. Use the exact hand shape for each letter/number",
         "3. Keep your fingers straight or curled as required",
         "4. Maintain consistent palm orientation",
         "5. Hold the sign steady for 2-3 seconds",
@@ -116,7 +128,7 @@ const SignLearningChatbot = ({ detectedSign, isOpen, onClose, signDictionary }) 
       commonMistakes: 'Thumb extended too far; loose fist.'
     },
     'B': {
-      title: 'Letter B', 
+      title: 'Letter B',
       description: 'Lay your palm flat and open, with all fingers extended and together, and your thumb tucked into your palm.',
       tips: 'Keep fingers together and straight; hide the thumb.',
       commonMistakes: 'Thumb visible; fingers spread apart.'
@@ -333,6 +345,7 @@ const SignLearningChatbot = ({ detectedSign, isOpen, onClose, signDictionary }) 
   };
 
   useEffect(() => {
+    localStorage.setItem('echoaid_chat_history', JSON.stringify(messages));
     scrollToBottom();
   }, [messages]);
 
@@ -353,7 +366,7 @@ const SignLearningChatbot = ({ detectedSign, isOpen, onClose, signDictionary }) 
           ],
           timestamp: new Date()
         };
-        
+
         setMessages(prev => [...prev, contextualMessage]);
       }
     }
@@ -361,7 +374,7 @@ const SignLearningChatbot = ({ detectedSign, isOpen, onClose, signDictionary }) 
 
   const getBotResponse = (userMessage) => {
     const lowerMessage = userMessage.toLowerCase();
-    
+
     // Contextual help based on detected sign
     if (detectedSign && detectedSign.label && detectedSign.label !== 'Unknown') {
       const signInfo = signDictionary?.[detectedSign.label];
@@ -380,7 +393,7 @@ const SignLearningChatbot = ({ detectedSign, isOpen, onClose, signDictionary }) 
         }
       }
     }
-    
+
     // Check for specific topics
     for (const [topic, data] of Object.entries(signKnowledge)) {
       if (lowerMessage.includes(topic)) {
@@ -388,10 +401,18 @@ const SignLearningChatbot = ({ detectedSign, isOpen, onClose, signDictionary }) 
       }
     }
 
-    // Check for specific signs in dictionary
+    // Check for specific signs in dictionary (Matched safely)
     if (signDictionary) {
       for (const [sign, data] of Object.entries(signDictionary)) {
-        if (lowerMessage.includes(sign.toLowerCase()) || lowerMessage.includes(data.name?.toLowerCase())) {
+        // Use regex for whole word matching to prevent "hi" matching "h", "a" matching "apple", etc.
+        const signKeyLower = sign.toLowerCase();
+        const nameLower = data.name?.toLowerCase() || '';
+
+        // Match whole word for the sign key (e.g. "a", "b") OR the full name "letter a"
+        const keyMatch = new RegExp(`\\b${signKeyLower}\\b`).test(lowerMessage);
+        const nameMatch = nameLower && lowerMessage.includes(nameLower);
+
+        if (keyMatch || nameMatch) {
           return [
             `Here's how to sign "${data.name}":`,
             `📝 ${data.description}`,
@@ -406,19 +427,26 @@ const SignLearningChatbot = ({ detectedSign, isOpen, onClose, signDictionary }) 
       }
     }
 
-    // Check for specific signs in video explanations
+    // Check for specific signs in video explanations (Matched safely)
     for (const [sign, data] of Object.entries(videoExplanations)) {
-      if (lowerMessage.includes(sign.toLowerCase())) {
+      // Use regex for whole word matching
+      const signKeyLower = sign.toLowerCase();
+      const titleLower = data.title?.toLowerCase() || '';
+
+      const keyMatch = new RegExp(`\\b${signKeyLower}\\b`).test(lowerMessage);
+      const titleMatch = titleLower && lowerMessage.includes(titleLower);
+
+      if (keyMatch || titleMatch) {
         const response = [
           `Here's how to sign "${data.title}":`,
           `📝 ${data.description}`,
           `💡 Pro Tip: ${data.tips}`
         ];
-        
+
         if (data.commonMistakes) {
           response.push(`⚠️ Common Mistakes: ${data.commonMistakes}`);
         }
-        
+
         response.push("Try practicing this sign with the webcam feature!");
         return response;
       }
@@ -429,7 +457,7 @@ const SignLearningChatbot = ({ detectedSign, isOpen, onClose, signDictionary }) 
       return [
         "I can help you with:",
         "• Explaining how to make specific signs",
-        "• Providing practice tips and techniques", 
+        "• Providing practice tips and techniques",
         "• Answering questions about sign language",
         "• Giving feedback on your signing",
         "• Suggesting practice exercises",
@@ -488,9 +516,12 @@ const SignLearningChatbot = ({ detectedSign, isOpen, onClose, signDictionary }) 
       const info = label ? signDictionary?.[label] : null;
       const body = {
         question: text,
+        sessionId: sessionId, // Include session ID for conversation memory
         detectedSign: detectedSign ? {
           label: detectedSign.label,
-          confidence: detectedSign.confidence
+          confidence: detectedSign.confidence,
+          // PASS IMPROVEMENTS TO AI
+          improvements: detectedSign.improvements || []
         } : undefined,
         signKey: detectedSign?.label || undefined,
         level: detectedSign?.learningLevel || undefined,
@@ -515,6 +546,12 @@ const SignLearningChatbot = ({ detectedSign, isOpen, onClose, signDictionary }) 
       if (!resp.ok) throw new Error(`AI error ${resp.status}`);
       const data = await resp.json();
       if (!data.success) throw new Error(data.message || 'AI failed');
+
+      // Update provider if returned
+      if (data.provider) {
+        setAiProvider(data.provider);
+      }
+
       return data.content;
     } catch (e) {
       console.warn('[ai] coach request failed:', e.message);
@@ -579,6 +616,44 @@ const SignLearningChatbot = ({ detectedSign, isOpen, onClose, signDictionary }) 
     }
   };
 
+  // Clear conversation
+  const handleClearConversation = () => {
+    if (confirm('Clear all messages? This cannot be undone.')) {
+      setMessages([{
+        id: 1,
+        type: 'bot',
+        content: "Hi! I'm your sign language learning assistant. What would you like to know?",
+        timestamp: new Date()
+      }]);
+      localStorage.removeItem('echoaid_chat_history');
+      // Generate new session ID
+      const newId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem('echoaid_session_id', newId);
+    }
+  };
+
+  // Export conversation
+  const handleExportConversation = () => {
+    const exportData = {
+      sessionId: sessionId,
+      exportedAt: new Date().toISOString(),
+      totalMessages: messages.length,
+      messages: messages.map(m => ({
+        role: m.type === 'user' ? 'user' : 'assistant',
+        content: m.content,
+        timestamp: m.timestamp
+      }))
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `echoaid-conversation-${sessionId}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const quickQuestions = [
     "Hand alignment steps for this sign",
     "Common mistakes for this sign",
@@ -589,107 +664,127 @@ const SignLearningChatbot = ({ detectedSign, isOpen, onClose, signDictionary }) 
   ];
 
   return (
-    <div className={`rounded-xl border ${border} ${bg} backdrop-blur supports-[backdrop-filter]:backdrop-blur`}> 
-      <div className={`px-4 py-3 border-b ${border} flex items-center justify-between`}> 
+    <div className={`rounded-xl border ${border} ${bg} backdrop-blur supports-[backdrop-filter]:backdrop-blur`}>
+      <div className={`px-4 py-3 border-b ${border} flex items-center justify-between`}>
         <div className="flex items-center gap-2">
           <ChatBubbleLeftRightIcon className="w-5 h-5 text-blue-500" />
           <div className="leading-tight">
             <div className={`font-semibold text-sm ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>Sign Learning Assistant</div>
-            <div className={`text-[11px] ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>AI Coach: DeepSeek</div>
+            <div className={`text-[11px] ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              AI: {aiProvider === 'openai' ? 'GPT-4' :
+                aiProvider === 'gemini' ? 'Gemini (FREE)' :
+                  aiProvider === 'huggingface' ? 'Mistral (FREE)' :
+                    aiProvider === 'ollama' ? 'Llama2 (FREE)' :
+                      'DeepSeek'} • {messages.length} msgs
+            </div>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="p-2 rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-          aria-label="Close assistant"
-        >
-          <XMarkIcon className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportConversation}
+            className="p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-xs"
+            title="Export conversation"
+          >
+            📥
+          </button>
+          <button
+            onClick={handleClearConversation}
+            className="p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-xs"
+            title="Clear conversation"
+          >
+            🗑️
+          </button>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            aria-label="Close assistant"
+          >
+            <XMarkIcon className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <div className="p-4 space-y-3">
-          {/* Chat Messages */}
-          <div className="h-64 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[80%] px-3 py-2.5 rounded-2xl text-[13px] leading-relaxed ${
-                    message.type === 'user'
-                      ? 'bg-blue-600 text-white shadow'
-                      : (darkMode ? 'bg-transparent text-gray-200 border border-gray-700' : 'bg-transparent text-gray-800 border border-gray-200')
-                  }`}
-                >
-                  {Array.isArray(message.content) ? (
-                    <div className="space-y-1">
-                      {message.content.map((line, index) => (
-                        <div key={index}>
-                          {line}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="whitespace-pre-wrap">{message.content}</div>
-                  )}
-                </div>
-              </div>
-            ))}
-            
-            {isTyping && (
-              <div className="flex justify-start">
-                <div className={`${darkMode ? 'bg-transparent border border-gray-700' : 'bg-transparent border border-gray-200'} text-gray-500 px-3 py-2 rounded-2xl`}>
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Quick Questions */}
-          <div className="space-y-2">
-            <p className={`text-[11px] ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Quick questions</p>
-            <div className="flex flex-wrap gap-2">
-              {quickQuestions.slice(0, 3).map((question, index) => (
-                <button
-                  key={index}
-                  onClick={() => setInputValue(question)}
-                  className={`text-[11px] px-3 py-1.5 rounded-full transition-colors border ${darkMode ? 'bg-transparent border-gray-700 text-gray-200 hover:bg-white/5' : 'bg-transparent border-gray-200 text-gray-700 hover:bg-black/5'}`}
-                >
-                  {question}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Input Area */}
-          <div className="flex gap-2 sticky bottom-0 pt-1">
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Ask about sign language..."
-              className={`flex-1 px-3 py-2 rounded-lg border ${border} ${
-                darkMode 
-                  ? 'bg-transparent text-gray-100 placeholder-gray-500' 
-                  : 'bg-transparent text-gray-900 placeholder-gray-500'
-              } focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm`}
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={!inputValue.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow"
+        {/* Chat Messages */}
+        <div className="h-64 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              Send
-            </button>
+              <div
+                className={`max-w-[80%] px-3 py-2.5 rounded-2xl text-[13px] leading-relaxed ${message.type === 'user'
+                  ? 'bg-blue-600 text-white shadow'
+                  : (darkMode ? 'bg-transparent text-gray-200 border border-gray-700' : 'bg-transparent text-gray-800 border border-gray-200')
+                  }`}
+              >
+                {Array.isArray(message.content) ? (
+                  <div className="space-y-1">
+                    {message.content.map((line, index) => (
+                      <div key={index}>
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="whitespace-pre-wrap">{message.content}</div>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {isTyping && (
+            <div className="flex justify-start">
+              <div className={`${darkMode ? 'bg-transparent border border-gray-700' : 'bg-transparent border border-gray-200'} text-gray-500 px-3 py-2 rounded-2xl`}>
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Quick Questions */}
+        <div className="space-y-2">
+          <p className={`text-[11px] ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Quick questions</p>
+          <div className="flex flex-wrap gap-2">
+            {quickQuestions.slice(0, 3).map((question, index) => (
+              <button
+                key={index}
+                onClick={() => setInputValue(question)}
+                className={`text-[11px] px-3 py-1.5 rounded-full transition-colors border ${darkMode ? 'bg-transparent border-gray-700 text-gray-200 hover:bg-white/5' : 'bg-transparent border-gray-200 text-gray-700 hover:bg-black/5'}`}
+              >
+                {question}
+              </button>
+            ))}
           </div>
+        </div>
+
+        {/* Input Area */}
+        <div className="flex gap-2 sticky bottom-0 pt-1">
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Ask about sign language..."
+            className={`flex-1 px-3 py-2 rounded-lg border ${border} ${darkMode
+              ? 'bg-transparent text-gray-100 placeholder-gray-500'
+              : 'bg-transparent text-gray-900 placeholder-gray-500'
+              } focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm`}
+          />
+          <button
+            onClick={handleSendMessage}
+            disabled={!inputValue.trim()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow"
+          >
+            Send
+          </button>
+        </div>
       </div>
     </div>
   );

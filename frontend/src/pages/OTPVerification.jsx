@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeftIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContextConstants';
+import { API_BASE_URL } from '../constants/api';
 
 export default function OTPVerification() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -11,7 +12,7 @@ export default function OTPVerification() {
   const [success, setSuccess] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  
+
   const { darkMode } = useTheme();
   const { setToken } = useAuth();
   const navigate = useNavigate();
@@ -50,7 +51,7 @@ export default function OTPVerification() {
 
   const handleOtpChange = (index, value) => {
     if (value.length > 1) return; // Only allow single digit
-    
+
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
@@ -84,8 +85,8 @@ export default function OTPVerification() {
     }
 
     try {
-      
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/verify-email`, {
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/verify-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -102,13 +103,13 @@ export default function OTPVerification() {
         throw new Error(data.message || 'Verification failed');
       }
 
-      setSuccess(verificationType === 'login' 
-        ? 'Welcome back! Redirecting to dashboard...' 
+      setSuccess(verificationType === 'login'
+        ? 'Welcome back! Redirecting to dashboard...'
         : 'Email verified successfully! Welcome to EchoAid! Redirecting...'
       );
       setToken(data.token);
       localStorage.setItem('token', data.token);
-      
+
       // Redirect to dashboard after a short delay
       setTimeout(() => {
         navigate('/dashboard');
@@ -126,7 +127,7 @@ export default function OTPVerification() {
     setError('');
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/resend-otp`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/resend-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -143,7 +144,7 @@ export default function OTPVerification() {
       setSuccess('New OTP sent to your email!');
       setOtp(['', '', '', '', '', '']);
       setCountdown(60);
-      
+
       // Start countdown again
       const timer = setInterval(() => {
         setCountdown((prev) => {
@@ -189,8 +190,8 @@ export default function OTPVerification() {
               {verificationType === 'login' ? 'Welcome back! Verify your email' : 'Verify your email'}
             </h1>
             <p className="text-gray-400 text-sm">
-              {verificationType === 'login' 
-                ? 'We\'ve sent a 6-digit code to verify your login' 
+              {verificationType === 'login'
+                ? 'We\'ve sent a 6-digit code to verify your login'
                 : 'We\'ve sent a 6-digit code to your email address'
               }
             </p>

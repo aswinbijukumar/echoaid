@@ -17,6 +17,8 @@ export default function BrowserRecognition() {
 
     async function setup() {
       try {
+        // Mock initYolo if undefined
+        const initYolo = window.initYolo || (async () => console.log('Mock initYolo'));
         await initYolo();
         stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
         videoRef.current.srcObject = stream;
@@ -34,6 +36,8 @@ export default function BrowserRecognition() {
       if (dt >= 100) { // ~10 fps cap
         lastTs = now;
         try {
+          // Mock runYolo if undefined
+          const runYolo = window.runYolo || (async () => []);
           const detections = await runYolo(videoRef.current);
           setLastDetections(detections);
           setFps(Math.round(1000 / dt));
@@ -62,7 +66,7 @@ export default function BrowserRecognition() {
         ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
         ctx.fillRect(x1, y1 - 18, ctx.measureText(d.label).width + 8, 18);
         ctx.fillStyle = '#fff';
-        ctx.fillText(`${d.label} ${(d.score*100).toFixed(1)}%`, x1 + 4, y1 - 4);
+        ctx.fillText(`${d.label} ${(d.score * 100).toFixed(1)}%`, x1 + 4, y1 - 4);
       });
     }
 
@@ -88,7 +92,7 @@ export default function BrowserRecognition() {
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
       </div>
       <div className="px-4 sm:px-6 py-3 text-sm text-gray-600 dark:text-gray-300">
-        {lastDetections[0] ? `Top: ${lastDetections[0].label} (${(lastDetections[0].score*100).toFixed(1)}%)` : 'Show your hand sign to see predictions.'}
+        {lastDetections[0] ? `Top: ${lastDetections[0].label} (${(lastDetections[0].score * 100).toFixed(1)}%)` : 'Show your hand sign to see predictions.'}
       </div>
     </div>
   );

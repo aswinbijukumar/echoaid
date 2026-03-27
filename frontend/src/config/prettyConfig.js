@@ -6,17 +6,18 @@
 // Environment configuration
 export const ENV_CONFIG = {
   // API URLs
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://echoaidbackend.onrender.com',
+  // API URLs - Sanitize to remove trailing /api and slash to prevent double prefixes
+  API_BASE_URL: (import.meta.env.VITE_API_BASE_URL || 'https://echoaidbackend.onrender.com').replace(/\/api\/?$/, '').replace(/\/$/, ''),
   PY_SERVICE_URL: import.meta.env.VITE_PY_SERVICE_URL || 'http://localhost:8001',
-  
+
   // Environment
   NODE_ENV: import.meta.env.MODE || 'development',
   VITE_APP_VERSION: import.meta.env.VITE_APP_VERSION || '1.0.0',
-  
+
   // Logging
   LOG_LEVEL: import.meta.env.VITE_LOG_LEVEL || 'debug',
   ENABLE_PRETTY_LOGS: import.meta.env.VITE_ENABLE_PRETTY_LOGS !== 'false',
-  
+
   // Features
   ENABLE_ANALYTICS: import.meta.env.VITE_ENABLE_ANALYTICS === 'true',
   ENABLE_DEBUG_MODE: import.meta.env.VITE_DEBUG_MODE === 'true',
@@ -130,7 +131,7 @@ export const LOG_FORMATTING = {
 // Environment-specific configurations
 export const getEnvironmentConfig = () => {
   const env = ENV_CONFIG.NODE_ENV;
-  
+
   switch (env) {
     case 'production':
       return {
@@ -141,7 +142,7 @@ export const getEnvironmentConfig = () => {
         enableComponentContext: false,
         maxLogEntries: 100
       };
-      
+
     case 'development':
       return {
         logLevel: 'debug',
@@ -151,7 +152,7 @@ export const getEnvironmentConfig = () => {
         enableComponentContext: true,
         maxLogEntries: 10000
       };
-      
+
     case 'test':
       return {
         logLevel: 'error',
@@ -161,7 +162,7 @@ export const getEnvironmentConfig = () => {
         enableComponentContext: false,
         maxLogEntries: 50
       };
-      
+
     default:
       return {
         logLevel: 'info',
@@ -205,7 +206,7 @@ export const measurePerformance = (operation, callback) => {
   const start = performance.now();
   const result = callback();
   const duration = performance.now() - start;
-  
+
   return {
     result,
     duration,

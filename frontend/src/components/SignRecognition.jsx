@@ -1,18 +1,21 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { detectImageFromDataUrl } from '../utils/recognitionClient';
+import { analyzeSign } from '../utils/HandGeometry';
+import { SIGN_RULES } from '../constants/SignRules';
 import { useTheme } from '../hooks/useTheme';
 import FloatingChatbot from './FloatingChatbot';
-import { 
-  ChatBubbleLeftRightIcon, 
-  PlayIcon, 
-  AcademicCapIcon,
-  LightBulbIcon,
+import {
+  ChatBubbleLeftRightIcon,
+  PlayIcon,
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
+import { Hands, HAND_CONNECTIONS } from '@mediapipe/hands';
+import { Camera } from '@mediapipe/camera_utils';
+import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 
-export default function SignRecognition({ 
-  targetSign, 
-  onRecognition, 
+export default function SignRecognition({
+  targetSign,
+  onRecognition,
   mode = 'webcam' // 'webcam' or 'upload'
 }) {
   const { darkMode } = useTheme();
@@ -38,403 +41,418 @@ export default function SignRecognition({
   const wsReadyRef = useRef(false);
   const handsRef = useRef(null);
 
-  // Enhanced sign dictionary with gamification elements
+  // Refs to access latest state in callbacks
+  const targetSignRef = useRef(targetSign);
+  const currentModeRef = useRef(currentMode);
+
+  const onRecognitionRef = useRef(onRecognition);
+
+  useEffect(() => {
+    targetSignRef.current = targetSign;
+    currentModeRef.current = currentMode;
+    onRecognitionRef.current = onRecognition;
+  }, [targetSign, currentMode, onRecognition]);
+
+  // Enhanced sign dictionary with gamification elements - UPDATED FOR ISL (Indian Sign Language)
   const signDictionary = useMemo(() => ({
-    'A': {
-      name: 'Letter A',
-      description: 'Make a fist with your thumb extended upward, like giving a thumbs up.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Keep your thumb straight and strong', 'Make sure other fingers are in a tight fist', 'Hold the position steady for 2 seconds'],
-      commonMistakes: ['Thumb not extended enough', 'Fist too loose', 'Moving too quickly'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'B': {
-      name: 'Letter B',
-      description: 'Hold your hand flat with all fingers extended and thumb tucked in.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Keep all fingers straight and together', 'Tuck thumb firmly against palm', 'Hold steady like a flat surface'],
-      commonMistakes: ['Fingers not straight', 'Thumb not tucked properly', 'Hand not flat enough'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'C': {
-      name: 'Letter C',
-      description: 'Form a C-shape with your hand, like holding a small cup.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Create a clear C-shape', 'Keep fingers curved naturally', 'Imagine holding a small cup'],
-      commonMistakes: ['Shape too tight or too loose', 'Fingers not curved enough', 'Not holding the shape'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'D': {
-      name: 'Letter D',
-      description: 'Point your index finger upward, with other fingers in a fist.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Index finger straight up', 'Other fingers in tight fist', 'Point directly upward'],
-      commonMistakes: ['Index finger not straight', 'Fist not tight enough', 'Pointing at an angle'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'E': {
-      name: 'Letter E',
-      description: 'Hold your hand flat with all fingers extended and close together.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['All fingers straight and touching', 'Keep hand flat', 'Fingers close together'],
-      commonMistakes: ['Fingers spread apart', 'Hand not flat', 'Fingers not straight'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'F': {
-      name: 'Letter F',
-      description: 'Touch your thumb to your index finger, other fingers extended.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Thumb touches index finger tip', 'Other fingers straight up', 'Create an F-shape'],
-      commonMistakes: ['Thumb not touching properly', 'Other fingers not straight', 'Shape not clear'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'G': {
-      name: 'Letter G',
-      description: 'Point your index finger to the side, with other fingers in a fist.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Index finger pointing sideways', 'Other fingers in tight fist', 'Point to the right'],
-      commonMistakes: ['Pointing wrong direction', 'Fist not tight', 'Index finger not straight'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'H': {
-      name: 'Letter H',
-      description: 'Point your index and middle fingers to the side, other fingers in a fist.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Index and middle fingers together', 'Point to the side', 'Other fingers in fist'],
-      commonMistakes: ['Fingers not together', 'Wrong direction', 'Other fingers not in fist'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'I': {
-      name: 'Letter I',
-      description: 'Point your pinky finger upward, other fingers in a fist.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Pinky finger straight up', 'Other fingers in tight fist', 'Hold steady'],
-      commonMistakes: ['Pinky not straight', 'Fist not tight', 'Moving too much'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'J': {
-      name: 'Letter J',
-      description: 'Point your pinky finger upward and trace a J-shape in the air.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Intermediate',
-      category: 'Alphabet',
-      tips: ['Start with pinky up', 'Trace J-shape smoothly', 'End with hook to the right'],
-      commonMistakes: ['Not tracing the shape', 'Movement too fast', 'Shape not clear'],
-      learningLevel: 'Building',
-      xpValue: 15
-    },
-    'K': {
-      name: 'Letter K',
-      description: 'Point your index and middle fingers upward and apart, like a V.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Index and middle fingers up', 'Spread them apart like V', 'Other fingers in fist'],
-      commonMistakes: ['Fingers not spread enough', 'Wrong fingers', 'Not pointing up'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'L': {
-      name: 'Letter L',
-      description: 'Point your index finger upward, thumb extended to the side.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Index finger straight up', 'Thumb out to the side', 'Create L-shape'],
-      commonMistakes: ['Thumb not extended', 'Index finger not straight', 'Shape not clear'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'M': {
-      name: 'Letter M',
-      description: 'Hold your hand with three fingers extended and close together.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Intermediate',
-      category: 'Alphabet',
-      tips: ['Index, middle, ring fingers up', 'Keep them close together', 'Thumb and pinky down'],
-      commonMistakes: ['Wrong fingers up', 'Fingers spread apart', 'Not holding steady'],
-      learningLevel: 'Building',
-      xpValue: 15
-    },
-    'N': {
-      name: 'Letter N',
-      description: 'Hold your hand with two fingers extended and close together.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Intermediate',
-      category: 'Alphabet',
-      tips: ['Index and middle fingers up', 'Keep them close together', 'Other fingers down'],
-      commonMistakes: ['Wrong fingers up', 'Fingers not together', 'Not holding steady'],
-      learningLevel: 'Building',
-      xpValue: 15
-    },
-    'O': {
-      name: 'Letter O',
-      description: 'Form a circle with your thumb and index finger.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Create perfect circle', 'Thumb and index finger touching', 'Other fingers relaxed'],
-      commonMistakes: ['Circle not round', 'Fingers not touching', 'Too tight or loose'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'P': {
-      name: 'Letter P',
-      description: 'Point your index finger downward, other fingers in a fist.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Index finger pointing down', 'Other fingers in tight fist', 'Hold steady'],
-      commonMistakes: ['Pointing wrong direction', 'Fist not tight', 'Index finger not straight'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'Q': {
-      name: 'Letter Q',
-      description: 'Point your index finger downward and to the side.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Intermediate',
-      category: 'Alphabet',
-      tips: ['Index finger down and to side', 'Other fingers in fist', 'Point diagonally'],
-      commonMistakes: ['Wrong direction', 'Fist not tight', 'Not pointing clearly'],
-      learningLevel: 'Building',
-      xpValue: 15
-    },
-    'R': {
-      name: 'Letter R',
-      description: 'Cross your index and middle fingers.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Intermediate',
-      category: 'Alphabet',
-      tips: ['Cross index over middle finger', 'Other fingers relaxed', 'Hold the cross steady'],
-      commonMistakes: ['Not crossing properly', 'Fingers not touching', 'Moving too much'],
-      learningLevel: 'Building',
-      xpValue: 15
-    },
-    'S': {
-      name: 'Letter S',
-      description: 'Make a fist with your thumb on top of your fingers.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Make tight fist', 'Thumb on top of fingers', 'Hold steady'],
-      commonMistakes: ['Fist not tight', 'Thumb not on top', 'Moving too much'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'T': {
-      name: 'Letter T',
-      description: 'Hold your hand flat with thumb tucked under fingers.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Hand flat', 'Thumb tucked under fingers', 'Keep steady'],
-      commonMistakes: ['Hand not flat', 'Thumb not tucked', 'Moving too much'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'U': {
-      name: 'Letter U',
-      description: 'Point your index and middle fingers upward, close together.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Index and middle fingers up', 'Keep them close together', 'Other fingers down'],
-      commonMistakes: ['Fingers not together', 'Wrong fingers up', 'Not pointing up'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'V': {
-      name: 'Letter V',
-      description: 'Point your index and middle fingers upward and apart.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Beginner',
-      category: 'Alphabet',
-      tips: ['Index and middle fingers up', 'Spread them apart', 'Create V-shape'],
-      commonMistakes: ['Fingers not spread', 'Wrong fingers', 'Not pointing up'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    'W': {
-      name: 'Letter W',
-      description: 'Point your index, middle, and ring fingers upward and apart.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Intermediate',
-      category: 'Alphabet',
-      tips: ['Three fingers up and spread', 'Index, middle, ring fingers', 'Create W-shape'],
-      commonMistakes: ['Wrong fingers up', 'Not spread enough', 'Not holding steady'],
-      learningLevel: 'Building',
-      xpValue: 15
-    },
-    'X': {
-      name: 'Letter X',
-      description: 'Cross your index and middle fingers.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Intermediate',
-      category: 'Alphabet',
-      tips: ['Cross index over middle finger', 'Other fingers relaxed', 'Hold the cross steady'],
-      commonMistakes: ['Not crossing properly', 'Fingers not touching', 'Moving too much'],
-      learningLevel: 'Building',
-      xpValue: 15
-    },
-    'Y': {
-      name: 'Letter Y',
-      description: 'Point your thumb and pinky finger outward, other fingers in a fist.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Intermediate',
-      category: 'Alphabet',
-      tips: ['Thumb and pinky out', 'Other fingers in fist', 'Create Y-shape'],
-      commonMistakes: ['Wrong fingers out', 'Fist not tight', 'Not holding steady'],
-      learningLevel: 'Building',
-      xpValue: 15
-    },
-    'Z': {
-      name: 'Letter Z',
-      description: 'Point your index finger and trace a Z-shape in the air.',
-      usage: 'Used in spelling words, names, and as a standalone letter.',
-      difficulty: 'Advanced',
-      category: 'Alphabet',
-      tips: ['Start with index finger', 'Trace Z-shape smoothly', 'Horizontal, diagonal, horizontal'],
-      commonMistakes: ['Not tracing the shape', 'Movement too fast', 'Shape not clear'],
-      learningLevel: 'Mastering',
-      xpValue: 20
-    },
+    // --- NUMBERS (0-9) ---
     '0': {
       name: 'Number 0',
-      description: 'Form a circle with your thumb and index finger.',
+      description: 'Form a circle with your thumb and fingers, mimicking a zero.',
       usage: 'Used for counting, mathematics, and numerical communication.',
       difficulty: 'Beginner',
       category: 'Numbers',
-      tips: ['Create perfect circle', 'Thumb and index finger touching', 'Other fingers relaxed'],
-      commonMistakes: ['Circle not round', 'Fingers not touching', 'Too tight or loose'],
+      tips: ['Make a complete circle', 'Keep hand steady', 'Show clearly to camera'],
+      commonMistakes: ['Gap in circle', 'Fingers too loose', 'Hand blocked by body'],
       learningLevel: 'Foundation',
       xpValue: 10
     },
     '1': {
       name: 'Number 1',
-      description: 'Point your index finger upward, other fingers in a fist.',
+      description: 'Extend your index finger vertically (palm facing out).',
       usage: 'Used for counting, mathematics, and numerical communication.',
       difficulty: 'Beginner',
       category: 'Numbers',
-      tips: ['Index finger straight up', 'Other fingers in tight fist', 'Point directly upward'],
-      commonMistakes: ['Index finger not straight', 'Fist not tight enough', 'Pointing at an angle'],
+      tips: ['Index finger straight up', 'Other fingers closed', 'Palm facing forward'],
+      commonMistakes: ['Index finger bent', 'Other fingers sticking out', 'Palm facing sideways'],
       learningLevel: 'Foundation',
       xpValue: 10
     },
     '2': {
       name: 'Number 2',
-      description: 'Point your index and middle fingers upward and apart.',
+      description: 'Extend your index and middle fingers in a "V" shape (palm facing out).',
       usage: 'Used for counting, mathematics, and numerical communication.',
       difficulty: 'Beginner',
       category: 'Numbers',
-      tips: ['Index and middle fingers up', 'Spread them apart', 'Create V-shape'],
-      commonMistakes: ['Fingers not spread', 'Wrong fingers', 'Not pointing up'],
+      tips: ['Spread fingers for V shape', 'Palm facing forward', 'Keep fingers straight'],
+      commonMistakes: ['Fingers touching', 'Palm facing inward', 'Thumb sticking out'],
       learningLevel: 'Foundation',
       xpValue: 10
     },
     '3': {
       name: 'Number 3',
-      description: 'Point your index, middle, and ring fingers upward and apart.',
-      usage: 'Used for counting, mathematics, and numerical communication.',
-      difficulty: 'Intermediate',
-      category: 'Numbers',
-      tips: ['Three fingers up and spread', 'Index, middle, ring fingers', 'Create W-shape'],
-      commonMistakes: ['Wrong fingers up', 'Not spread enough', 'Not holding steady'],
-      learningLevel: 'Building',
-      xpValue: 15
-    },
-    '4': {
-      name: 'Number 4',
-      description: 'Point your index, middle, ring, and pinky fingers upward and apart.',
-      usage: 'Used for counting, mathematics, and numerical communication.',
-      difficulty: 'Intermediate',
-      category: 'Numbers',
-      tips: ['Four fingers up and spread', 'All fingers except thumb', 'Keep them spread apart'],
-      commonMistakes: ['Wrong fingers up', 'Not spread enough', 'Thumb not down'],
-      learningLevel: 'Building',
-      xpValue: 15
-    },
-    '5': {
-      name: 'Number 5',
-      description: 'Hold your hand flat with all fingers extended and apart.',
+      description: 'Extend your index, middle, and ring fingers vertically.',
       usage: 'Used for counting, mathematics, and numerical communication.',
       difficulty: 'Beginner',
       category: 'Numbers',
-      tips: ['All fingers straight and spread', 'Keep hand flat', 'Fingers apart'],
-      commonMistakes: ['Fingers not spread', 'Hand not flat', 'Fingers not straight'],
+      tips: ['Three fingers straight up', 'Pinky and thumb connected', 'Spread slightly'],
+      commonMistakes: ['Pinky sticking up', 'Thumb vertical', 'Fingers curled'],
+      learningLevel: 'Foundation',
+      xpValue: 10
+    },
+    '4': {
+      name: 'Number 4',
+      description: 'Extend all four fingers vertically, tucking the thumb into the palm.',
+      usage: 'Used for counting, mathematics, and numerical communication.',
+      difficulty: 'Beginner',
+      category: 'Numbers',
+      tips: ['Four fingers straight', 'Thumb tucked in palm', 'Palm facing forward'],
+      commonMistakes: ['Thumb sticking out', 'Fingers spaced too far', 'Pinky bent'],
+      learningLevel: 'Foundation',
+      xpValue: 10
+    },
+    '5': {
+      name: 'Number 5',
+      description: 'Extend all five fingers and the thumb fully.',
+      usage: 'Used for counting, mathematics, and numerical communication.',
+      difficulty: 'Beginner',
+      category: 'Numbers',
+      tips: ['Open hand wide', 'Fingers spread apart', 'Palm facing forward'],
+      commonMistakes: ['Fingers touching', 'Hand cupped', 'Thumb bent'],
       learningLevel: 'Foundation',
       xpValue: 10
     },
     '6': {
       name: 'Number 6',
-      description: 'Touch your thumb to your pinky finger, other fingers extended.',
+      description: 'Extend only your pinky finger vertically.',
       usage: 'Used for counting, mathematics, and numerical communication.',
-      difficulty: 'Intermediate',
+      difficulty: 'Beginner',
       category: 'Numbers',
-      tips: ['Thumb touches pinky', 'Other fingers straight up', 'Create 6-shape'],
-      commonMistakes: ['Thumb not touching pinky', 'Other fingers not straight', 'Shape not clear'],
-      learningLevel: 'Building',
-      xpValue: 15
+      tips: ['Pinky straight up', 'Other fingers in fist', 'Hold steady'],
+      commonMistakes: ['Pinky bent', 'Index finger extending', 'Loose fist'],
+      learningLevel: 'Foundation',
+      xpValue: 10
     },
     '7': {
       name: 'Number 7',
-      description: 'Touch your thumb to your ring finger, other fingers extended.',
+      description: 'Bend your index finger into a hook shape.',
       usage: 'Used for counting, mathematics, and numerical communication.',
       difficulty: 'Intermediate',
       category: 'Numbers',
-      tips: ['Thumb touches ring finger', 'Other fingers straight up', 'Create 7-shape'],
-      commonMistakes: ['Thumb not touching ring finger', 'Other fingers not straight', 'Shape not clear'],
+      tips: ['Hook index finger clearly', 'Other fingers closed', 'Show profile view if needed'],
+      commonMistakes: ['Index finger too straight', 'Hook too tight', 'Confusing with 1 or X'],
       learningLevel: 'Building',
       xpValue: 15
     },
     '8': {
       name: 'Number 8',
-      description: 'Touch your thumb to your middle finger, other fingers extended.',
+      description: 'Extend your thumb, index, and middle fingers (similar to a "3" but with the thumb).',
       usage: 'Used for counting, mathematics, and numerical communication.',
       difficulty: 'Intermediate',
       category: 'Numbers',
-      tips: ['Thumb touches middle finger', 'Other fingers straight up', 'Create 8-shape'],
-      commonMistakes: ['Thumb not touching middle finger', 'Other fingers not straight', 'Shape not clear'],
+      tips: ['Spread thumb, index, middle', 'Ring and pinky down', 'Palm forward'],
+      commonMistakes: ['Confusing with 3', 'Ring finger up', 'Fingers too close'],
       learningLevel: 'Building',
       xpValue: 15
     },
     '9': {
       name: 'Number 9',
-      description: 'Touch your thumb to your index finger, other fingers extended.',
+      description: 'Extend your thumb and pinky finger (like a "call me" gesture).',
       usage: 'Used for counting, mathematics, and numerical communication.',
-      difficulty: 'Beginner',
+      difficulty: 'Intermediate',
       category: 'Numbers',
-      tips: ['Thumb touches index finger', 'Other fingers straight up', 'Create 9-shape'],
-      commonMistakes: ['Thumb not touching index finger', 'Other fingers not straight', 'Shape not clear'],
+      tips: ['Thumb and pinky out', 'Middle fingers curled', 'Rotate wrist slightly'],
+      commonMistakes: ['Index finger out', 'Pinky not straight', 'Looking like Y'],
+      learningLevel: 'Building',
+      xpValue: 15
+    },
+
+    // --- ALPHABET (A-Z) ISL ---
+    'A': {
+      name: 'Letter A',
+      description: 'Touch the tips of both thumbs together to form a point.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Intermediate',
+      category: 'Alphabet',
+      tips: ['Use both hands', 'Touch thumb tips only', 'Fingers curled or relaxed'],
+      commonMistakes: ['Touching wrong fingers', 'Not forming a point', 'Hands too far apart'],
+      learningLevel: 'Building',
+      xpValue: 10
+    },
+    'B': {
+      name: 'Letter B',
+      description: 'Make circles with both hands (thumb and index touching) and join them side-by-side like glasses.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Intermediate',
+      category: 'Alphabet',
+      tips: ['Form "OK" sign with both hands', 'Join thumb/index circles', 'Hold near chest'],
+      commonMistakes: ['Circles not touching', 'Wrong fingers used', 'Hands blocked'],
+      learningLevel: 'Building',
+      xpValue: 10
+    },
+    'C': {
+      name: 'Letter C',
+      description: 'Curve one hand into a "C" shape.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Beginner',
+      category: 'Alphabet',
+      tips: ['Curve all fingers', 'Make a C shape', 'Palm facing side'],
+      commonMistakes: ['Shape too flat', 'Fingers spread', 'Not facing side'],
       learningLevel: 'Foundation',
       xpValue: 10
+    },
+    'D': {
+      name: 'Letter D',
+      description: 'Hold non-dominant index finger up; touch its tip and base with dominant index and thumb to form a loop.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Advanced',
+      category: 'Alphabet',
+      tips: ['Vertical finger steady', 'Make distinct D loop', 'Touch precise points'],
+      commonMistakes: ['Loop not closed', 'Wrong finger vertical', 'Hands shaking'],
+      learningLevel: 'Mastering',
+      xpValue: 20
+    },
+    'E': {
+      name: 'Letter E',
+      description: 'Point one index finger into the center of a small "C" shape made by the other hand.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Advanced',
+      category: 'Alphabet',
+      tips: ['Make tight C with left hand', 'Touch center with right index', 'Show clearly'],
+      commonMistakes: ['C too open', 'Missing center', 'Hands crossing'],
+      learningLevel: 'Mastering',
+      xpValue: 15
+    },
+    'F': {
+      name: 'Letter F',
+      description: 'Place index and middle fingers of dominant hand horizontally across same fingers of other hand.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Advanced',
+      category: 'Alphabet',
+      tips: ['Two fingers on each hand', 'Cross them perpendicularly', 'Press together'],
+      commonMistakes: ['Crossing only one finger', 'Wrong angle', 'Fingers spread'],
+      learningLevel: 'Mastering',
+      xpValue: 15
+    },
+    'G': {
+      name: 'Letter G',
+      description: 'Stack your two closed fists vertically.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Intermediate',
+      category: 'Alphabet',
+      tips: ['Make two fists', 'Place one on top of other', 'Keep thumbs tucked'],
+      commonMistakes: ['Fists properly closed', 'Not vertical', 'Hands offset'],
+      learningLevel: 'Building',
+      xpValue: 15
+    },
+    'H': {
+      name: 'Letter H',
+      description: 'Lay your dominant palm flat across the fingers of your vertical non-dominant hand.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Intermediate',
+      category: 'Alphabet',
+      tips: ['One hand vertical flat', 'Other hand horizontal flat', 'Cross near fingers'],
+      commonMistakes: ['Hands not flat', 'Crossing at wrist', 'Fingers spread'],
+      learningLevel: 'Building',
+      xpValue: 15
+    },
+    'I': {
+      name: 'Letter I',
+      description: 'Hold your index finger straight up (same as "1").',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Beginner',
+      category: 'Alphabet',
+      tips: ['Single finger up', 'Others closed', 'Hold steady'],
+      commonMistakes: ['Pinky up (that is "I" in ASL!)', 'Fist loose', 'Bent index'],
+      learningLevel: 'Foundation',
+      xpValue: 10
+    },
+    'J': {
+      name: 'Letter J',
+      description: 'Form an "L" shape with one hand and touch the top of it with the index finger of the other.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Advanced',
+      category: 'Alphabet',
+      tips: ['Make clean L shape', 'Touch tip of index', 'Use two hands'],
+      commonMistakes: ['One handed J (ASL)', 'Touching thumb', 'L shape backward'],
+      learningLevel: 'Mastering',
+      xpValue: 20
+    },
+    'K': {
+      name: 'Letter K',
+      description: 'Point dominant index finger up and hook other index finger onto its middle joint.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Advanced',
+      category: 'Alphabet',
+      tips: ['One finger vertical', 'Bend other index finger', 'Hook at joint'],
+      commonMistakes: ['Hooking wrong place', 'Both straight', 'Looking like "X"'],
+      learningLevel: 'Mastering',
+      xpValue: 20
+    },
+    'L': {
+      name: 'Letter L',
+      description: 'Create an "L" with your thumb and index finger.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Beginner',
+      category: 'Alphabet',
+      tips: ['Thumb and index 90 degrees', 'Palm facing forward', 'Other fingers closed'],
+      commonMistakes: ['Index bent', 'Thumb too close', 'Palm sideways'],
+      learningLevel: 'Foundation',
+      xpValue: 10
+    },
+    'M': {
+      name: 'Letter M',
+      description: 'Lay three fingers (index, middle, ring) onto the opposite palm.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Advanced',
+      category: 'Alphabet',
+      tips: ['Three fingers flat', 'Place on open palm', 'Fingers together'],
+      commonMistakes: ['Using 4 fingers', 'Fingers spread', 'Palm closed'],
+      learningLevel: 'Mastering',
+      xpValue: 15
+    },
+    'N': {
+      name: 'Letter N',
+      description: 'Lay two fingers (index, middle) onto the opposite palm.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Advanced',
+      category: 'Alphabet',
+      tips: ['Two fingers flat', 'Place on open palm', 'Fingers together'],
+      commonMistakes: ['Using 1 or 3 fingers', 'Fingers spread', 'Palm closed'],
+      learningLevel: 'Mastering',
+      xpValue: 15
+    },
+    'O': {
+      name: 'Letter O',
+      description: 'Create a circle with one hand.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Beginner',
+      category: 'Alphabet',
+      tips: ['Fingertips meet thumb', 'Round shape', 'Show hole clearly'],
+      commonMistakes: ['Flat shape', 'Fingers not touching', 'Block view'],
+      learningLevel: 'Foundation',
+      xpValue: 10
+    },
+    'P': {
+      name: 'Letter P',
+      description: 'Point one index finger up; touch other index to top and thumb to middle to form loop.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Advanced',
+      category: 'Alphabet',
+      tips: ['Vertical finger steady', 'Make P loop on side', 'Use both hands'],
+      commonMistakes: ['One hand P (ASL)', 'Loop too small', 'Wrong fingers'],
+      learningLevel: 'Mastering',
+      xpValue: 20
+    },
+    'Q': {
+      name: 'Letter Q',
+      description: 'Form circle with one hand and hook other index finger through top loop.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Advanced',
+      category: 'Alphabet',
+      tips: ['Make "O" hand', 'Hook index into it', 'Show clearly'],
+      commonMistakes: ['One hand Q (ASL)', 'Hooking thumb', 'Circle broken'],
+      learningLevel: 'Mastering',
+      xpValue: 20
+    },
+    'R': {
+      name: 'Letter R',
+      description: 'Hook your dominant index finger onto the palm of your other hand.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Intermediate',
+      category: 'Alphabet',
+      tips: ['One hand open palm', 'Hook index finger called', 'Place on palm'],
+      commonMistakes: ['Crossed fingers R (ASL)', 'Finger straight', 'Wrong hand'],
+      learningLevel: 'Building',
+      xpValue: 15
+    },
+    'S': {
+      name: 'Letter S',
+      description: 'Interlock your pinky fingers.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Intermediate',
+      category: 'Alphabet',
+      tips: ['Hook both pinkies', 'Pull slightly', 'Hands horizontal'],
+      commonMistakes: ['Fist S (ASL)', 'Hooking index fingers', 'Hands vertical'],
+      learningLevel: 'Building',
+      xpValue: 15
+    },
+    'T': {
+      name: 'Letter T',
+      description: 'Place dominant index finger horizontally across tip of vertical non-dominant index finger.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Intermediate',
+      category: 'Alphabet',
+      tips: ['Make a T shape', 'One finger vertical', 'One finger horizontal top'],
+      commonMistakes: ['ASL T (Thumb tucked)', 'Crossing in middle', 'Hands shaking'],
+      learningLevel: 'Building',
+      xpValue: 15
+    },
+    'U': {
+      name: 'Letter U',
+      description: 'Hold hand up with index and pinky fingers extended and thumb out.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Intermediate',
+      category: 'Alphabet',
+      tips: ['Index and Pinky up', 'Thumb out', 'Middle/Ring down'],
+      commonMistakes: ['Fingers together (ASL U)', 'Pinky down', 'Thumb in'],
+      learningLevel: 'Building',
+      xpValue: 15
+    },
+    'V': {
+      name: 'Letter V',
+      description: 'Hold your index and middle fingers in a "V" (palm facing out).',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Beginner',
+      category: 'Alphabet',
+      tips: ['Spread index and middle', 'V shape', 'Palm forward'],
+      commonMistakes: ['Fingers together', 'Palm back', '3 fingers up'],
+      learningLevel: 'Foundation',
+      xpValue: 10
+    },
+    'W': {
+      name: 'Letter W',
+      description: 'Interlace all fingers of both hands together.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Intermediate',
+      category: 'Alphabet',
+      tips: ['Clasp hands together', 'Fingers interlaced', 'Elbows out'],
+      commonMistakes: ['3 fingers up W (ASL)', 'Fists bumping', 'Loose clasp'],
+      learningLevel: 'Building',
+      xpValue: 15
+    },
+    'X': {
+      name: 'Letter X',
+      description: 'Cross both index fingers to form an "X".',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Intermediate',
+      category: 'Alphabet',
+      tips: ['Use index fingers', 'Cross in middle', 'Show X shape'],
+      commonMistakes: ['Hooked finger X (ASL)', 'Crossing wrists', 'Using arms'],
+      learningLevel: 'Building',
+      xpValue: 15
+    },
+    'Y': {
+      name: 'Letter Y',
+      description: 'Extend thumb and pinky, pointing thumb side toward opposite palm.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Intermediate',
+      category: 'Alphabet',
+      tips: ['Y handshape', 'Thumb towards palm', 'Two hands interaction'],
+      commonMistakes: ['One hand Y (ASL)', 'Palm facing out', 'Wrong orientation'],
+      learningLevel: 'Building',
+      xpValue: 15
+    },
+    'Z': {
+      name: 'Letter Z',
+      description: 'Hold one hand flat (palm sideways) and touch edge of other hand to its center.',
+      usage: 'Used in spelling words, names, and as a standalone letter.',
+      difficulty: 'Advanced',
+      category: 'Alphabet',
+      tips: ['Flat hand vertical', 'Other hand horizontal', 'Touch center palm'],
+      commonMistakes: ['Tracing Z in air (ASL)', 'Hands flat', 'Wrong angle'],
+      learningLevel: 'Mastering',
+      xpValue: 20
     }
   }), []);
 
@@ -445,7 +463,7 @@ export default function SignRecognition({
     }
 
     const isCorrect = expected && detection.label.toUpperCase() === expected.toUpperCase();
-    
+
     if (isCorrect) {
       if (confidence >= 90) {
         return `🏆 PERFECT! You mastered the ${signInfo?.name || detection.label}!`;
@@ -465,7 +483,7 @@ export default function SignRecognition({
 
   const generateImprovementTips = (detection, expected, signInfo, expectedSignInfo) => {
     const tips = [];
-    
+
     if (expected && detection?.label.toUpperCase() !== expected.toUpperCase()) {
       // Wrong sign detected
       if (expectedSignInfo?.tips) {
@@ -480,13 +498,13 @@ export default function SignRecognition({
         tips.push(`💡 Pro tip: ${signInfo.tips[0]}`);
       }
     }
-    
+
     // General tips based on confidence
     if (detection?.confidence < 0.5) {
       tips.push("🔍 Make sure your hand is clearly visible and well-lit");
       tips.push("⏱️ Hold the sign steady for 2-3 seconds");
     }
-    
+
     return tips;
   };
 
@@ -508,16 +526,16 @@ export default function SignRecognition({
 
   const calculateXP = (confidence, isCorrect, signInfo) => {
     if (!isCorrect) return 0;
-    
+
     let baseXP = signInfo?.xpValue || 10;
-    
+
     // Bonus XP for high confidence
     if (confidence >= 95) return baseXP * 3; // 3x bonus
     if (confidence >= 90) return baseXP * 2; // 2x bonus
     if (confidence >= 80) return Math.round(baseXP * 1.5); // 1.5x bonus
     if (confidence >= 70) return baseXP; // Base XP
     if (confidence >= 50) return Math.round(baseXP * 0.5); // Half XP
-    
+
     return 0; // No XP for low confidence
   };
 
@@ -542,7 +560,7 @@ export default function SignRecognition({
       "You're becoming a sign language champion! 🏆",
       "Practice makes perfect! Keep going! ⭐"
     ];
-    
+
     if (confidence >= 80) {
       return encouragements[0]; // "You're doing great! 🌟"
     } else if (confidence >= 60) {
@@ -562,70 +580,105 @@ export default function SignRecognition({
   // MediaPipe initialization removed
 
   // Initialize MediaPipe Hands
+  // Initialize MediaPipe Hands
   const initializeHands = useCallback(async () => {
     try {
-      const { Hands } = await import('@mediapipe/hands');
+      if (!videoRef.current) return;
+
       const hands = new Hands({
         locateFile: (file) => {
           return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
         }
       });
-      
+
       hands.setOptions({
-        maxNumHands: 1,
+        maxNumHands: 2, // Upgraded for ISL Support
         modelComplexity: 1,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
+        minDetectionConfidence: 0.8,
+        minTrackingConfidence: 0.8
       });
-      
+
       hands.onResults((results) => {
-        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-          const landmarks = results.multiHandLandmarks[0];
+        // Handle BOTH hands (ISL requires 2 hands for most signs)
+        const multiLandmarks = results.multiHandLandmarks;
+        const handedness = results.multiHandedness;
+
+        if (multiLandmarks && multiLandmarks.length > 0) {
           const video = videoRef.current;
-          
-          if (video && video.videoWidth > 0 && video.videoHeight > 0) {
-            // Calculate hand bounding box from landmarks
-            const xCoords = landmarks.map(landmark => landmark.x * video.videoWidth);
-            const yCoords = landmarks.map(landmark => landmark.y * video.videoHeight);
-            
-            const minX = Math.min(...xCoords);
-            const maxX = Math.max(...xCoords);
-            const minY = Math.min(...yCoords);
-            const maxY = Math.max(...yCoords);
-            
-            // Add padding around the hand (increased for better detection)
-            const padding = 80;
-            const width = maxX - minX + (padding * 2);
-            const height = maxY - minY + (padding * 2);
-            
-            // Ensure minimum size for better detection
-            const minSize = 200;
-            const finalWidth = Math.max(minSize, width);
-            const finalHeight = Math.max(minSize, height);
-            
-            const boundingBox = {
-              x: Math.max(0, Math.min(minX - padding, video.videoWidth - finalWidth)),
-              y: Math.max(0, Math.min(minY - padding, video.videoHeight - finalHeight)),
-              width: Math.min(video.videoWidth, finalWidth),
-              height: Math.min(video.videoHeight, finalHeight)
-            };
-            
-            setHandBoundingBox(boundingBox);
+
+          if (video && video.videoWidth > 0) {
+            // Simplified bounding box (covers all detected hands)
             setHandDetected(true);
-            console.log('[hand] Hand detected, bounding box:', boundingBox);
+
+            // --- Geometric Analysis Integration (Enhanced for ISL) ---
+            const currentMode = currentModeRef.current;
+            const targetSign = targetSignRef.current;
+
+            if (currentMode === 'webcam' && targetSign?.word) {
+              const signKey = targetSign.word.charAt(0).toUpperCase();
+
+              // Determine which ruleset to use (ISL or Standard)
+              // For now, we assume we check against ISL rules if available, or fallback
+              // We need to import ISL rules, but for now let's pass the raw data to analysis
+
+              // We pass ALL landmarks to the analysis function
+              const analysis = analyzeSign(multiLandmarks, handedness, signKey);
+
+              if (analysis.isMatch || analysis.score > 40) {
+                setRecognitionResult({
+                  label: signKey,
+                  confidence: analysis.score,
+                  isCorrect: analysis.isMatch,
+                  feedback: analysis.isMatch ? "Perfect!" : analysis.feedback[0],
+                  improvements: analysis.feedback,
+                  isValid: true,
+                  isReasonable: true,
+                  xpEarned: analysis.isMatch ? 10 : 0,
+                  achievement: analysis.isMatch ? '🌟' : '',
+                  encouragement: analysis.isMatch ? 'Great Job!' : 'Keep going!',
+                  signName: analysis.signName || signKey,
+                  signDescription: analysis.description || "Practice Sign",
+                  modelSource: 'ISL_GeometricEngine'
+                });
+
+                if (analysis.isMatch) {
+                  if (onRecognitionRef.current) {
+                    onRecognitionRef.current({
+                      label: signKey,
+                      confidence: analysis.score,
+                      isCorrect: true
+                    });
+                  }
+                }
+              }
+            }
           }
         } else {
           setHandDetected(false);
           setHandBoundingBox(null);
         }
       });
-      
+
       handsRef.current = hands;
+
+      // Start Camera
+      const camera = new Camera(videoRef.current, {
+        onFrame: async () => {
+          if (videoRef.current && handsRef.current) {
+            await handsRef.current.send({ image: videoRef.current });
+          }
+        },
+        width: 640,
+        height: 480
+      });
+      camera.start();
+
       console.log('[hand] MediaPipe Hands initialized');
     } catch (error) {
       console.error('[hand] Failed to initialize MediaPipe Hands:', error);
+      setError("Failed to load hand tracking model.");
     }
-  }, []);
+  }, []); // Empty dependency array - initialize only once
 
   // Enumerate available cameras
   const enumerateCameras = useCallback(async () => {
@@ -647,7 +700,7 @@ export default function SignRecognition({
     try {
       setError('');
       setIsWebcamActive(false);
-      
+
       if (!navigator?.mediaDevices?.getUserMedia) {
         setError('Camera API not available in this browser. Please use a modern browser.');
         return;
@@ -663,7 +716,7 @@ export default function SignRecognition({
       await enumerateCameras();
 
       console.log('[camera] Requesting camera access...', { selectedCameraId });
-      
+
       const constraints = {
         video: {
           width: { ideal: 640, min: 320 },
@@ -676,7 +729,7 @@ export default function SignRecognition({
       // Add timeout to getUserMedia
       const stream = await Promise.race([
         navigator.mediaDevices.getUserMedia(constraints),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Camera access timeout after 10 seconds')), 10000)
         )
       ]);
@@ -684,14 +737,14 @@ export default function SignRecognition({
       if (videoRef.current && stream) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
-        
+
         const video = videoRef.current;
-        
+
         // Wait for video to load
         await new Promise((resolve, reject) => {
           video.onloadedmetadata = () => {
-            console.log('[camera] Video loaded', { 
-              width: video.videoWidth, 
+            console.log('[camera] Video loaded', {
+              width: video.videoWidth,
               height: video.videoHeight,
               stream: !!stream,
               tracks: stream.getTracks().length
@@ -705,19 +758,19 @@ export default function SignRecognition({
         // Play video
         try {
           await video.play();
-        setIsWebcamActive(true);
+          setIsWebcamActive(true);
           setIsVideoReady(true);
-          
+
           // Initialize hand detection
           await initializeHands();
-          
+
           console.log('[camera] Camera started successfully');
         } catch (playError) {
           console.error('[camera] Play error:', playError);
           setError('Camera started but autoplay blocked. Please interact with the page.');
           setIsWebcamActive(true); // Still consider it active
           setIsVideoReady(true);
-          
+
           // Initialize hand detection even if autoplay is blocked
           await initializeHands();
         }
@@ -726,7 +779,7 @@ export default function SignRecognition({
       console.error('[camera] Error:', err);
       const name = err?.name || '';
       let message = 'Unable to access webcam. ';
-      
+
       if (name === 'NotAllowedError') {
         message = 'Camera permission denied. Please allow camera access in your browser settings and refresh the page.';
       } else if (name === 'NotFoundError') {
@@ -737,9 +790,9 @@ export default function SignRecognition({
         message = 'Camera timeout or constraints not supported. Trying with basic settings...';
         // Try with minimal constraints
         try {
-          const basicStream = await navigator.mediaDevices.getUserMedia({ 
+          const basicStream = await navigator.mediaDevices.getUserMedia({
             video: { deviceId: selectedCameraId ? { exact: selectedCameraId } : undefined },
-            audio: false 
+            audio: false
           });
           if (videoRef.current) {
             videoRef.current.srcObject = basicStream;
@@ -753,10 +806,17 @@ export default function SignRecognition({
           message = 'Camera failed to start. Please check if another app is using the camera or try a different camera.';
         }
       }
-      
+
       setError(message);
       setIsWebcamActive(false);
     }
+    return () => {
+      // Cleanup on unmount or re-run
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+    };
   }, [selectedCameraId, enumerateCameras, initializeHands]);
 
   // Initialize WebSocket to Python realtime endpoint
@@ -774,37 +834,37 @@ export default function SignRecognition({
     try {
       setIsProcessing(true);
       setError('');
-      
+
       console.log('[recognition] Starting detection for image:', imageDataUrl?.substring(0, 50) + '...');
-      
+
       // Use the new data URL function
       const data = await detectImageFromDataUrl(imageDataUrl);
       const expected = getExpectedLabel();
-      
+
       // Map YOLO detections to a single result for session scoring
       const top = Array.isArray(data?.detections) && data.detections.length ? data.detections[0] : null;
       const confidencePercent = Math.round(((top?.confidence) || 0) * 100);
-      
+
       console.log('[recognition] Raw detection data:', {
         detections: data?.detections?.length || 0,
         top: top,
         confidence: top?.confidence,
         confidencePercent: confidencePercent
       });
-      
+
       // Validate result legitimacy with stricter criteria
       const isValidResult = top && top.confidence > 0.25; // Increased minimum confidence to 25%
       const isLegitimateSign = top && signDictionary[top.label]; // Must be a known sign
-      
+
       // Additional validation: check if the detection makes sense
       const isReasonableDetection = top && top.confidence > 0.4; // Higher threshold for "reasonable" detections
-      
+
       // Generate gamified feedback
       const signInfo = signDictionary[top?.label] || null;
       const expectedSignInfo = expected ? signDictionary[expected] : null;
       const isCorrect = expected ? ((top?.label || '').toUpperCase() === expected) : isReasonableDetection;
       const learningProgress = getLearningProgress(confidencePercent, isCorrect);
-      
+
       const result = {
         confidence: confidencePercent,
         isCorrect: isCorrect,
@@ -815,9 +875,9 @@ export default function SignRecognition({
         improvements: generateImprovementTips(top, expected, signInfo, expectedSignInfo),
         modelSource: 'yolov5',
         isValid: isValidResult && isLegitimateSign,
-        confidenceLevel: confidencePercent >= 90 ? 'excellent' : 
-                        confidencePercent >= 70 ? 'good' : 
-                        confidencePercent >= 50 ? 'fair' : 'poor',
+        confidenceLevel: confidencePercent >= 90 ? 'excellent' :
+          confidencePercent >= 70 ? 'good' :
+            confidencePercent >= 50 ? 'fair' : 'poor',
         isReasonable: isReasonableDetection,
         // Enhanced gamification elements
         xpEarned: calculateXP(confidencePercent, isCorrect, signInfo),
@@ -835,7 +895,7 @@ export default function SignRecognition({
         signTips: signInfo?.tips || [],
         commonMistakes: signInfo?.commonMistakes || []
       };
-      
+
       console.log('[recognition] Processed result:', result);
       setRecognitionResult(result);
       onRecognition(result);
@@ -864,16 +924,16 @@ export default function SignRecognition({
   // Capture frame from webcam with optional cropping; returns null if frame is too dark/blank
   const captureFrame = useCallback((cropArea = null) => {
     if (!videoRef.current || !canvasRef.current) return null;
-    
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-    
+
     // If no crop area specified, capture full frame
     if (!cropArea) {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
     } else {
       // Crop to the specified area
       const { x, y, width, height } = cropArea;
@@ -881,7 +941,7 @@ export default function SignRecognition({
       canvas.height = height;
       ctx.drawImage(video, x, y, width, height, 0, 0, width, height);
     }
-    
+
     // Heuristic: skip if the frame is mostly dark (e.g., camera off or covered)
     try {
       const sample = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -910,22 +970,22 @@ export default function SignRecognition({
   // Define detection area - use hand bounding box if available, otherwise fallback to center
   const getDetectionArea = useCallback(() => {
     if (!videoRef.current) return null;
-    
+
     const video = videoRef.current;
     const videoWidth = video.videoWidth || 640;
     const videoHeight = video.videoHeight || 480;
-    
+
     // If hand is detected, use hand bounding box
     if (handDetected && handBoundingBox) {
       console.log('[detection] Using hand bounding box:', handBoundingBox);
       return handBoundingBox;
     }
-    
+
     // Fallback to centered area if no hand detected
     const size = Math.min(videoWidth, videoHeight) * 0.6;
     const x = (videoWidth - size) / 2;
     const y = (videoHeight - size) / 2;
-    
+
     console.log('[detection] Using fallback centered area:', { x, y, width: size, height: size });
     return { x, y, width: size, height: size };
   }, [handDetected, handBoundingBox]);
@@ -934,9 +994,9 @@ export default function SignRecognition({
   const sendFrameRealtime = useCallback((imageDataUrl) => {
     const payload = { type: 'frame', image: imageDataUrl };
     if (wsRef.current && wsReadyRef.current) {
-      try { 
-        wsRef.current.send(JSON.stringify(payload)); 
-        return true; 
+      try {
+        wsRef.current.send(JSON.stringify(payload));
+        return true;
       } catch (error) {
         console.warn('WebSocket send error:', error);
       }
@@ -969,7 +1029,7 @@ export default function SignRecognition({
         const dataUrl = e.target.result;
         // setUploadedImage(dataUrl);
         setPreviewUrl(dataUrl);
-        
+
         // Always use backend recognition for uploads
         console.log('[upload] Starting recognition for uploaded image');
         recognizeViaBackend(dataUrl).then((ok) => {
@@ -1020,9 +1080,9 @@ export default function SignRecognition({
   const processVideoFrame = useCallback(async () => {
     const video = videoRef.current;
     const hands = handsRef.current;
-    
+
     if (!video || !hands || video.readyState < 2) return;
-    
+
     try {
       await hands.send({ image: video });
     } catch (error) {
@@ -1038,10 +1098,10 @@ export default function SignRecognition({
       console.log('[realtime] Video not ready yet, skipping capture');
       return;
     }
-    
+
     // Process frame for hand detection first
     processVideoFrame();
- 
+
     const detectionArea = getDetectionArea();
     if (!detectionArea) {
       console.log('[realtime] No detection area available');
@@ -1055,13 +1115,13 @@ export default function SignRecognition({
     }
 
     console.log('[realtime] Capturing frame from detection area:', detectionArea);
-    
+
     // Capture only the detection area (hand or fallback)
     const imageData = captureFrame(detectionArea);
     if (imageData) {
       setPreviewUrl(imageData);
       console.log('[realtime] Frame captured, length:', imageData.length);
-      
+
       // Try WebSocket first, then fallback to HTTP
       const sent = sendFrameRealtime(imageData);
       if (!sent) {
@@ -1104,27 +1164,27 @@ export default function SignRecognition({
   // Draw detection area and results overlay
   useEffect(() => {
     if (!overlayRef.current || !videoRef.current) return;
-    
+
     const canvas = overlayRef.current;
     const ctx = canvas.getContext('2d');
     const video = videoRef.current;
     canvas.width = video.videoWidth || 640;
     canvas.height = video.videoHeight || 480;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     // Draw hand detection area
     const detectionArea = getDetectionArea();
     if (detectionArea) {
       const { x, y, width, height } = detectionArea;
-      
+
       if (handDetected && handBoundingBox) {
         // Draw hand detection area in green
-      ctx.strokeStyle = '#22c55e';
-      ctx.lineWidth = 3;
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 3;
         ctx.setLineDash([5, 5]);
         ctx.strokeRect(x, y, width, height);
         ctx.setLineDash([]);
-        
+
         // Add label
         ctx.fillStyle = '#22c55e';
         ctx.font = '14px Arial';
@@ -1136,14 +1196,14 @@ export default function SignRecognition({
         ctx.setLineDash([3, 3]);
         ctx.strokeRect(x, y, width, height);
         ctx.setLineDash([]);
-        
+
         // Add label
         ctx.fillStyle = '#f59e0b';
         ctx.font = '12px Arial';
         ctx.fillText('Detection Area', x + 5, y - 5);
       }
     }
-    
+
     // Don't draw YOLOv5 results on overlay since they're in cropped space
     // Results are shown in the UI below the video instead
   }, [recognitionResult, getDetectionArea, handDetected, handBoundingBox]);
@@ -1154,7 +1214,7 @@ export default function SignRecognition({
       initializeWebcam();
       openWebSocket();
     }
- 
+
     const onVisibility = () => {
       if (document.hidden) {
         // Pause capture when tab hidden
@@ -1169,8 +1229,8 @@ export default function SignRecognition({
       stopWebcam();
       const ws = wsRef.current;
       if (ws) {
-        try { 
-          ws.close(); 
+        try {
+          ws.close();
         } catch (error) {
           console.warn('WebSocket close error:', error);
         }
@@ -1187,8 +1247,8 @@ export default function SignRecognition({
           <div>
             <h3 className="text-2xl font-bold mb-2">Sign Recognition Practice</h3>
             <p className="text-blue-100">
-              {currentMode === 'webcam' 
-                ? 'Show your sign to the camera for real-time recognition' 
+              {currentMode === 'webcam'
+                ? 'Show your sign to the camera for real-time recognition'
                 : 'Upload an image to recognize the sign'
               }
             </p>
@@ -1202,11 +1262,10 @@ export default function SignRecognition({
                   setPreviewUrl(null);
                   setError('');
                 }}
-                className={`px-4 py-2 rounded-md transition-colors ${
-                  currentMode === 'webcam' 
-                    ? 'bg-white text-blue-600' 
-                    : 'text-white hover:bg-white/20'
-                }`}
+                className={`px-4 py-2 rounded-md transition-colors ${currentMode === 'webcam'
+                  ? 'bg-white text-blue-600'
+                  : 'text-white hover:bg-white/20'
+                  }`}
               >
                 📹 Webcam
               </button>
@@ -1216,43 +1275,42 @@ export default function SignRecognition({
                   stopWebcam();
                   setError('');
                 }}
-                className={`px-4 py-2 rounded-md transition-colors ${
-                  currentMode === 'upload' 
-                    ? 'bg-white text-blue-600' 
-                    : 'text-white hover:bg-white/20'
-                }`}
+                className={`px-4 py-2 rounded-md transition-colors ${currentMode === 'upload'
+                  ? 'bg-white text-blue-600'
+                  : 'text-white hover:bg-white/20'
+                  }`}
               >
                 📤 Upload
               </button>
             </div>
             <div className="flex items-center space-x-3">
-            {availableCameras.length > 1 && (
-              <>
-                <label className="text-sm text-white/80">Camera</label>
-                <select
-                  value={selectedCameraId}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    setSelectedCameraId(id);
-                    stopWebcam();
-                    setTimeout(() => initializeWebcam(id), 0);
-                  }}
-                  className="bg-white/20 text-white rounded-lg px-3 py-2 focus:outline-none"
-                >
-                  {availableCameras.map((c, i) => (
-                    <option key={c.deviceId || i} value={c.deviceId} className="text-black">
-                      {c.label || `Camera ${i + 1}`}
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
-            <button
-              onClick={() => enumerateCameras()}
-              className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30"
-            >
-              Refresh
-            </button>
+              {availableCameras.length > 1 && (
+                <>
+                  <label className="text-sm text-white/80">Camera</label>
+                  <select
+                    value={selectedCameraId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setSelectedCameraId(id);
+                      stopWebcam();
+                      setTimeout(() => initializeWebcam(id), 0);
+                    }}
+                    className="bg-white/20 text-white rounded-lg px-3 py-2 focus:outline-none"
+                  >
+                    {availableCameras.map((c, i) => (
+                      <option key={c.deviceId || i} value={c.deviceId} className="text-black">
+                        {c.label || `Camera ${i + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+              <button
+                onClick={() => enumerateCameras()}
+                className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30"
+              >
+                Refresh
+              </button>
             </div>
           </div>
         </div>
@@ -1299,13 +1357,12 @@ export default function SignRecognition({
               autoPlay
               playsInline
               muted
-              className={`w-full h-96 object-cover rounded-xl ${
-                !isWebcamActive
-                  ? darkMode
-                    ? 'bg-gray-700'
-                    : 'bg-gray-200'
-                  : ''
-              } ${darkMode ? 'ring-1 ring-gray-700' : 'ring-1 ring-gray-200'}`}
+              className={`w-full h-96 object-cover rounded-xl ${!isWebcamActive
+                ? darkMode
+                  ? 'bg-gray-700'
+                  : 'bg-gray-200'
+                : ''
+                } ${darkMode ? 'ring-1 ring-gray-700' : 'ring-1 ring-gray-200'}`}
             />
             {/* Overlay for detections */}
             <canvas
@@ -1313,7 +1370,7 @@ export default function SignRecognition({
               className="pointer-events-none absolute inset-0 w-full h-96 rounded-xl"
             />
             <canvas ref={canvasRef} className="hidden" />
-            
+
             {!isWebcamActive && (
               <div className={`absolute inset-0 flex items-center justify-center ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-xl h-96`}>
                 <div className="text-center">
@@ -1341,7 +1398,7 @@ export default function SignRecognition({
                 Stop Webcam
               </button>
             )}
-            
+
             {/* Manual Test Button */}
             <button
               onClick={() => {
@@ -1357,20 +1414,19 @@ export default function SignRecognition({
             >
               {isProcessing ? 'Testing...' : 'Test Detection'}
             </button>
-            
+
           </div>
         </div>
       ) : (
         <div className="space-y-4">
           {/* Enhanced Image Upload with Drag & Drop */}
-          <div 
-            className={`border-2 border-dashed rounded-xl p-6 text-center transition-all ${
-              isDragOver 
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                : darkMode 
-                  ? 'border-gray-600 hover:border-gray-500' 
-                  : 'border-gray-300 hover:border-gray-400'
-            }`}
+          <div
+            className={`border-2 border-dashed rounded-xl p-6 text-center transition-all ${isDragOver
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+              : darkMode
+                ? 'border-gray-600 hover:border-gray-500'
+                : 'border-gray-300 hover:border-gray-400'
+              }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -1459,13 +1515,12 @@ export default function SignRecognition({
       {recognitionResult && (
         <div className="mt-6 space-y-4">
           {/* Main Result Card - Gamified */}
-          <div className={`p-6 rounded-xl border-2 ${
-            recognitionResult.isCorrect 
-              ? 'bg-green-50 text-green-900 border-green-400' 
-              : recognitionResult.confidence > 50
+          <div className={`p-6 rounded-xl border-2 ${recognitionResult.isCorrect
+            ? 'bg-green-50 text-green-900 border-green-400'
+            : recognitionResult.confidence > 50
               ? 'bg-orange-50 text-orange-900 border-orange-400'
               : 'bg-red-50 text-red-900 border-red-400'
-          }`}>
+            }`}>
             <div className="text-center">
               {/* Achievement Badge */}
               <div className="mb-4">
@@ -1474,13 +1529,12 @@ export default function SignRecognition({
                   {recognitionResult.label || 'No Sign Detected'}
                 </h3>
                 <div className="flex justify-center items-center gap-4 mb-3">
-                  <div className={`inline-block px-4 py-2 rounded-full text-lg font-semibold ${
-                    recognitionResult.isCorrect 
-                      ? 'bg-green-200 text-green-800' 
-                      : recognitionResult.confidence > 50
+                  <div className={`inline-block px-4 py-2 rounded-full text-lg font-semibold ${recognitionResult.isCorrect
+                    ? 'bg-green-200 text-green-800'
+                    : recognitionResult.confidence > 50
                       ? 'bg-orange-200 text-orange-800'
                       : 'bg-red-200 text-red-800'
-                  }`}>
+                    }`}>
                     {recognitionResult.confidence}% Confidence
                   </div>
                   {recognitionResult.xpEarned > 0 && (
@@ -1490,17 +1544,17 @@ export default function SignRecognition({
                   )}
                 </div>
               </div>
-              
+
               {/* Gamified Feedback Message */}
               <div className="text-xl font-semibold mb-4">
                 {recognitionResult.feedback}
               </div>
-              
+
               {/* Encouragement */}
               <div className="text-lg mb-4 text-gray-700">
                 {recognitionResult.encouragement}
               </div>
-              
+
               {/* Learning Info */}
               {recognitionResult.category !== 'Unknown' && (
                 <div className="flex justify-center gap-4 text-sm mb-4 flex-wrap">
@@ -1515,7 +1569,7 @@ export default function SignRecognition({
                   </span>
                 </div>
               )}
-              
+
               {/* Expected vs Detected */}
               {targetSign?.word && (
                 <div className="text-lg mb-4">
@@ -1555,7 +1609,7 @@ export default function SignRecognition({
               <h4 className="text-xl font-bold text-blue-900 mb-4 flex items-center gap-2">
                 📚 {recognitionResult.signName} - Learning Guide
               </h4>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* How to Make the Sign */}
                 <div className="bg-white p-4 rounded-lg border border-blue-200">
@@ -1564,7 +1618,7 @@ export default function SignRecognition({
                   </h5>
                   <p className="text-blue-700 text-sm">{recognitionResult.signDescription}</p>
                 </div>
-                
+
                 {/* When to Use It */}
                 <div className="bg-white p-4 rounded-lg border border-blue-200">
                   <h5 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
@@ -1573,7 +1627,7 @@ export default function SignRecognition({
                   <p className="text-blue-700 text-sm">{recognitionResult.signUsage}</p>
                 </div>
               </div>
-              
+
               {/* Pro Tips */}
               {recognitionResult.signTips && recognitionResult.signTips.length > 0 && (
                 <div className="mt-4 bg-green-50 p-4 rounded-lg border border-green-200">
@@ -1590,7 +1644,7 @@ export default function SignRecognition({
                   </ul>
                 </div>
               )}
-              
+
               {/* Common Mistakes */}
               {recognitionResult.commonMistakes && recognitionResult.commonMistakes.length > 0 && (
                 <div className="mt-4 bg-orange-50 p-4 rounded-lg border border-orange-200">
@@ -1615,7 +1669,7 @@ export default function SignRecognition({
             <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
               🎯 Learning Progress & Assessment
             </h4>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Current Performance */}
               <div className="bg-white p-4 rounded-lg border border-blue-200">
@@ -1647,7 +1701,7 @@ export default function SignRecognition({
                   )}
                 </div>
               </div>
-              
+
               {/* Learning Goals */}
               <div className="bg-white p-4 rounded-lg border border-purple-200">
                 <h5 className="font-semibold text-purple-800 mb-2">🎯 Learning Goals</h5>
@@ -1673,7 +1727,7 @@ export default function SignRecognition({
                 </div>
               </div>
             </div>
-            
+
             {/* XP and Achievement Summary */}
             {recognitionResult.xpEarned > 0 && (
               <div className="mt-4 bg-gradient-to-r from-yellow-50 to-orange-50 p-4 rounded-lg border border-yellow-200">

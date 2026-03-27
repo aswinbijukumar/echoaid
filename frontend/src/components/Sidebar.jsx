@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import {
+  TrophyIcon,
   AcademicCapIcon,
   BookOpenIcon,
   PuzzlePieceIcon,
@@ -13,22 +14,26 @@ import {
   ShieldCheckIcon,
   StarIcon,
   BoltIcon,
-  ChatBubbleLeftRightIcon
+  ChatBubbleLeftRightIcon,
+  PlayIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContextConstants';
+import { useLearning } from '../context/LearningContext';
 
 export default function Sidebar({ handleLogout }) {
   const { darkMode } = useTheme();
   const { user } = useAuth();
+  const { devMode, toggleDevMode } = useLearning();
   const location = useLocation();
-  
+
   // Base links for all users - Duolingo Style
   const baseLinks = [
     { to: '/learn', label: 'LEARNING PATH', icon: AcademicCapIcon },
     { to: '/practice', label: 'PRACTICE', icon: BoltIcon },
     { to: '/dictionary', label: 'DICTIONARY', icon: BookOpenIcon },
     { to: '/quiz', label: 'QUIZ', icon: PuzzlePieceIcon },
+    { to: '/certificates', label: 'CERTIFICATES', icon: TrophyIcon },
     { to: '/accessibility', label: 'SETTINGS', icon: Cog6ToothIcon },
     { to: '/profile', label: 'PROFILE', icon: UserCircleIcon },
   ];
@@ -74,14 +79,14 @@ export default function Sidebar({ handleLogout }) {
               const currentSearchParams = new URLSearchParams(location.search);
               const targetTab = new URLSearchParams(searchParams).get('tab');
               const currentTab = currentSearchParams.get('tab');
-              
-              isActive = location.pathname === pathname && 
-                        (targetTab === currentTab || (!currentTab && targetTab === 'overview'));
+
+              isActive = location.pathname === pathname &&
+                (targetTab === currentTab || (!currentTab && targetTab === 'overview'));
             } else {
               // For regular links, just check pathname
               isActive = location.pathname === to;
             }
-            
+
             // Add extra spacing before Profile
             const extraSpacing = label === 'PROFILE' ? 'mt-4' : '';
             return (
@@ -112,6 +117,15 @@ export default function Sidebar({ handleLogout }) {
             >
               <ArrowRightOnRectangleIcon className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} />
               <span>LOGOUT</span>
+            </button>
+
+            {/* Developer Mode Toggle */}
+            <button
+              onClick={toggleDevMode}
+              className={`mt-2 flex items-center justify-center space-x-2 w-full py-2 text-xs font-mono rounded border border-dashed hover:opacity-100 transition-opacity
+                  ${devMode ? 'text-green-500 border-green-500 opacity-100' : 'text-gray-500 border-gray-500 opacity-50'}`}
+            >
+              <span>🛠️ DEV MODE: {devMode ? 'ON' : 'OFF'}</span>
             </button>
           </div>
         </nav>

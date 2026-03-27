@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
+import {
   UserCircleIcon,
   FireIcon,
   SparklesIcon,
@@ -48,15 +48,15 @@ export default function Profile() {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const fileInputRef = useRef(null);
-  
+
   const { user, logout, setUser } = useAuth();
   const navigate = useNavigate();
   const { stats: userStats } = useUserStats();
-  const { 
-    sessionInfo, 
-    isRefreshing, 
-    refreshSession, 
-    formatTimeUntilExpiry 
+  const {
+    sessionInfo,
+    isRefreshing,
+    refreshSession,
+    formatTimeUntilExpiry
   } = useSessionManager();
 
   // Theme variables - Match Learn, Quiz, Practice, and Dictionary pages exactly
@@ -103,14 +103,14 @@ export default function Profile() {
     try {
       setAchievementsLoading(true);
       const token = localStorage.getItem('token');
-      
+
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/achievements`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -130,14 +130,14 @@ export default function Profile() {
     try {
       setStatsLoading(true);
       const token = localStorage.getItem('token');
-      
+
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.user) {
@@ -206,43 +206,43 @@ export default function Profile() {
       const reader = new FileReader();
       reader.onload = async (e) => {
         const photoUrl = e.target.result;
-        
-                 try {
-           // Send to backend
-           const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/profile-photo`, {
-             method: 'PUT',
-             headers: {
-               'Content-Type': 'application/json',
-               'Authorization': `Bearer ${localStorage.getItem('token')}`
-             },
-             body: JSON.stringify({ photoUrl })
-           });
 
-           if (!response.ok) {
-             const errorText = await response.text();
-             throw new Error(`HTTP ${response.status}: ${errorText}`);
-           }
-           
-           const data = await response.json();
-          
-                     if (data.success) {
-             // Update user context
-             setUser(prev => ({ ...prev, avatar: data.data.avatar }));
-             setShowPhotoOptions(false);
-             alert(isGoogleUser() ? 'Profile photo updated successfully! Your Google photo has been replaced.' : 'Profile photo updated successfully!');
-           } else {
-             alert(data.message || 'Failed to update profile photo');
-           }
+        try {
+          // Send to backend
+          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/profile-photo`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({ photoUrl })
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+          }
+
+          const data = await response.json();
+
+          if (data.success) {
+            // Update user context
+            setUser(prev => ({ ...prev, avatar: data.data.avatar }));
+            setShowPhotoOptions(false);
+            alert(isGoogleUser() ? 'Profile photo updated successfully! Your Google photo has been replaced.' : 'Profile photo updated successfully!');
+          } else {
+            alert(data.message || 'Failed to update profile photo');
+          }
         } catch (fetchError) {
           console.error('Fetch error:', fetchError);
           alert('Failed to upload photo. Please try again.');
         }
       };
-      
+
       reader.onerror = () => {
         alert('Failed to read the image file. Please try again.');
       };
-      
+
       reader.readAsDataURL(file);
     } catch (error) {
       console.error('Photo upload error:', error);
@@ -253,30 +253,30 @@ export default function Profile() {
   };
 
   const handleRemovePhoto = async () => {
-    const message = isGoogleUser() 
+    const message = isGoogleUser()
       ? 'Are you sure you want to remove your Google profile photo? You can always upload your own photo instead.'
       : 'Are you sure you want to remove your profile photo?';
-    
+
     if (!confirm(message)) return;
 
-         try {
-       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/profile-photo`, {
-         method: 'DELETE',
-         headers: {
-           'Authorization': `Bearer ${localStorage.getItem('token')}`
-         }
-       });
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/profile-photo`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
 
-       const data = await response.json();
-      
-             if (data.success) {
-         // Update user context
-         setUser(prev => ({ ...prev, avatar: '' }));
-         setShowPhotoOptions(false);
-         alert(isGoogleUser() ? 'Google profile photo removed successfully! You can now upload your own photo.' : 'Profile photo removed successfully!');
-       } else {
-         alert(data.message || 'Failed to remove profile photo');
-       }
+      const data = await response.json();
+
+      if (data.success) {
+        // Update user context
+        setUser(prev => ({ ...prev, avatar: '' }));
+        setShowPhotoOptions(false);
+        alert(isGoogleUser() ? 'Google profile photo removed successfully! You can now upload your own photo.' : 'Profile photo removed successfully!');
+      } else {
+        alert(data.message || 'Failed to remove profile photo');
+      }
     } catch (error) {
       console.error('Remove photo error:', error);
       alert('Failed to remove photo. Please try again.');
@@ -305,7 +305,7 @@ export default function Profile() {
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -319,7 +319,7 @@ export default function Profile() {
           <div className="flex items-center space-x-4">
             {/* Empty space on the left */}
           </div>
-          
+
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <FireIcon className="w-5 h-5 text-orange-400" />
@@ -331,7 +331,7 @@ export default function Profile() {
             </div>
             <div className="flex items-center space-x-2">
               <StarIcon className="w-5 h-5 text-yellow-400" />
-              <span className="font-semibold">Lv {userStats.level}</span>
+              <span className="font-semibold">Rank {userStats.level}</span>
               <span className="text-sm text-gray-400">({userStats.xpToNextLevel} to next)</span>
             </div>
             <TopBarUserAvatar />
@@ -359,23 +359,23 @@ export default function Profile() {
                       <div className="relative photo-options-container">
                         {getProfilePhoto() ? (
                           <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-gray-200 dark:border-gray-600">
-                            <img 
-                              src={getProfilePhoto()} 
-                              alt="Profile" 
+                            <img
+                              src={getProfilePhoto()}
+                              alt="Profile"
                               className="w-full h-full object-cover"
                             />
                           </div>
-                                                 ) : (
-                           <div className="w-24 h-24 bg-blue-500 rounded-full flex items-center justify-center relative group">
-                             <PlusIcon className="w-8 h-8 text-white" />
-                             <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                               Click to add photo
-                             </div>
-                           </div>
-                         )}
-                        
+                        ) : (
+                          <div className="w-24 h-24 bg-blue-500 rounded-full flex items-center justify-center relative group">
+                            <PlusIcon className="w-8 h-8 text-white" />
+                            <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                              Click to add photo
+                            </div>
+                          </div>
+                        )}
+
                         {/* Edit Photo Button */}
-                        <button 
+                        <button
                           onClick={() => setShowPhotoOptions(!showPhotoOptions)}
                           className="absolute -top-1 -right-1 w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center hover:bg-gray-600 transition-colors"
                         >
@@ -394,7 +394,7 @@ export default function Profile() {
                                 <PhotoIcon className="w-4 h-4 text-white" />
                                 <span className="text-white">{isUploadingPhoto ? 'Uploading...' : 'Upload New Photo'}</span>
                               </button>
-                              
+
                               {getProfilePhoto() && (
                                 <button
                                   onClick={handleRemovePhoto}
@@ -404,7 +404,7 @@ export default function Profile() {
                                   <span>{isGoogleUser() ? 'Remove Google Photo' : 'Remove Photo'}</span>
                                 </button>
                               )}
-                              
+
                               {isGoogleUser() && getProfilePhoto() && (
                                 <div className="p-2 text-xs text-gray-400 border-t border-gray-600 mt-2">
                                   <p className="text-white">Currently using Google profile photo</p>
@@ -415,7 +415,7 @@ export default function Profile() {
                           </div>
                         )}
                       </div>
-                      
+
                       {/* Hidden file input */}
                       <input
                         ref={fileInputRef}
@@ -426,19 +426,19 @@ export default function Profile() {
                       />
                     </div>
                   </div>
-                  
+
                   <div className="mt-4">
-                <h1 className={`text-2xl font-bold ${textPrimary}`}>{user?.name || 'User'}</h1>
-                <p className={`${textSecondary} text-sm`}>Joined {userStats.joinedDate}</p>
-                     {isGoogleUser() && (
-                       <p className="text-green-400 text-sm">✓ Google Account</p>
-                     )}
-                     {isGoogleUser() && getProfilePhoto() && (
-                       <p className="text-blue-400 text-sm">📸 Using Google profile photo</p>
-                     )}
-                     {!isGoogleUser() && getProfilePhoto() && (
-                       <p className="text-purple-400 text-sm">📸 Custom profile photo</p>
-                     )}
+                    <h1 className={`text-2xl font-bold ${textPrimary}`}>{user?.name || 'User'}</h1>
+                    <p className={`${textSecondary} text-sm`}>Joined {userStats.joinedDate}</p>
+                    {isGoogleUser() && (
+                      <p className="text-green-400 text-sm">✓ Google Account</p>
+                    )}
+                    {isGoogleUser() && getProfilePhoto() && (
+                      <p className="text-blue-400 text-sm">📸 Using Google profile photo</p>
+                    )}
+                    {!isGoogleUser() && getProfilePhoto() && (
+                      <p className="text-purple-400 text-sm">📸 Custom profile photo</p>
+                    )}
                   </div>
                 </div>
 
@@ -456,11 +456,10 @@ export default function Profile() {
                         <button
                           key={tab.id}
                           onClick={() => setActiveTab(tab.id)}
-                          className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                            activeTab === tab.id
-                              ? 'border-green-500 text-green-600 dark:text-green-400'
-                              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                          }`}
+                          className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id
+                            ? 'border-green-500 text-green-600 dark:text-green-400'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                            }`}
                         >
                           <tab.icon className="w-5 h-5" />
                           <span>{tab.label}</span>
@@ -500,7 +499,7 @@ export default function Profile() {
                                 <span className="font-semibold">{userStatistics.totalXP} Total XP</span>
                               </div>
                               <div className="text-sm text-gray-500">
-                                Level {userStatistics.level} ({userStatistics.xpToNextLevel} to next)
+                                Rank {userStatistics.level} ({userStatistics.xpToNextLevel} to next)
                               </div>
                             </div>
                             <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
@@ -635,7 +634,7 @@ export default function Profile() {
                                 <span>{isRefreshing ? 'Refreshing...' : 'Refresh Session'}</span>
                               </button>
                             </div>
-                            
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div className={`${cardBg} p-4 rounded-lg border ${border}`}>
                                 <div className="flex items-center space-x-2 mb-2">
@@ -699,7 +698,7 @@ export default function Profile() {
                         <p className={`text-lg ${textSecondary} mb-8`}>
                           Contact our support team for assistance with your account, learning progress, or any questions you may have.
                         </p>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                           {/* Send Message Card */}
                           <div className={`${glassEffect} rounded-xl p-8 shadow-lg`}>
@@ -791,7 +790,7 @@ export default function Profile() {
                             </div>
                           )}
                         </div>
-                        
+
                         {/* Achievement Stats */}
                         {!achievementsLoading && (
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -813,7 +812,7 @@ export default function Profile() {
                             </div>
                           </div>
                         )}
-                        
+
                         {/* Achievements Grid */}
                         {achievementsLoading ? (
                           <div className="flex items-center justify-center py-8">
@@ -823,13 +822,12 @@ export default function Profile() {
                         ) : (
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {achievements.filter(a => a.visible).map((achievement) => (
-                              <div 
-                                key={achievement.id} 
-                                className={`p-4 rounded-lg border transition-all duration-200 ${
-                                  achievement.unlocked 
-                                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20 shadow-md' 
-                                    : 'border-gray-300 dark:border-gray-600 opacity-60'
-                                }`}
+                              <div
+                                key={achievement.id}
+                                className={`p-4 rounded-lg border transition-all duration-200 ${achievement.unlocked
+                                  ? 'border-green-500 bg-green-50 dark:bg-green-900/20 shadow-md'
+                                  : 'border-gray-300 dark:border-gray-600 opacity-60'
+                                  }`}
                               >
                                 <div className="flex items-start space-x-3">
                                   <span className="text-2xl">{achievement.icon}</span>
@@ -846,12 +844,11 @@ export default function Profile() {
                                       {achievement.description}
                                     </p>
                                     <div className="flex items-center justify-between text-xs">
-                                      <span className={`px-2 py-1 rounded-full ${
-                                        achievement.rarity === 'legendary' ? 'bg-purple-100 text-purple-800' :
+                                      <span className={`px-2 py-1 rounded-full ${achievement.rarity === 'legendary' ? 'bg-purple-100 text-purple-800' :
                                         achievement.rarity === 'epic' ? 'bg-blue-100 text-blue-800' :
-                                        achievement.rarity === 'rare' ? 'bg-green-100 text-green-800' :
-                                        'bg-gray-100 text-gray-800'
-                                      }`}>
+                                          achievement.rarity === 'rare' ? 'bg-green-100 text-green-800' :
+                                            'bg-gray-100 text-gray-800'
+                                        }`}>
                                         {achievement.rarity}
                                       </span>
                                       {achievement.xpReward > 0 && (
@@ -863,7 +860,7 @@ export default function Profile() {
                                     {achievement.progress > 0 && achievement.progress < 100 && (
                                       <div className="mt-2">
                                         <div className="w-full bg-gray-200 rounded-full h-1">
-                                          <div 
+                                          <div
                                             className="bg-blue-500 h-1 rounded-full transition-all duration-300"
                                             style={{ width: `${achievement.progress}%` }}
                                           ></div>
@@ -884,25 +881,25 @@ export default function Profile() {
                   )}
                 </div>
 
-                 {/* Minimal Footer */}
-                 <div className="mt-12 mb-8">
-                   <div className={`p-6 rounded-lg border ${border}`}>
-                     <div className="flex flex-col md:flex-row justify-between items-center">
-                       <div className="flex items-center space-x-4 mb-4 md:mb-0">
-                         <div className="flex items-center space-x-3">
-                           <div className="relative">
-                             <div className="w-8 h-8 bg-gradient-to-br from-[#00CC00] to-[#00AA00] rounded-lg flex items-center justify-center shadow-md">
-                               <span className="text-white font-black text-sm">E</span>
-                             </div>
-                             <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-br from-[#FFC107] to-[#FF9800] rounded-full animate-pulse"></div>
-                             <div className="absolute -bottom-0.5 -left-0.5 w-2 h-2 bg-[#00CC00]/20 rounded-full animate-ping"></div>
-                           </div>
-                           <span className="font-black text-lg text-[#00CC00]">EchoAid</span>
-                         </div>
-                         <span className="text-gray-400 text-sm">
-                           © 2024 EchoAid. All rights reserved.
-                         </span>
-                       </div>
+                {/* Minimal Footer */}
+                <div className="mt-12 mb-8">
+                  <div className={`p-6 rounded-lg border ${border}`}>
+                    <div className="flex flex-col md:flex-row justify-between items-center">
+                      <div className="flex items-center space-x-4 mb-4 md:mb-0">
+                        <div className="flex items-center space-x-3">
+                          <div className="relative">
+                            <div className="w-8 h-8 bg-gradient-to-br from-[#00CC00] to-[#00AA00] rounded-lg flex items-center justify-center shadow-md">
+                              <span className="text-white font-black text-sm">E</span>
+                            </div>
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-br from-[#FFC107] to-[#FF9800] rounded-full animate-pulse"></div>
+                            <div className="absolute -bottom-0.5 -left-0.5 w-2 h-2 bg-[#00CC00]/20 rounded-full animate-ping"></div>
+                          </div>
+                          <span className="font-black text-lg text-[#00CC00]">EchoAid</span>
+                        </div>
+                        <span className="text-gray-400 text-sm">
+                          © 2024 EchoAid. All rights reserved.
+                        </span>
+                      </div>
                       <div className="flex items-center space-x-6 text-sm">
                         <Link to="/terms" className="text-gray-400 hover:text-green-400 transition-colors">
                           Terms
@@ -911,10 +908,10 @@ export default function Profile() {
                           Privacy
                         </Link>
                       </div>
-                     </div>
-                   </div>
-                 </div>
-               </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

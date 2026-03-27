@@ -1,46 +1,23 @@
 import os
 import io
-import json
 import time
-import base64
-import numpy as np
 from typing import List, Optional
 
+import torch
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from PIL import Image
 
-# ─── Config ───────────────────────────────────────────────────────────────────
-BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "model.h5")
-CLASS_MAP  = os.path.join(BASE_DIR, "class_mapping.json")
-CONF_THRES = float(os.environ.get("CONF_THRES", "0.30"))
+# Configuration
+DEFAULT_WEIGHT_PRIMARY = os.path.normpath(os.path.join(os.getcwd(), "..", "..", "yolov5installationfiles", "last .pt"))
+DEFAULT_WEIGHT_FALLBACK = os.path.join(os.getcwd(), "weights", "isl_yolov5s.pt")
+MODEL_PATH = os.environ.get("MODEL_PATH", DEFAULT_WEIGHT_PRIMARY)
+CONF_THRES = float(os.environ.get("CONF_THRES", "0.25"))  # Increased from 0.10 to 0.25
+IOU_THRES = float(os.environ.get("IOU_THRES", "0.50"))   # Increased from 0.45 to 0.50
+DEVICE = os.environ.get("DEVICE", "cpu")  # e.g., "cuda:0" if available
 
-# ─── Load class labels ────────────────────────────────────────────────────────
-with open(CLASS_MAP, "r") as f:
-    CLASS_LABELS: List[str] = json.load(f)
-
-# ─── Lazy-load heavy libs so startup is fast ─────────────────────────────────
-tf_model      = None
-mp_hands      = None
-mp_drawing    = None
-
-def _load_models():
-    global tf_model, mp_hands, mp_drawing
-    if tf_model is not None:
-        return
-    import tensorflow as tf
-    import mediapipe as mp
-    tf_model   = tf.keras.models.load_model(MODEL_PATH)
-    mp_hands   = mp.solutions.hands
-    mp_drawing = mp.solutions.drawing_utils
-    print(f"[startup] Keras model loaded from {MODEL_PATH}")
-    print(f"[startup] Classes: {CLASS_LABELS}")
-
-
-# ─── App ──────────────────────────────────────────────────────────────────────
-app = FastAPI(title="EchoAid Keras Recognition Service", version="2.0.0")
+app = FastAPI(title="EchoAid YOLOv5 Recognition Service", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -50,12 +27,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+model = None
+model_names: List[str] = []
 
-# ─── Schemas ──────────────────────────────────────────────────────────────────
 class Detection(BaseModel):
     label: str
     confidence: float
-    box: List[float] = []
+    box: List[float]  # [x1, y1, x2, y2]
 
 class DetectResponse(BaseModel):
     success: bool
@@ -63,7 +41,7 @@ class DetectResponse(BaseModel):
     detections: List[Detection]
 
 class ScoreRequest(BaseModel):
-    image: str          # base64 or data-URL
+    image: str  # base64 image data
     isISL: bool = True
     signId: Optional[str] = None
 
@@ -73,130 +51,226 @@ class ScoreResponse(BaseModel):
     detections: List[Detection]
     label: Optional[str] = None
     confidence: Optional[float] = None
-    source: str = "keras-mediapipe"
+    source: str = "yolov5"
     bounding_box: Optional[List[float]] = None
     landmarks: List = []
     all_predictions: List = []
 
 
-# ─── Helper: extract landmarks + run model ────────────────────────────────────
-def _predict_from_pil(pil_image: Image.Image):
-    """
-    Run MediaPipe hand detection on a PIL image, extract 63 landmarks,
-    feed them through the Keras model, and return (label, confidence, all_preds).
-    Returns (None, 0.0, []) if no hand is found.
-    """
-    import mediapipe as mp
-    import cv2
-
-    img_rgb = np.array(pil_image.convert("RGB"))
-
-    with mp_hands.Hands(
-        static_image_mode=True,
-        max_num_hands=1,
-        min_detection_confidence=0.4,
-    ) as hands:
-        results = hands.process(img_rgb)
-
-    if not results.multi_hand_landmarks:
-        print("[predict] No hand detected in image")
-        return None, 0.0, []
-
-    # Flatten 21 landmarks × 3 coords = 63 features
-    lm_list = results.multi_hand_landmarks[0].landmark
-    features = []
-    for lm in lm_list:
-        features.extend([lm.x, lm.y, lm.z])
-
-    features = np.array(features, dtype=np.float32).reshape(1, -1)
-    preds    = tf_model.predict(features, verbose=0)[0]  # shape (num_classes,)
-
-    top_idx  = int(np.argmax(preds))
-    top_conf = float(preds[top_idx])
-    label    = CLASS_LABELS[top_idx] if top_idx < len(CLASS_LABELS) else str(top_idx)
-
-    all_preds = [
-        {"label": CLASS_LABELS[i] if i < len(CLASS_LABELS) else str(i),
-         "confidence": float(preds[i])}
-        for i in np.argsort(preds)[::-1][:5]
-    ]
-
-    print(f"[predict] top={label} ({top_conf:.3f}), all={[p['label'] for p in all_preds]}")
-    return label, top_conf, all_preds
+def load_model():
+    global model, model_names
+    # Resolve a suitable default if MODEL_PATH not found
+    chosen_path = MODEL_PATH
+    if not os.path.exists(chosen_path):
+        if os.path.exists(DEFAULT_WEIGHT_FALLBACK):
+            chosen_path = DEFAULT_WEIGHT_FALLBACK
+        else:
+            raise FileNotFoundError(
+                f"Weights not found. Tried: {MODEL_PATH} and {DEFAULT_WEIGHT_FALLBACK}. "
+                f"Set MODEL_PATH env or place weights accordingly."
+            )
+    # Use torch.hub to load YOLOv5; require Git for first-time fetch
+    print(f"[startup] Loading YOLOv5 weights from: {chosen_path} on device={DEVICE}")
+    model = torch.hub.load('ultralytics/yolov5', 'custom', path=chosen_path, device=DEVICE, trust_repo=True)  # type: ignore
+    model.conf = CONF_THRES  # confidence threshold
+    model.iou = IOU_THRES    # IoU threshold for NMS
+    raw_names = getattr(model, 'names', [])
+    # Normalize class names to a simple list of strings
+    if isinstance(raw_names, dict):
+      # YOLOv5 exports names as {0: 'A', 1: 'B', ...}
+      model_names = [raw_names[k] for k in sorted(raw_names.keys())]
+    elif isinstance(raw_names, (list, tuple)):
+      model_names = list(raw_names)
+    else:
+      model_names = []
+    # Warmup
+    try:
+      model(torch.zeros(1, 3, 640, 640))
+    except Exception:
+      pass
+    preview = model_names[:10] if isinstance(model_names, list) else []
+    print(f"[startup] Model ready. classes={len(model_names)} -> {preview}...")
 
 
-# ─── Routes ───────────────────────────────────────────────────────────────────
 @app.on_event("startup")
 def startup_event():
-    _load_models()
+    load_model()
 
 
 @app.get("/health")
 def health():
     return {
-        "success": True,
-        "message": "Keras-MediaPipe service healthy",
-        "model_path": MODEL_PATH,
-        "classes": CLASS_LABELS,
-        "num_classes": len(CLASS_LABELS),
+      "success": True,
+      "message": "YOLOv5 service healthy",
+      "model_path": MODEL_PATH,
+      "device": DEVICE,
+      "classes": model_names,
+      "num_classes": len(model_names)
     }
 
 
 @app.post("/detect", response_model=DetectResponse)
 async def detect(
     file: UploadFile = File(...),
-    conf: Optional[float] = Query(None),
+    conf: Optional[float] = Query(None, description="Override confidence threshold for this request (0.0-1.0)")
 ):
-    _load_models()
+    if model is None:
+        raise HTTPException(status_code=500, detail="Model not loaded")
     try:
         content = await file.read()
-        image   = Image.open(io.BytesIO(content))
+        image = Image.open(io.BytesIO(content)).convert('RGB')
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid image: {e}")
 
-    threshold = conf if conf is not None else CONF_THRES
     t0 = time.time()
-    label, confidence, _ = _predict_from_pil(image)
+    # Allow per-request confidence override
+    prev_conf = getattr(model, 'conf', None)
+    try:
+        if conf is not None:
+            try:
+                model.conf = max(0.0, min(1.0, float(conf)))
+            except Exception:
+                pass
+        results = model(image, size=640)
+    finally:
+        # restore model.conf
+        try:
+            if prev_conf is not None:
+                model.conf = prev_conf
+        except Exception:
+            pass
+    # results.xyxy[0]: (N, 6) -> x1,y1,x2,y2,conf,cls
+    detections: List[Detection] = []
+    try:
+        preds = results.xyxy[0].cpu().numpy()
+        # Debug: log number of detections and first few scores
+        try:
+            print(f"[detect] received image {len(content)} bytes, preds shape={getattr(results.xyxy[0], 'shape', None)}")
+            if len(preds) > 0:
+                print(f"[detect] top detection: class={preds[0][5]}, confidence={preds[0][4]:.3f}")
+        except Exception:
+            pass
+        
+        # Filter detections by confidence and validate
+        for x1, y1, x2, y2, conf, cls_id in preds:
+            cls_idx = int(cls_id)
+            label = model_names[cls_idx] if 0 <= cls_idx < len(model_names) else str(cls_idx)
+            
+            # Additional validation: check if detection is reasonable
+            box_width = x2 - x1
+            box_height = y2 - y1
+            box_area = box_width * box_height
+            
+            # Skip very small detections (likely false positives)
+            if box_area < 100:  # Minimum 100 pixels area
+                print(f"[detect] Skipping small detection: {label} (area: {box_area:.1f})")
+                continue
+                
+            # Skip detections that are too large (likely background)
+            image_area = image.width * image.height
+            if box_area > image_area * 0.8:  # Max 80% of image
+                print(f"[detect] Skipping large detection: {label} (area: {box_area:.1f})")
+                continue
+            
+            detections.append(Detection(
+                label=label,
+                confidence=float(conf),
+                box=[float(x1), float(y1), float(x2), float(y2)]
+            ))
+            
+        print(f"[detect] Final detections: {len(detections)} valid detections")
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Postprocess error: {e}")
+
     dt_ms = (time.time() - t0) * 1000.0
-
-    detections = []
-    if label and confidence >= threshold:
-        detections.append(Detection(label=label, confidence=confidence))
-
     return DetectResponse(success=True, time_ms=dt_ms, detections=detections)
 
 
 @app.post("/score", response_model=ScoreResponse)
 async def score(request: ScoreRequest):
-    """Backend-compatible endpoint that accepts base64 image data."""
-    _load_models()
+    """Score endpoint for backend compatibility - accepts base64 image data"""
+    if model is None:
+        raise HTTPException(status_code=500, detail="Model not loaded")
+    
     try:
-        raw = request.image
-        if raw.startswith("data:"):
-            _, encoded = raw.split(",", 1)
+        # Decode base64 image
+        import base64
+        if request.image.startswith('data:'):
+            # Remove data URL prefix
+            header, encoded = request.image.split(',', 1)
+            image_data = base64.b64decode(encoded)
         else:
-            encoded = raw
-        image_data = base64.b64decode(encoded)
-        image      = Image.open(io.BytesIO(image_data))
+            # Assume it's raw base64
+            image_data = base64.b64decode(request.image)
+        
+        image = Image.open(io.BytesIO(image_data)).convert('RGB')
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid image data: {e}")
 
     t0 = time.time()
-    label, confidence, all_preds = _predict_from_pil(image)
+    
+    try:
+        results = model(image, size=640)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Model inference error: {e}")
+    
+    # Process results
+    detections: List[Detection] = []
+    top_detection = None
+    
+    try:
+        preds = results.xyxy[0].cpu().numpy()
+        print(f"[score] received image {len(image_data)} bytes, preds shape={getattr(results.xyxy[0], 'shape', None)}")
+        
+        # Filter detections by confidence and validate
+        for x1, y1, x2, y2, conf, cls_id in preds:
+            cls_idx = int(cls_id)
+            label = model_names[cls_idx] if 0 <= cls_idx < len(model_names) else str(cls_idx)
+            
+            # Additional validation: check if detection is reasonable
+            box_width = x2 - x1
+            box_height = y2 - y1
+            box_area = box_width * box_height
+            
+            # Skip very small detections (likely false positives)
+            if box_area < 100:  # Minimum 100 pixels area
+                print(f"[score] Skipping small detection: {label} (area: {box_area:.1f})")
+                continue
+                
+            # Skip detections that are too large (likely background)
+            image_area = image.width * image.height
+            if box_area > image_area * 0.8:  # Max 80% of image
+                print(f"[score] Skipping large detection: {label} (area: {box_area:.1f})")
+                continue
+            
+            detection = Detection(
+                label=label,
+                confidence=float(conf),
+                box=[float(x1), float(y1), float(x2), float(y2)]
+            )
+            detections.append(detection)
+            
+            # Keep track of the highest confidence detection
+            if top_detection is None or detection.confidence > top_detection.confidence:
+                top_detection = detection
+            
+        print(f"[score] Final detections: {len(detections)} valid detections")
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Postprocess error: {e}")
+
     dt_ms = (time.time() - t0) * 1000.0
-
-    detections = []
-    if label and confidence >= CONF_THRES:
-        detections.append(Detection(label=label, confidence=confidence))
-
+    
+    # Return response in the format expected by the backend
     return ScoreResponse(
         success=True,
         time_ms=dt_ms,
         detections=detections,
-        label=label,
-        confidence=confidence,
-        source="keras-mediapipe",
-        bounding_box=None,
+        label=top_detection.label if top_detection else None,
+        confidence=top_detection.confidence if top_detection else None,
+        source="yolov5",
+        bounding_box=top_detection.box if top_detection else None,
         landmarks=[],
-        all_predictions=all_preds,
+        all_predictions=[]
     )

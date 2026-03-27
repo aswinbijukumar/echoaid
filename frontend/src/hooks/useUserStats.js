@@ -18,21 +18,23 @@ export function useUserStats() {
       if (!token) {
         throw new Error('No authentication token found');
       }
-      
+
       const response = await fetch(`${ENV_CONFIG.API_BASE_URL}/api/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       if (data?.success) {
         const ls = data.user?.learningStats || {};
         const totalXP = ls.totalXP || 0;
+        // Use backend-provided level if available, otherwise fallback (sync with backend 1000xp rule)
         const level = ls.level || Math.floor(totalXP / 1000) + 1;
-        const xpToNextLevel = ls.xpToNextLevel ?? Math.max(0, (Math.floor(totalXP / 1000) + 1) * 1000 - totalXP);
+        // recalculate xpToNextLevel based on 1000xp tiers if not provided
+        const xpToNextLevel = ls.xpToNextLevel !== undefined ? ls.xpToNextLevel : Math.max(0, (level * 1000) - totalXP);
         setStats({
           streak: ls.streak || 0,
           totalXP,
