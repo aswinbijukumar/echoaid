@@ -51,7 +51,7 @@ export default function UserMessages() {
     setIsLoading(true);
     setError('');
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/messages/user/messages`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/messages/user/messages`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

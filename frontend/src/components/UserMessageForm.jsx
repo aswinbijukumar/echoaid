@@ -82,7 +82,7 @@ export default function UserMessageForm({ onMessageSent, onClose }) {
     setError('');
 
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/messages`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/messages`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

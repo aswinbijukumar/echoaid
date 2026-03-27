@@ -43,7 +43,7 @@ export default function MessagesNotification() {
   // Fetch unread count
   const fetchUnreadCount = async () => {
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/messages/stats`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/messages/stats`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -70,7 +70,7 @@ export default function MessagesNotification() {
       if (filters.unreadOnly) queryParams.append('unreadOnly', 'true');
       queryParams.append('limit', '10');
 
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/messages?${queryParams}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/messages?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -94,7 +94,7 @@ export default function MessagesNotification() {
   // Mark message as read
   const markAsRead = async (messageId) => {
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/messages/${messageId}/read`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/messages/${messageId}/read`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

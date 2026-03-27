@@ -93,7 +93,7 @@ export default function AdminProfile() {
     setIs2FALoading(true);
     setTwoFactorError('');
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/auth/2fa/setup`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/2fa/setup`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -126,7 +126,7 @@ export default function AdminProfile() {
     setIs2FALoading(true);
     setTwoFactorError('');
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/auth/2fa/enable`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/2fa/enable`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -156,7 +156,7 @@ export default function AdminProfile() {
     setIs2FALoading(true);
     setTwoFactorError('');
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/auth/2fa/disable`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/2fa/disable`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -182,7 +182,7 @@ export default function AdminProfile() {
     setIsLoadingSessions(true);
     setSessionError('');
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/auth/sessions`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/sessions`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -203,7 +203,7 @@ export default function AdminProfile() {
 
   const revokeSession = async (sessionId) => {
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/auth/sessions/${sessionId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/sessions/${sessionId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -220,7 +220,7 @@ export default function AdminProfile() {
 
   const revokeAllSessions = async () => {
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/auth/sessions`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/sessions`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -245,7 +245,7 @@ export default function AdminProfile() {
       const formData = new FormData();
       formData.append('photo', file);
       
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/auth/profile/photo`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/profile/photo`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -275,7 +275,7 @@ export default function AdminProfile() {
 
   const handleRemovePhoto = async () => {
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/auth/profile/photo`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/profile/photo`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

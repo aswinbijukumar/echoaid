@@ -168,7 +168,7 @@ export default function ContentManagement() {
   const fetchSigns = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/content/signs?limit=500`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs?limit=500`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -188,7 +188,7 @@ export default function ContentManagement() {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/content/categories`);
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/content/categories`);
 
       if (response.ok) {
         const data = await response.json();
@@ -233,7 +233,7 @@ export default function ContentManagement() {
     }
 
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/content/signs`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -270,7 +270,7 @@ export default function ContentManagement() {
 
   const handleDeleteSign = async () => {
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/content/signs/${selectedSign._id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/${selectedSign._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -357,7 +357,7 @@ export default function ContentManagement() {
       console.log('Selected sign ID:', selectedSign._id);
       console.log('Token:', token ? 'Present' : 'Missing');
 
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/content/signs/${selectedSign._id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/${selectedSign._id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -488,7 +488,7 @@ export default function ContentManagement() {
     console.log('Token:', token ? 'Present' : 'Missing');
 
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/content/categories`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/categories`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -538,7 +538,7 @@ export default function ContentManagement() {
     }
 
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/content/categories/${selectedCategory._id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/categories/${selectedCategory._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -576,7 +576,7 @@ export default function ContentManagement() {
 
   const handleDeleteCategory = async () => {
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/content/categories/${selectedCategory._id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/categories/${selectedCategory._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -623,7 +623,7 @@ export default function ContentManagement() {
 
   const handleExport = async () => {
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/content/signs/export?format=csv`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/export?format=csv`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -672,7 +672,7 @@ export default function ContentManagement() {
         token: token ? 'present' : 'missing'
       });
 
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/content/signs/bulk`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/bulk`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -709,7 +709,7 @@ export default function ContentManagement() {
 
   const handleBulkToggleStatus = async (isActive) => {
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/admin/content/signs/bulk`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/bulk`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1161,7 +1161,7 @@ export default function ContentManagement() {
                             const pickUrl = sign.thumbnailUrl || sign.imageUrl || sign.imagePath;
                             const src = typeof pickUrl === 'string' && pickUrl.startsWith('http')
                               ? pickUrl
-                              : `${'https://echoaidbackend.onrender.com'}${pickUrl || ''}`;
+                              : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}${pickUrl || ''}`;
                             return (
                               <img
                                 className="h-12 w-12 lg:h-16 lg:w-16 rounded-xl lg:rounded-2xl object-cover border border-white/20 shadow-lg"

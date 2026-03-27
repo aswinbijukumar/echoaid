@@ -20,6 +20,11 @@ import {
   PlayIcon
 } from '@heroicons/react/24/outline';
 
+<<<<<<< HEAD:frontend/src/legacy/PracticeNew.jsx
+=======
+  const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api`;
+
+>>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1:frontend/src/pages/PracticeNew.jsx
 export default function Practice() {
   const { darkMode } = useTheme();
   const { logout } = useAuth();

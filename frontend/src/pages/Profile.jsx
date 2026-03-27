@@ -103,8 +103,12 @@ export default function Profile() {
     try {
       setAchievementsLoading(true);
       const token = localStorage.getItem('token');
+<<<<<<< HEAD
 
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/achievements`, {
+=======
+      
+>>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/achievements`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -130,8 +134,12 @@ export default function Profile() {
     try {
       setStatsLoading(true);
       const token = localStorage.getItem('token');
+<<<<<<< HEAD
 
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/auth/me`, {
+=======
+      
+>>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -206,10 +214,24 @@ export default function Profile() {
       const reader = new FileReader();
       reader.onload = async (e) => {
         const photoUrl = e.target.result;
+<<<<<<< HEAD
+=======
+        
+                 try {
+           // Send to backend
+           const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/profile-photo`, {
+             method: 'PUT',
+             headers: {
+               'Content-Type': 'application/json',
+               'Authorization': `Bearer ${localStorage.getItem('token')}`
+             },
+             body: JSON.stringify({ photoUrl })
+           });
+>>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
 
         try {
           // Send to backend
-          const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/auth/profile-photo`, {
+          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/profile-photo`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
@@ -259,13 +281,23 @@ export default function Profile() {
 
     if (!confirm(message)) return;
 
+<<<<<<< HEAD
     try {
-      const response = await fetch(`${'https://echoaidbackend.onrender.com'}/api/auth/profile-photo`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/profile-photo`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
+=======
+         try {
+       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/profile-photo`, {
+         method: 'DELETE',
+         headers: {
+           'Authorization': `Bearer ${localStorage.getItem('token')}`
+         }
+       });
+>>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1
 
       const data = await response.json();
 

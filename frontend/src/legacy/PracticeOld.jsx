@@ -26,7 +26,11 @@ import {
   ClockIcon
 } from '@heroicons/react/24/outline';
 
-const API_BASE_URL = `${'https://echoaidbackend.onrender.com'}/api`;
+<<<<<<< HEAD:frontend/src/legacy/PracticeOld.jsx
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api`;
+=======
+  const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api`;
+>>>>>>> dc62a1aeab24bf46cb3b9305bc8d4f9124e3d6d1:frontend/src/pages/PracticeOld.jsx
 
 export default function Practice() {
   const { token, logout } = useAuth();

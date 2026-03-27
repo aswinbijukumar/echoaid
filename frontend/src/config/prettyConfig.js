@@ -7,7 +7,7 @@
 export const ENV_CONFIG = {
   // API URLs
   // API URLs - Sanitize to remove trailing /api and slash to prevent double prefixes
-  API_BASE_URL: ('https://echoaidbackend.onrender.com').replace(/\/api\/?$/, '').replace(/\/$/, ''),
+  API_BASE_URL: (import.meta.env.VITE_API_BASE_URL || 'https://echoaidbackend.onrender.com').replace(/\/api\/?$/, '').replace(/\/$/, ''),
   PY_SERVICE_URL: import.meta.env.VITE_PY_SERVICE_URL || 'http://localhost:8001',
 
   // Environment

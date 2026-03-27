@@ -607,22 +607,10 @@ export default function SignRecognition({
           const video = videoRef.current;
 
           if (video && video.videoWidth > 0) {
+            // Simplified bounding box (covers all detected hands)
             setHandDetected(true);
 
-            // --- Draw hand skeleton on overlay canvas ---
-            if (overlayRef.current) {
-              const canvas = overlayRef.current;
-              const ctx = canvas.getContext('2d');
-              canvas.width = video.videoWidth;
-              canvas.height = video.videoHeight;
-              ctx.clearRect(0, 0, canvas.width, canvas.height);
-              for (const landmarks of multiLandmarks) {
-                drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: '#00FF88', lineWidth: 3 });
-                drawLandmarks(ctx, landmarks, { color: '#FF3366', lineWidth: 1, radius: 5 });
-              }
-            }
-
-
+            // --- Geometric Analysis Integration (Enhanced for ISL) ---
             const currentMode = currentModeRef.current;
             const targetSign = targetSignRef.current;
 
@@ -668,12 +656,6 @@ export default function SignRecognition({
         } else {
           setHandDetected(false);
           setHandBoundingBox(null);
-          // Clear canvas when no hand detected
-          if (overlayRef.current) {
-            const canvas = overlayRef.current;
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-          }
         }
       });
 
@@ -1179,7 +1161,52 @@ export default function SignRecognition({
     }
   }, [mode, isWebcamActive, isVideoReady, isProcessing, handleWebcamCapture]);
 
-  // Canvas overlay is handled by MediaPipe's drawConnectors/drawLandmarks in the hands onResults callback
+  // Draw detection area and results overlay
+  useEffect(() => {
+    if (!overlayRef.current || !videoRef.current) return;
+
+    const canvas = overlayRef.current;
+    const ctx = canvas.getContext('2d');
+    const video = videoRef.current;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw hand detection area
+    const detectionArea = getDetectionArea();
+    if (detectionArea) {
+      const { x, y, width, height } = detectionArea;
+
+      if (handDetected && handBoundingBox) {
+        // Draw hand detection area in green
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(x, y, width, height);
+        ctx.setLineDash([]);
+
+        // Add label
+        ctx.fillStyle = '#22c55e';
+        ctx.font = '14px Arial';
+        ctx.fillText('Hand Detected', x + 5, y - 5);
+      } else {
+        // Draw fallback area in orange
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([3, 3]);
+        ctx.strokeRect(x, y, width, height);
+        ctx.setLineDash([]);
+
+        // Add label
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = '12px Arial';
+        ctx.fillText('Detection Area', x + 5, y - 5);
+      }
+    }
+
+    // Don't draw YOLOv5 results on overlay since they're in cropped space
+    // Results are shown in the UI below the video instead
+  }, [recognitionResult, getDetectionArea, handDetected, handBoundingBox]);
 
   // Initialize webcam when component mounts
   useEffect(() => {
