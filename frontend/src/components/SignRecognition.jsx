@@ -838,8 +838,13 @@ export default function SignRecognition({
       const getWsUrl = () => {
         const envUrl = import.meta.env.VITE_RECOGNITION_SERVICE_URL;
         if (envUrl) return envUrl;
-        const protocol = window.location.protocol.startsWith('https') ? 'wss:' : 'ws:';
-        return `${protocol}//${window.location.hostname}:8001/ws/recognize`;
+        
+        // Smart fallback: if on localhost, use local python service port 8001
+        // Otherwise, use the production Render URL
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          return `ws://${window.location.hostname}:8001/ws/recognize`;
+        }
+        return `wss://echoaid-recognition.onrender.com/ws/recognize`;
       };
 
       const wsUrl = getWsUrl();
@@ -1321,27 +1326,7 @@ export default function SignRecognition({
               </button>
             </div>
             <div className="flex items-center space-x-3">
-              {availableCameras.length > 1 && (
-                <>
-                  <label className="text-sm text-white/80">Camera</label>
-                  <select
-                    value={selectedCameraId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      setSelectedCameraId(id);
-                      stopWebcam();
-                      setTimeout(() => initializeWebcam(id), 0);
-                    }}
-                    className="bg-white/20 text-white rounded-lg px-3 py-2 focus:outline-none"
-                  >
-                    {availableCameras.map((c, i) => (
-                      <option key={c.deviceId || i} value={c.deviceId} className="text-black">
-                        {c.label || `Camera ${i + 1}`}
-                      </option>
-                    ))}
-                  </select>
-                </>
-              )}
+
               <button
                 onClick={() => enumerateCameras()}
                 className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30"

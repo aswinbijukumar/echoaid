@@ -92,22 +92,27 @@ export default function WordBuilder({ onComplete, onExit }) {
         const lm = multiLandmarks[0];
         // 1. Extract 63-dim landmark vector (x, y, z)
         const vector = [];
+        const vw = videoRef.current ? (videoRef.current.videoWidth || 640) : 640;
+        const vh = videoRef.current ? (videoRef.current.videoHeight || 480) : 480;
+        
         lm.forEach(p => {
-          vector.push(p.x, p.y, p.z);
+          vector.push(p.x * vw, p.y * vh, p.z);
         });
 
         // 2. Send to WebSocket for real-time Keras inference
         if (wsRef.current && wsReadyRef.current) {
-          wsRef.current.send(JSON.stringify({ landmarks: vector }));
+          wsRef.current.send(JSON.stringify({ landmarks: vector, width: vw, height: vh }));
         }
       }
 
       /* draw on overlay canvas */
       const ov = overlayRef.current;
       const vid = videoRef.current;
-      if (ov && vid) {
-        ov.width = vid.videoWidth;
-        ov.height = vid.videoHeight;
+      if (ov && vid && vid.videoWidth) {
+        if (ov.width !== vid.videoWidth || ov.height !== vid.videoHeight) {
+          ov.width = vid.videoWidth;
+          ov.height = vid.videoHeight;
+        }
         const ctx = ov.getContext('2d');
         ctx.clearRect(0, 0, ov.width, ov.height);
         if (detected) {
@@ -245,8 +250,13 @@ export default function WordBuilder({ onComplete, onExit }) {
       const getWsUrl = () => {
         const envUrl = import.meta.env.VITE_RECOGNITION_SERVICE_URL;
         if (envUrl) return envUrl;
-        const protocol = window.location.protocol.startsWith('https') ? 'wss:' : 'ws:';
-        return `${protocol}//${window.location.hostname}:8001/ws/recognize`;
+        
+        // Smart fallback: if on localhost, use local python service port 8001
+        // Otherwise, use the production Render URL
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          return `ws://${window.location.hostname}:8001/ws/recognize`;
+        }
+        return `wss://echoaid-recognition.onrender.com/ws/recognize`;
       };
 
       const wsUrl = getWsUrl();
@@ -522,7 +532,7 @@ export default function WordBuilder({ onComplete, onExit }) {
             {/* MediaPipe skeleton overlay */}
             <canvas
               ref={overlayRef}
-              className="absolute inset-0 w-full h-full scale-x-[-1] pointer-events-none"
+              className="absolute inset-0 w-full h-full object-cover scale-x-[-1] pointer-events-none"
               style={{ zIndex: 10 }}
             />
             {/* Hidden capture canvas */}
@@ -554,32 +564,10 @@ export default function WordBuilder({ onComplete, onExit }) {
 
             {!isWebcamActive && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20 p-6 space-y-4">
-                {/* Camera Selector Overlay */}
-                <div className="w-full max-w-[240px]">
-                  <select
-                    value={selectedCameraId}
-                    onChange={(e) => setSelectedCameraId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-600 text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  >
-                    {availableCameras.length > 0 ? (
-                      availableCameras.map((camera) => (
-                        <option key={camera.deviceId} value={camera.deviceId}>
-                          {camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="">No cameras found</option>
-                    )}
-                  </select>
+                <div className="text-center">
+                  <div className="text-4xl mb-2">📹</div>
+                  <p className="text-white/60 font-medium">Camera Off</p>
                 </div>
-
-                <button
-                  onClick={() => startWebcam(selectedCameraId)}
-                  className="flex flex-col items-center gap-2 text-white/80 hover:text-white transition-colors"
-                >
-                  <PlayIcon className="w-12 h-12" />
-                  <span className="text-sm font-medium">Start Selected Camera</span>
-                </button>
               </div>
             )}
           </div>
