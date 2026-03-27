@@ -826,7 +826,14 @@ export default function SignRecognition({
   // Periodic Keras Recognition Polling - REPLACED BY WEBSOCKET
   useEffect(() => {
     if (isWebcamActive && isVideoReady && currentMode === 'webcam') {
-      const wsUrl = `ws://${window.location.hostname}:8001/ws/recognize`;
+      const getWsUrl = () => {
+        const envUrl = import.meta.env.VITE_RECOGNITION_SERVICE_URL;
+        if (envUrl) return envUrl;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${protocol}//${window.location.hostname}:8001/ws/recognize`;
+      };
+
+      const wsUrl = getWsUrl();
       console.log('[ws] Connecting to', wsUrl);
       
       const ws = new WebSocket(wsUrl);
