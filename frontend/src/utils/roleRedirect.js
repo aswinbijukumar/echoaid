@@ -7,7 +7,7 @@ export const getRoleBasedRedirect = (userRole, currentPath = '') => {
   };
 
   const correctDashboard = roleDashboards[userRole] || '/learn';
-
+  
   // If user is on /dashboard, always redirect to their role-specific dashboard
   if (currentPath === '/dashboard') {
     return correctDashboard;
@@ -24,7 +24,7 @@ export const getRoleBasedRedirect = (userRole, currentPath = '') => {
   }
 
   // Don't redirect from other allowed pages (including subpaths like /quiz/:id)
-  const allowedPages = ['/profile', '/dictionary', '/quiz', '/practice', '/accessibility', '/subscription', '/support', '/messages', '/admin/messages', '/echolink', '/certificates'];
+  const allowedPages = ['/profile', '/dictionary', '/quiz', '/practice', '/accessibility', '/subscription', '/support', '/messages', '/admin/messages'];
   if (allowedPages.some(prefix => currentPath === prefix || currentPath.startsWith(prefix + '/'))) {
     return null;
   }

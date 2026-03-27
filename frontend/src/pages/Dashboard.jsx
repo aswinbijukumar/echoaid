@@ -1,10 +1,9 @@
-import { useState, useCallback, useEffect } from 'react';
-
+import { useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  TrophyIcon,
-  AcademicCapIcon,
-  HandRaisedIcon,
+import { 
+  TrophyIcon, 
+  AcademicCapIcon, 
+  HandRaisedIcon, 
   ChatBubbleLeftRightIcon,
   BookOpenIcon,
   PuzzlePieceIcon,
@@ -17,16 +16,13 @@ import {
   StarIcon,
   PlusIcon,
   EyeIcon,
-  ArrowPathIcon,
-  BoltIcon,
-  PlayIcon
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContextConstants';
-
+import { useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import { useUserStats } from '../hooks/useUserStats';
-import { useLearning } from '../context/LearningContext';
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import SubscriptionStatus from '../components/SubscriptionStatus';
 import SubscriptionLimits from '../components/SubscriptionLimits';
@@ -35,19 +31,16 @@ import LessonViewer from '../components/LessonViewer';
 import UserMessageForm from '../components/UserMessageForm';
 import DailyStreak from '../components/DailyStreak';
 import StreakNotification from '../components/StreakNotification';
-import JourneyMap from '../components/JourneyMap';
-import StreakFlame from '../components/StreakFlame';
-import LevelUpModal from '../components/LevelUpModal'; // Added import
 import { streakService } from '../services/streakService';
 
 export default function Dashboard() {
   const { stats: userStats } = useUserStats();
-  const { learningPath: learningModules, refresh: refreshSkills } = useLearning();
   const [currentSection] = useState(1);
   const [currentUnit] = useState(1);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [categories, setCategories] = useState([]);
   const [recentSigns, setRecentSigns] = useState([]);
+  const [learningModules, setLearningModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'curriculum', 'lesson'
   const [selectedUnit, setSelectedUnit] = useState(null);
@@ -55,9 +48,7 @@ export default function Dashboard() {
   const [showStreakNotification, setShowStreakNotification] = useState(false);
   const [streakNotificationData, setStreakNotificationData] = useState(null);
   const [previousStreak, setPreviousStreak] = useState(0);
-  const [showLevelUpModal, setShowLevelUpModal] = useState(false); // Added state
-  const [prevLevel, setPrevLevel] = useState(null); // Added state
-
+  
   const { darkMode } = useTheme();
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -74,11 +65,42 @@ export default function Dashboard() {
   // API base URL
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
+  // Function to fetch skills data
+  const fetchSkillsData = useCallback(async () => {
+    try {
+      const skillsResponse = await fetch(`${API_BASE_URL}/api/skills`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const skillsData = await skillsResponse.json();
+      
+      if (skillsData.success && skillsData.data) {
+        console.log('Fetched learning modules:', skillsData.data);
+        // Update learning modules with real data
+        setLearningModules(skillsData.data.map(skill => ({
+          id: skill._id,
+          title: skill.title,
+          description: skill.description,
+          icon: getSkillIcon(skill.category),
+          progress: skill.progress || 0,
+          color: getSkillColor(skill.category),
+          status: getSkillStatus(skill),
+          level: skill.level,
+          isUnlocked: skill.isUnlocked,
+          isCompleted: skill.isCompleted
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching skills data:', error);
+    }
+  }, [API_BASE_URL]);
+
   // Check for streak milestones and show notifications
   useEffect(() => {
     if (userStats && userStats.streak !== undefined) {
       const currentStreak = userStats.streak || 0;
-
+      
       // Check for new milestone
       const milestone = streakService.checkMilestone(currentStreak, previousStreak);
       if (milestone) {
@@ -91,19 +113,11 @@ export default function Dashboard() {
         });
         setShowStreakNotification(true);
       }
-
+      
       // Update previous streak for next comparison
       setPreviousStreak(currentStreak);
-
-      // Check for Level Up
-      if (userStats.level) {
-        if (prevLevel !== null && userStats.level > prevLevel) {
-          setShowLevelUpModal(true);
-        }
-        setPrevLevel(userStats.level);
-      }
     }
-  }, [userStats, previousStreak, prevLevel]);
+  }, [userStats, previousStreak]);
 
   // Handle streak message from DailyStreak component
   const handleStreakMessage = (message) => {
@@ -123,18 +137,16 @@ export default function Dashboard() {
     setStreakNotificationData(null);
   };
 
-  // Function to fetch skills data
-
   // Fetch categories, recent signs, and learning modules
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-
+        
         // Fetch categories
         const categoriesResponse = await fetch(`${API_BASE_URL}/api/content/categories`);
         const categoriesData = await categoriesResponse.json();
-
+        
         if (categoriesData.success && categoriesData.data) {
           // Transform database categories to match expected format
           const transformedCategories = categoriesData.data.map(cat => ({
@@ -150,13 +162,13 @@ export default function Dashboard() {
         // Fetch recent signs
         const signsResponse = await fetch(`${API_BASE_URL}/api/dictionary/db/signs?limit=6`);
         const signsData = await signsResponse.json();
-
+        
         if (signsData.signs && signsData.signs.length > 0) {
           setRecentSigns(signsData.signs);
         }
 
-        // Refresh learning context
-        await refreshSkills();
+        // Fetch learning modules/skills
+        await fetchSkillsData();
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -165,25 +177,29 @@ export default function Dashboard() {
     };
 
     fetchData();
-  }, [API_BASE_URL, refreshSkills]);
+  }, [API_BASE_URL]);
 
   // Refresh skills data when user returns from learning modules
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         // User returned to the page, refresh skills data
-        refreshSkills();
+        console.log('User returned to dashboard, refreshing skills...');
+        fetchSkillsData();
       }
     };
 
     const handleFocus = () => {
       // User focused on the page, refresh skills data
-      refreshSkills();
+      console.log('User focused on dashboard, refreshing skills...');
+      fetchSkillsData();
     };
 
     const handleModuleCompleted = (event) => {
       // Module was completed, refresh skills data
-      refreshSkills();
+      console.log('Dashboard received moduleCompleted event:', event.detail);
+      console.log('Refreshing skills data...');
+      fetchSkillsData();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -195,7 +211,7 @@ export default function Dashboard() {
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('moduleCompleted', handleModuleCompleted);
     };
-  }, [refreshSkills]);
+  }, [fetchSkillsData]);
 
   // Helper functions for skill display
   const getSkillIcon = (category) => {
@@ -282,7 +298,7 @@ export default function Dashboard() {
   // Manual refresh function for testing
   const handleRefreshSkills = () => {
     console.log('Manual refresh triggered...');
-    refreshSkills();
+    fetchSkillsData();
   };
 
   const handleLessonComplete = (data) => {
@@ -302,7 +318,7 @@ export default function Dashboard() {
             <div className="flex items-center space-x-4">
               {/* Empty space on the left */}
             </div>
-
+            
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setShowMessageForm(true)}
@@ -391,12 +407,12 @@ export default function Dashboard() {
   return (
     <div className={`min-h-screen ${bg} ${text} overflow-x-hidden`}>
       {/* Top Status Bar */}
-      <div className={`${statusBarBg} border-b ${border} px-4 lg:px-6 py-3 lg:pl-64 sticky top-0 z-30`}>
+      <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64 sticky top-0 z-30`}>
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
             {/* Empty space on the left */}
           </div>
-
+          
           <div className="flex items-center space-x-4">
             <button
               onClick={() => setShowMessageForm(true)}
@@ -407,7 +423,7 @@ export default function Dashboard() {
               <span className="hidden sm:inline text-sm font-medium">Support</span>
             </button>
             <div className="flex items-center space-x-2">
-              <StreakFlame streak={userStats.streak} size="sm" />
+              <FireIcon className="w-5 h-5 text-orange-400" />
               <span className="font-semibold">{userStats.streak}</span>
             </div>
             <div className="flex items-center space-x-2">
@@ -416,7 +432,7 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center space-x-2">
               <StarIcon className="w-5 h-5 text-yellow-400" />
-              <span className="font-semibold">Rank {userStats.level}</span>
+              <span className="font-semibold">Lv {userStats.level}</span>
               <span className="text-sm text-gray-400">({userStats.xpToNextLevel} to next)</span>
             </div>
             <TopBarUserAvatar size={8} />
@@ -425,25 +441,20 @@ export default function Dashboard() {
       </div>
 
       <div className="flex">
-        {/* Fixed Left Sidebar - Navigation (Hidden on mobile) */}
-        <div className="hidden lg:block">
-          <Sidebar handleLogout={handleLogout} />
-        </div>
+        {/* Fixed Left Sidebar - Navigation */}
+        <Sidebar handleLogout={handleLogout} />
 
-        {/* Main Content Area with Left Margin on Desktop */}
-        <div className={`flex-1 w-full lg:ml-64 ${bg} overflow-hidden`}>
+        {/* Main Content Area with Left Margin */}
+        <div className={`flex-1 ml-64 ${bg} overflow-hidden`}>
           <div className="max-w-6xl mx-auto min-h-0">
             <div className="flex min-h-0">
               {/* Main Content */}
-              <div className="flex-1 p-4 lg:p-6 pb-24 lg:pb-6">
+              <div className="flex-1 p-6">
                 {/* Section Header */}
-                <div className="bg-green-500 text-white p-4 rounded-lg mb-6 shadow-lg relative overflow-hidden animate-fadeIn">
-                  <div className="absolute top-0 right-0 p-4 opacity-10">
-                    <SparklesIcon className="w-32 h-32 text-white transform rotate-12" />
-                  </div>
-                  <div className="flex items-center justify-between relative z-10">
+                <div className="bg-green-500 text-white p-4 rounded-lg mb-6">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <Link to="/" className="text-white hover:text-gray-200 transition-transform hover:-translate-x-1">
+                      <Link to="/" className="text-white hover:text-gray-200">
                         <ArrowUpIcon className="w-5 h-5 rotate-90" />
                       </Link>
                       <div>
@@ -453,7 +464,7 @@ export default function Dashboard() {
                     </div>
                     <button
                       onClick={handleCurriculumClick}
-                      className="px-4 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 font-semibold backdrop-blur-sm"
+                      className="px-4 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 font-semibold"
                     >
                       Start Learning Path
                     </button>
@@ -472,58 +483,10 @@ export default function Dashboard() {
 
                 {/* Daily Streak Component */}
                 <div className="mb-6">
-                  <DailyStreak
-                    userStats={userStats}
+                  <DailyStreak 
+                    userStats={userStats} 
                     onStreakMessage={handleStreakMessage}
                   />
-                </div>
-
-                {/* EchoArena Promo Card */}
-                <div className="mb-6">
-                  <div className={`relative p-6 rounded-lg overflow-hidden border ${border} bg-gradient-to-r from-yellow-600 to-red-600 text-white shadow-xl group`}>
-                    <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-30 transition-opacity">
-                      <FireIcon className="w-32 h-32 text-yellow-300 transform rotate-12" />
-                    </div>
-                    <div className="relative z-10 flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center space-x-2 mb-2">
-                          <span className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                            <BoltIcon className="w-6 h-6 text-yellow-300" />
-                          </span>
-                          <h3 className="text-xl font-bold text-white">EchoArena: Speed Challenge</h3>
-                        </div>
-                        <p className="text-white/90 max-w-lg mb-4">
-                          Test your sign language reflexes in our new high-speed game mode. No camera required!
-                        </p>
-                        <div className="flex space-x-2">
-                          <Link to="/arena" className="px-6 py-2 bg-white text-red-600 font-bold rounded-lg shadow-md hover:bg-gray-100 transition-transform transform hover:scale-105 flex items-center">
-                            <PlayIcon className="w-5 h-5 mr-2" /> Play Now
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Certificates Section */}
-                <div className="mb-6">
-                  <div className={`p-6 rounded-lg border ${border} ${cardBg} flex items-center justify-between`}>
-                    <div className="flex items-center gap-4">
-                      <div className="p-4 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
-                        <TrophyIcon className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
-                      </div>
-                      <div>
-                        <h3 className={`text-lg font-bold ${textPrimary}`}>My Certificates</h3>
-                        <p className={`text-sm ${textSecondary}`}>Track your certified achievements</p>
-                      </div>
-                    </div>
-                    <Link
-                      to="/certificates"
-                      className="px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg shadow-md transition-all hover:scale-105"
-                    >
-                      View Certificates
-                    </Link>
-                  </div>
                 </div>
 
                 {/* Support Section */}
@@ -570,19 +533,118 @@ export default function Dashboard() {
                     </button>
                   </div>
                 </div>
-                <div className="mb-8">
-                  <JourneyMap
-                    modules={learningModules}
-                    onModuleClick={(module) => {
-                      if (module.status !== 'locked') {
-                        if (module.type === 'quiz') {
-                          navigate(`/quiz/${module.paramId}`);
-                        } else {
-                          navigate(`/learn?module=${module.id}`);
-                        }
-                      }
-                    }}
-                  />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                  <div className="space-y-4">
+                    {learningModules.slice(0, 3).map((module) => {
+                      const IconComponent = module.icon;
+                      return (
+                        <div
+                          key={module.id}
+                          className={`p-4 rounded-lg border ${border} cursor-pointer hover:shadow-lg transition-all ${
+                            module.status === 'locked' ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                          onClick={() => {
+                            if (module.status !== 'locked') {
+                              // Navigate to learning module
+                              navigate(`/learn?module=${module.id}`);
+                            }
+                          }}
+                        >
+                          <div className="flex items-center space-x-4">
+                            <div className={`${module.color} p-3 rounded-full`}>
+                              <IconComponent className="w-6 h-6 text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-lg">{module.title}</h3>
+                              <p className={`text-gray-400 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{module.description}</p>
+                              <div className="mt-2">
+                                <div className="flex justify-between text-sm mb-1">
+                                  <span>Progress</span>
+                                  <span>{module.progress}%</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className={`${module.color} h-2 rounded-full transition-all duration-300`}
+                                    style={{ width: `${module.progress}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            </div>
+                            {module.status === 'completed' && (
+                              <TrophyIcon className="w-6 h-6 text-yellow-400" />
+                            )}
+                            {module.status === 'locked' && (
+                              <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs">🔒</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="space-y-4">
+                    {learningModules.slice(3, 6).map((module) => {
+                      const IconComponent = module.icon;
+                      return (
+                        <div
+                          key={module.id}
+                          className={`p-4 rounded-lg border ${border} cursor-pointer hover:shadow-lg transition-all ${
+                            module.status === 'locked' ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                          onClick={() => {
+                            if (module.status !== 'locked') {
+                              // Navigate to learning module
+                              navigate(`/learn?module=${module.id}`);
+                            }
+                          }}
+                        >
+                          <div className="flex items-center space-x-4">
+                            <div className={`${module.color} p-3 rounded-full`}>
+                              <IconComponent className="w-6 h-6 text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-lg">{module.title}</h3>
+                              <p className={`text-gray-400 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{module.description}</p>
+                              {module.status === 'locked' ? (
+                                <div className="mt-2">
+                                  <div className="flex justify-between text-sm mb-1">
+                                    <span>Locked</span>
+                                    <span>Complete previous modules</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div className="bg-gray-400 h-2 rounded-full" style={{ width: '0%' }}></div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="mt-2">
+                                  <div className="flex justify-between text-sm mb-1">
+                                    <span>Progress</span>
+                                    <span>{module.progress}%</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div 
+                                      className={`${module.color} h-2 rounded-full transition-all duration-300`}
+                                      style={{ width: `${module.progress}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            {module.status === 'completed' && (
+                              <TrophyIcon className="w-6 h-6 text-yellow-400" />
+                            )}
+                            {module.status === 'locked' && (
+                              <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs">🔒</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Sign Language Categories */}
@@ -593,7 +655,7 @@ export default function Dashboard() {
                       VIEW ALL
                     </Link>
                   </div>
-
+                  
                   {loading ? (
                     <div className="flex justify-center items-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
@@ -607,8 +669,9 @@ export default function Dashboard() {
                           <Link
                             key={category.id}
                             to={`/dictionary?category=${category.id}`}
-                            className={`p-4 rounded-lg border hover-card ${`${cardBg} ${border} hover:${darkMode ? 'bg-gray-700' : 'bg-gray-200'} ${darkMode ? 'text-white' : 'text-[#23272F]'}`
-                              }`}
+                            className={`p-4 rounded-lg border transition-all hover:shadow-lg ${
+                              `${cardBg} ${border} hover:${darkMode ? 'bg-gray-700' : 'bg-gray-200'} ${darkMode ? 'text-white' : 'text-[#23272F]'}`
+                            }`}
                           >
                             <div className="text-center">
                               <div className={`${categoryColor} p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center`}>
@@ -633,7 +696,7 @@ export default function Dashboard() {
                       VIEW ALL
                     </Link>
                   </div>
-
+                  
                   {loading ? (
                     <div className="flex justify-center items-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
@@ -647,8 +710,9 @@ export default function Dashboard() {
                           <Link
                             key={sign.id}
                             to={`/dictionary?category=${sign.category}`}
-                            className={`p-4 rounded-lg border transition-all hover:shadow-lg ${`${cardBg} ${border} hover:${darkMode ? 'bg-gray-700' : 'bg-gray-200'} ${darkMode ? 'text-white' : 'text-[#23272F]'}`
-                              }`}
+                            className={`p-4 rounded-lg border transition-all hover:shadow-lg ${
+                              `${cardBg} ${border} hover:${darkMode ? 'bg-gray-700' : 'bg-gray-200'} ${darkMode ? 'text-white' : 'text-[#23272F]'}`
+                            }`}
                           >
                             <div className="text-center">
                               <div className={`${categoryColor} p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center`}>
@@ -732,7 +796,7 @@ export default function Dashboard() {
 
       {/* Enhanced Scroll to Top Button */}
       {showScrollTop && (
-        <button
+        <button 
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           className="fixed bottom-8 right-8 bg-green-500 text-white p-4 rounded-full hover:bg-green-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-110 z-50"
           title="Scroll to top"
@@ -769,13 +833,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Level Up Modal */}
-      <LevelUpModal
-        isOpen={showLevelUpModal}
-        level={userStats.level}
-        onClose={() => setShowLevelUpModal(false)}
-      />
-
       {/* Streak Notification */}
       <StreakNotification
         isVisible={showStreakNotification}
@@ -787,4 +844,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

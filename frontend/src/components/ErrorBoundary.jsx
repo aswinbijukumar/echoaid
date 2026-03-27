@@ -14,7 +14,7 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     // Log the error to console for debugging
     console.error('ErrorBoundary caught an error:', error, errorInfo);
-
+    
     this.setState({
       error: error,
       errorInfo: errorInfo
@@ -55,7 +55,7 @@ class ErrorBoundary extends React.Component {
               Try Again
             </button>
           </div>
-          {import.meta.env.MODE === 'development' && this.state.error && (
+          {process.env.NODE_ENV === 'development' && this.state.error && (
             <details className="mt-3 text-xs">
               <summary className="text-red-300 cursor-pointer">Error Details (Development)</summary>
               <pre className="mt-2 p-2 bg-gray-800 rounded text-red-200 overflow-auto max-h-32">

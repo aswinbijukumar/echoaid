@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import {
-  PlusIcon,
-  PencilIcon,
-  TrashIcon,
+import { 
+  PlusIcon, 
+  PencilIcon, 
+  TrashIcon, 
   EyeIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
@@ -14,8 +14,6 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContextConstants';
 import Modal from './Modal';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 export default function SignsManagement() {
   const [signs, setSigns] = useState([]);
@@ -76,6 +74,7 @@ export default function SignsManagement() {
         ...filters
       });
 
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -95,9 +94,9 @@ export default function SignsManagement() {
 
   const handleCreateSign = async (e) => {
     e.preventDefault();
-
+    
     const formData = new FormData();
-
+    
     // Add form fields
     Object.keys(createForm).forEach(key => {
       if (createForm[key] !== '') {
@@ -114,6 +113,7 @@ export default function SignsManagement() {
     }
 
     try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -134,9 +134,9 @@ export default function SignsManagement() {
 
   const handleUpdateSign = async (e) => {
     e.preventDefault();
-
+    
     const formData = new FormData();
-
+    
     // Add form fields
     Object.keys(editForm).forEach(key => {
       if (editForm[key] !== '') {
@@ -153,6 +153,7 @@ export default function SignsManagement() {
     }
 
     try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/${selectedSign._id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -162,7 +163,7 @@ export default function SignsManagement() {
 
       if (response.ok) {
         const data = await response.json();
-        setSigns(signs.map(sign =>
+        setSigns(signs.map(sign => 
           sign._id === selectedSign._id ? data.data : sign
         ));
         setShowEditModal(false);
@@ -176,6 +177,7 @@ export default function SignsManagement() {
 
   const handleDeleteSign = async () => {
     try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/${selectedSign._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -192,9 +194,9 @@ export default function SignsManagement() {
     }
   };
 
-  // eslint-disable-next-line no-unused-vars
   const handleBulkOperation = async (operation, signIds) => {
     try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/bulk`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -276,7 +278,7 @@ export default function SignsManagement() {
       'Intermediate': 'bg-yellow-100 text-yellow-800',
       'Advanced': 'bg-red-100 text-red-800'
     };
-
+    
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[difficulty]}`}>
         {difficulty}
@@ -311,6 +313,7 @@ export default function SignsManagement() {
           <button
             onClick={() => {
               const link = document.createElement('a');
+              link.href = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs/export?format=csv`;
               link.download = 'signs-export.csv';
               link.click();
             }}
@@ -333,7 +336,7 @@ export default function SignsManagement() {
                 type="text"
                 placeholder="Search signs..."
                 value={filters.search}
-                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                onChange={(e) => setFilters({...filters, search: e.target.value})}
                 className="pl-10 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
@@ -342,7 +345,7 @@ export default function SignsManagement() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
             <select
               value={filters.category}
-              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+              onChange={(e) => setFilters({...filters, category: e.target.value})}
               className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="">All Categories</option>
@@ -358,7 +361,7 @@ export default function SignsManagement() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
             <select
               value={filters.difficulty}
-              onChange={(e) => setFilters({ ...filters, difficulty: e.target.value })}
+              onChange={(e) => setFilters({...filters, difficulty: e.target.value})}
               className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="">All Difficulties</option>
@@ -371,7 +374,7 @@ export default function SignsManagement() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
             <select
               value={filters.isActive}
-              onChange={(e) => setFilters({ ...filters, isActive: e.target.value })}
+              onChange={(e) => setFilters({...filters, isActive: e.target.value})}
               className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="">All Status</option>
@@ -493,14 +496,14 @@ export default function SignsManagement() {
           <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
             <div className="flex-1 flex justify-between sm:hidden">
               <button
-                onClick={() => setPagination({ ...pagination, currentPage: pagination.currentPage - 1 })}
+                onClick={() => setPagination({...pagination, currentPage: pagination.currentPage - 1})}
                 disabled={pagination.currentPage === 1}
                 className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
               >
                 Previous
               </button>
               <button
-                onClick={() => setPagination({ ...pagination, currentPage: pagination.currentPage + 1 })}
+                onClick={() => setPagination({...pagination, currentPage: pagination.currentPage + 1})}
                 disabled={pagination.currentPage === pagination.totalPages}
                 className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
               >
@@ -522,11 +525,12 @@ export default function SignsManagement() {
                   {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
                     <button
                       key={page}
-                      onClick={() => setPagination({ ...pagination, currentPage: page })}
-                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === pagination.currentPage
-                        ? 'z-10 bg-green-50 border-green-500 text-green-600'
-                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                        }`}
+                      onClick={() => setPagination({...pagination, currentPage: page})}
+                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                        page === pagination.currentPage
+                          ? 'z-10 bg-green-50 border-green-500 text-green-600'
+                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                      }`}
                     >
                       {page}
                     </button>
@@ -542,197 +546,197 @@ export default function SignsManagement() {
       {showCreateModal && (
         <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Add New Sign" className="bg-white rounded-lg" widthClass="w-full max-w-2xl mx-4">
           <form onSubmit={handleCreateSign} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Word</label>
+                  <input
+                    type="text"
+                    value={createForm.word}
+                    onChange={(e) => setCreateForm({...createForm, word: e.target.value})}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    value={createForm.category}
+                    onChange={(e) => setCreateForm({...createForm, category: e.target.value})}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="alphabet">Alphabet</option>
+                    <option value="phrases">Phrases</option>
+                    <option value="family">Family</option>
+                    <option value="activities">Activities</option>
+                    <option value="advanced">Advanced</option>
+                    <option value="numbers">Numbers</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
+                  <select
+                    value={createForm.difficulty}
+                    onChange={(e) => setCreateForm({...createForm, difficulty: e.target.value})}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sign Language Type</label>
+                  <select
+                    value={createForm.signLanguageType}
+                    onChange={(e) => setCreateForm({...createForm, signLanguageType: e.target.value})}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="ASL">ASL</option>
+                    <option value="BSL">BSL</option>
+                    <option value="AUSLAN">AUSLAN</option>
+                    <option value="ISL">ISL</option>
+                  </select>
+                </div>
+              </div>
+              
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Word</label>
-                <input
-                  type="text"
-                  value={createForm.word}
-                  onChange={(e) => setCreateForm({ ...createForm, word: e.target.value })}
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={createForm.description}
+                  onChange={(e) => setCreateForm({...createForm, description: e.target.value})}
+                  rows="3"
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select
-                  value={createForm.category}
-                  onChange={(e) => setCreateForm({ ...createForm, category: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma-separated)</label>
+                  <input
+                    type="text"
+                    value={createForm.tags}
+                    onChange={(e) => setCreateForm({...createForm, tags: e.target.value})}
+                    placeholder="beginner, basic, greeting"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Usage</label>
+                  <input
+                    type="text"
+                    value={createForm.usage}
+                    onChange={(e) => setCreateForm({...createForm, usage: e.target.value})}
+                    placeholder="Common usage context"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Hand Dominance</label>
+                  <select
+                    value={createForm.handDominance}
+                    onChange={(e) => setCreateForm({...createForm, handDominance: e.target.value})}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="right">Right</option>
+                    <option value="left">Left</option>
+                    <option value="both">Both</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={createForm.isActive}
+                    onChange={(e) => setCreateForm({...createForm, isActive: e.target.value === 'true'})}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value={true}>Active</option>
+                    <option value={false}>Inactive</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Facial Expression</label>
+                  <input
+                    type="text"
+                    value={createForm.facialExpression}
+                    onChange={(e) => setCreateForm({...createForm, facialExpression: e.target.value})}
+                    placeholder="Required facial expression"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Body Position</label>
+                  <input
+                    type="text"
+                    value={createForm.bodyPosition}
+                    onChange={(e) => setCreateForm({...createForm, bodyPosition: e.target.value})}
+                    placeholder="Body position requirement"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Movement</label>
+                  <input
+                    type="text"
+                    value={createForm.movement}
+                    onChange={(e) => setCreateForm({...createForm, movement: e.target.value})}
+                    placeholder="Movement description"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFileUpload(e, 'image')}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                  {imagePreview && (
+                    <img src={imagePreview} alt="Preview" className="mt-2 h-20 w-20 object-cover rounded" />
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Video (optional)</label>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => handleFileUpload(e, 'video')}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                  {videoPreview && (
+                    <video src={videoPreview} controls className="mt-2 h-20 w-20 object-cover rounded" />
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    resetCreateForm();
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
-                  <option value="alphabet">Alphabet</option>
-                  <option value="phrases">Phrases</option>
-                  <option value="family">Family</option>
-                  <option value="activities">Activities</option>
-                  <option value="advanced">Advanced</option>
-                  <option value="numbers">Numbers</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
-                <select
-                  value={createForm.difficulty}
-                  onChange={(e) => setCreateForm({ ...createForm, difficulty: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-green-500 text-white rounded-md text-sm font-medium hover:bg-green-600"
                 >
-                  <option value="Beginner">Beginner</option>
-                  <option value="Intermediate">Intermediate</option>
-                  <option value="Advanced">Advanced</option>
-                </select>
+                  Create Sign
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sign Language Type</label>
-                <select
-                  value={createForm.signLanguageType}
-                  onChange={(e) => setCreateForm({ ...createForm, signLanguageType: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="ASL">ASL</option>
-                  <option value="BSL">BSL</option>
-                  <option value="AUSLAN">AUSLAN</option>
-                  <option value="ISL">ISL</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-              <textarea
-                value={createForm.description}
-                onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
-                rows="3"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma-separated)</label>
-                <input
-                  type="text"
-                  value={createForm.tags}
-                  onChange={(e) => setCreateForm({ ...createForm, tags: e.target.value })}
-                  placeholder="beginner, basic, greeting"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Usage</label>
-                <input
-                  type="text"
-                  value={createForm.usage}
-                  onChange={(e) => setCreateForm({ ...createForm, usage: e.target.value })}
-                  placeholder="Common usage context"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hand Dominance</label>
-                <select
-                  value={createForm.handDominance}
-                  onChange={(e) => setCreateForm({ ...createForm, handDominance: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="right">Right</option>
-                  <option value="left">Left</option>
-                  <option value="both">Both</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select
-                  value={createForm.isActive}
-                  onChange={(e) => setCreateForm({ ...createForm, isActive: e.target.value === 'true' })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <option value={true}>Active</option>
-                  <option value={false}>Inactive</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Facial Expression</label>
-                <input
-                  type="text"
-                  value={createForm.facialExpression}
-                  onChange={(e) => setCreateForm({ ...createForm, facialExpression: e.target.value })}
-                  placeholder="Required facial expression"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Body Position</label>
-                <input
-                  type="text"
-                  value={createForm.bodyPosition}
-                  onChange={(e) => setCreateForm({ ...createForm, bodyPosition: e.target.value })}
-                  placeholder="Body position requirement"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Movement</label>
-                <input
-                  type="text"
-                  value={createForm.movement}
-                  onChange={(e) => setCreateForm({ ...createForm, movement: e.target.value })}
-                  placeholder="Movement description"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleFileUpload(e, 'image')}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-                {imagePreview && (
-                  <img src={imagePreview} alt="Preview" className="mt-2 h-20 w-20 object-cover rounded" />
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Video (optional)</label>
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={(e) => handleFileUpload(e, 'video')}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-                {videoPreview && (
-                  <video src={videoPreview} controls className="mt-2 h-20 w-20 object-cover rounded" />
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCreateModal(false);
-                  resetCreateForm();
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-green-500 text-white rounded-md text-sm font-medium hover:bg-green-600"
-              >
-                Create Sign
-              </button>
-            </div>
           </form>
         </Modal>
       )}
@@ -741,65 +745,65 @@ export default function SignsManagement() {
       {showEditModal && selectedSign && (
         <Modal isOpen={showEditModal} onClose={() => { setShowEditModal(false); setSelectedSign(null); resetEditForm(); }} title={`Edit Sign: ${selectedSign.word}`} className="bg-white rounded-lg" widthClass="w-full max-w-2xl mx-4">
           <form onSubmit={handleUpdateSign} className="space-y-4">
-            {/* Same form fields as create, but with editForm values */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Same form fields as create, but with editForm values */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Word</label>
+                  <input
+                    type="text"
+                    value={editForm.word || ''}
+                    onChange={(e) => setEditForm({...editForm, word: e.target.value})}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    value={editForm.category || ''}
+                    onChange={(e) => setEditForm({...editForm, category: e.target.value})}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="alphabet">Alphabet</option>
+                    <option value="phrases">Phrases</option>
+                    <option value="family">Family</option>
+                    <option value="activities">Activities</option>
+                    <option value="advanced">Advanced</option>
+                    <option value="numbers">Numbers</option>
+                  </select>
+                </div>
+              </div>
+              
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Word</label>
-                <input
-                  type="text"
-                  value={editForm.word || ''}
-                  onChange={(e) => setEditForm({ ...editForm, word: e.target.value })}
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={editForm.description || ''}
+                  onChange={(e) => setEditForm({...editForm, description: e.target.value})}
+                  rows="3"
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select
-                  value={editForm.category || ''}
-                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedSign(null);
+                    resetEditForm();
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
-                  <option value="alphabet">Alphabet</option>
-                  <option value="phrases">Phrases</option>
-                  <option value="family">Family</option>
-                  <option value="activities">Activities</option>
-                  <option value="advanced">Advanced</option>
-                  <option value="numbers">Numbers</option>
-                </select>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium hover:bg-blue-600"
+                >
+                  Update Sign
+                </button>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-              <textarea
-                value={editForm.description || ''}
-                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                rows="3"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowEditModal(false);
-                  setSelectedSign(null);
-                  resetEditForm();
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium hover:bg-blue-600"
-              >
-                Update Sign
-              </button>
-            </div>
           </form>
         </Modal>
       )}

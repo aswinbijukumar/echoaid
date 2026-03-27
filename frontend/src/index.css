@@ -191,37 +191,3 @@ body {
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.5);
 }
 
-/* Global Hover Effects */
-.hover-scale {
-  transition: transform 0.2s ease-in-out;
-}
-.hover-scale:hover {
-  transform: scale(1.05);
-}
-
-/* Card Hover Effect */
-.hover-card {
-  transition: all 0.3s ease;
-}
-.hover-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-}
-
-/* Page Transitions */
-.page-transition-enter {
-  opacity: 0;
-  transform: translateY(10px);
-}
-.page-transition-enter-active {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.3s, transform 0.3s;
-}
-.page-transition-exit {
-  opacity: 1;
-}
-.page-transition-exit-active {
-  opacity: 0;
-  transition: opacity 0.2s;
-}

@@ -39,7 +39,7 @@ export default function UnitSelector({ onUnitSelect, onBack }) {
     try {
       setLoading(true);
       setError(null);
-
+      
       // Try to fetch from API first, fallback to mock data
       try {
         const response = await fetch(`${API_BASE_URL}/api/curriculum/units`, {
@@ -59,7 +59,7 @@ export default function UnitSelector({ onUnitSelect, onBack }) {
       } catch (apiError) {
         console.log('API not available, using mock data:', apiError.message);
       }
-
+      
       // Fallback to mock data
       const mockUnits = [
         {
@@ -115,9 +115,9 @@ export default function UnitSelector({ onUnitSelect, onBack }) {
           xpReward: 100
         }
       ];
-
+      
       setUnits(mockUnits);
-
+      
     } catch (err) {
       console.error('Error fetching units:', err);
       setError('Failed to load curriculum. Please try again.');
@@ -207,14 +207,15 @@ export default function UnitSelector({ onUnitSelect, onBack }) {
         {units.map((unit) => {
           const IconComponent = getIcon(unit.icon);
           const isClickable = unit.isUnlocked || unit.isCompleted;
-
+          
           return (
             <div
               key={unit._id}
-              className={`${cardBg} rounded-lg border ${border} p-6 transition-all duration-200 ${isClickable
-                  ? 'hover:transform hover:scale-[1.02] cursor-pointer hover:shadow-lg'
+              className={`${cardBg} rounded-lg border ${border} p-6 transition-all duration-200 ${
+                isClickable 
+                  ? 'hover:transform hover:scale-[1.02] cursor-pointer hover:shadow-lg' 
                   : 'opacity-60 cursor-not-allowed'
-                }`}
+              }`}
               onClick={() => isClickable && onUnitSelect(unit)}
             >
               {/* Unit Header */}
@@ -240,10 +241,11 @@ export default function UnitSelector({ onUnitSelect, onBack }) {
                   {unit.description}
                 </p>
                 <div className="flex items-center space-x-4 text-sm">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${unit.level === 'Beginner' ? 'bg-green-100 text-green-800' :
-                      unit.level === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                    }`}>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    unit.level === 'Beginner' ? 'bg-green-100 text-green-800' :
+                    unit.level === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
                     {unit.level}
                   </span>
                   <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
@@ -264,7 +266,7 @@ export default function UnitSelector({ onUnitSelect, onBack }) {
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
+                  <div 
                     className={`${getStatusColor(unit)} h-2 rounded-full transition-all duration-300`}
                     style={{ width: `${unit.progress}%` }}
                   ></div>
@@ -273,10 +275,11 @@ export default function UnitSelector({ onUnitSelect, onBack }) {
 
               {/* Status */}
               <div className="flex items-center justify-between">
-                <span className={`text-sm font-medium ${unit.isCompleted ? 'text-green-600' :
-                    unit.isUnlocked ? 'text-blue-600' :
-                      'text-gray-400'
-                  }`}>
+                <span className={`text-sm font-medium ${
+                  unit.isCompleted ? 'text-green-600' :
+                  unit.isUnlocked ? 'text-blue-600' :
+                  'text-gray-400'
+                }`}>
                   {getStatusText(unit)}
                 </span>
                 <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>

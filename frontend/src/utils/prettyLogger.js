@@ -15,7 +15,7 @@ const THEME = {
     info: 'background: linear-gradient(135deg, #4488ff 0%, #2266cc 100%)',
     glass: 'background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1)'
   },
-
+  
   // Text colors
   text: {
     primary: 'color: #ffffff',
@@ -26,7 +26,7 @@ const THEME = {
     info: 'color: #66aaff',
     accent: 'color: #ffdd44'
   },
-
+  
   // Border styles
   border: {
     glass: 'border: 1px solid rgba(255, 255, 255, 0.2)',
@@ -98,7 +98,7 @@ const LOG_LEVELS = {
 
 class FrontendPrettyLogger {
   constructor() {
-    this.isEnabled = import.meta.env.MODE !== 'production' || window.location.hostname === 'localhost';
+    this.isEnabled = process.env.NODE_ENV !== 'production' || window.location.hostname === 'localhost';
     this.timestamp = () => new Date().toLocaleTimeString();
   }
 
@@ -109,7 +109,7 @@ class FrontendPrettyLogger {
     const levelConfig = LOG_LEVELS[level] || LOG_LEVELS.INFO;
     const timestamp = this.timestamp();
     const contextStr = context ? `[${context}]` : '';
-
+    
     // Main log message
     console.log(
       `%c${levelConfig.icon} ${levelConfig.title} ${contextStr} ${timestamp}`,
@@ -261,12 +261,12 @@ class FrontendPrettyLogger {
       `%c🚀 EchoAid Frontend Started`,
       `${THEME.bg.success}; ${THEME.text.primary}; padding: 12px 24px; border-radius: 12px; font-size: 18px; font-weight: bold; text-align: center;`
     );
-
+    
     console.log(
       `%c📱 Version: ${version}`,
       `${THEME.bg.glass}; ${THEME.text.accent}; padding: 6px 12px; border-radius: 6px; margin: 4px 0;`
     );
-
+    
     console.log(
       `%c🌍 Environment: ${environment}`,
       `${THEME.bg.glass}; ${THEME.text.info}; padding: 6px 12px; border-radius: 6px; margin: 4px 0;`

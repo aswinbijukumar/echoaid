@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  UsersIcon,
-  ChartBarIcon,
+import { 
+  UsersIcon, 
+  ChartBarIcon, 
   Cog6ToothIcon,
   ShieldCheckIcon,
   ExclamationTriangleIcon,
@@ -52,7 +52,7 @@ import ContentManagement from '../components/ContentManagement';
 import LearningModulesManagement from '../components/LearningModulesManagement';
 import QuizGenerator from '../components/QuizGenerator';
 import AdminQuizManagement from '../components/AdminQuizManagement';
-
+ 
 import TopBarUserAvatar from '../components/TopBarUserAvatar';
 import AdminSubscriptionManagement from '../components/AdminSubscriptionManagement';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -71,6 +71,7 @@ const QuizAnalyticsSection = () => {
     const fetchQuizAnalytics = async () => {
       try {
         setLoading(true);
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/quiz/dashboard/overview`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -109,7 +110,7 @@ const QuizAnalyticsSection = () => {
   return (
     <div className="p-6 rounded-lg border border-gray-300 bg-transparent backdrop-blur-sm">
       <h4 className="text-lg font-bold mb-4">Quiz Analytics</h4>
-
+      
       {/* Quiz Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="p-4 bg-blue-50 rounded-lg">
@@ -194,34 +195,21 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-
+  
   // Section Assignment States
   const [assignedSection] = useState('alphabet');
-
+  
   // Mock data states (for features not yet implemented)
-
+  
   const [userQueries, setUserQueries] = useState([]);
-
+  
   // Modal states for user queries
-  const [selectedSigns, setSelectedSigns] = useState([]);
-  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
-
-  // User Management State
-  const [showEditUserModal, setShowEditUserModal] = useState(false);
-  const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [editUserForm, setEditUserForm] = useState({
-    name: '',
-    role: 'user',
-    assignedSections: [],
-    isActive: true
-  });
   const [selectedQuery, setSelectedQuery] = useState(null);
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportNote, setReportNote] = useState('');
-
+  
   // Content management modal states
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
@@ -259,9 +247,9 @@ export default function AdminDashboard() {
   // Add Admin (Super Admin only)
   const [showAddAdminModal, setShowAddAdminModal] = useState(false);
   const [addAdminForm, setAddAdminForm] = useState({ name: '', email: '', password: '' });
-
+  
   const fileInputRef = useRef(null);
-
+  
   const { darkMode } = useTheme();
   const { logout, token, user: currentUser } = useAuth();
   const navigate = useNavigate();
@@ -299,125 +287,128 @@ export default function AdminDashboard() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const fetchDashboardData = async () => {
-    try {
-      // Get content statistics
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/stats`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setDashboardData(data.data);
-        setContentItemsCount(data.data.totalSigns || 0);
-      }
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchContentItems = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs?limit=1`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Use pagination total if available
-        if (data.pagination && data.pagination.totalItems !== undefined) {
-          setContentItemsCount(data.pagination.totalItems);
-        }
-        setContentItems(data.data || []);
-      }
-    } catch (error) {
-      console.error('Error fetching content items:', error);
-      setContentItems([]);
-    }
-  };
-
-  const fetchUserStats = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/stats`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setTotalUsersCount(data.data.totalUsers || 0);
-        setActiveUsersCount(data.data.activeUsers || 0);
-      }
-    } catch (e) {
-      console.error('Error fetching user stats:', e);
-    }
-  };
-
-  const fetchPendingReviews = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/queue`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setPendingReviewsCount((data.data || []).length);
-      }
-    } catch (e) {
-      console.error('Error fetching pending reviews:', e);
-    }
-  };
-
-  const fetchUserQueries = async () => {
-    // Mock user queries data since the endpoint doesn't exist
-    setUserQueries([
-      {
-        id: 1,
-        subject: 'Need help with sign language',
-        user: 'john.doe@example.com',
-        priority: 'medium',
-        status: 'open',
-        createdAt: new Date(Date.now() - 86400000) // 1 day ago
-      },
-      {
-        id: 2,
-        subject: 'Question about advanced signs',
-        user: 'jane.smith@example.com',
-        priority: 'low',
-        status: 'resolved',
-        createdAt: new Date(Date.now() - 172800000) // 2 days ago
-      }
-    ]);
-  };
-
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    }
-  };
-
   // Fetch dashboard data
   useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        // Get content statistics
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/stats`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setDashboardData(data.data);
+          setContentItemsCount(data.data.totalSigns || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchContentItems = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/signs?limit=1`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          // Use pagination total if available
+          if (data.pagination && data.pagination.totalItems !== undefined) {
+            setContentItemsCount(data.pagination.totalItems);
+          }
+          setContentItems(data.data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching content items:', error);
+        setContentItems([]);
+      }
+    };
+
+    const fetchUserStats = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/stats`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setTotalUsersCount(data.data.totalUsers || 0);
+          setActiveUsersCount(data.data.activeUsers || 0);
+        }
+      } catch (e) {
+        console.error('Error fetching user stats:', e);
+      }
+    };
+
+    const fetchPendingReviews = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/content/queue`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setPendingReviewsCount((data.data || []).length);
+        }
+      } catch (e) {
+        console.error('Error fetching pending reviews:', e);
+      }
+    };
+
+    const fetchUserQueries = async () => {
+      // Mock user queries data since the endpoint doesn't exist
+      setUserQueries([
+        {
+          id: 1,
+          subject: 'Need help with sign language',
+          user: 'john.doe@example.com',
+          priority: 'medium',
+          status: 'open',
+          createdAt: new Date(Date.now() - 86400000) // 1 day ago
+        },
+        {
+          id: 2,
+          subject: 'Question about advanced signs',
+          user: 'jane.smith@example.com',
+          priority: 'low',
+          status: 'resolved',
+          createdAt: new Date(Date.now() - 172800000) // 2 days ago
+        }
+      ]);
+    };
+
+    
+
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/users`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setUsers(data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      }
+    };
+
     if (token) {
       fetchDashboardData();
       fetchContentItems();
       fetchUserStats();
       fetchPendingReviews();
       fetchUserQueries();
+      
       fetchUsers();
     }
   }, [token]);
@@ -507,14 +498,14 @@ export default function AdminDashboard() {
         alert('File size must be less than 5MB');
         return;
       }
-
+      
       // Validate file type
       const allowedTypes = ['image/png', 'image/jpeg', 'image/gif', 'video/mp4'];
       if (!allowedTypes.includes(file.type)) {
         alert('Please upload PNG, JPEG, GIF, or MP4 files only');
         return;
       }
-
+      
       setUploadForm({
         ...uploadForm,
         file,
@@ -525,8 +516,8 @@ export default function AdminDashboard() {
 
   const handleBulkFileUpload = (e) => {
     const files = Array.from(e.target.files);
-    logger.debug('Bulk upload - Files selected', { fileCount: files.length }, 'BULK_UPLOAD');
-
+      logger.debug('Bulk upload - Files selected', { fileCount: files.length }, 'BULK_UPLOAD');
+    
     // Validation 1: Check if files are selected
     if (files.length === 0) {
       alert('Please select at least one file');
@@ -543,14 +534,14 @@ export default function AdminDashboard() {
     const validFiles = [];
     const validPreviews = [];
     const validationErrors = [];
-
+    
     files.forEach((file) => {
       // Validation 3: File size validation (5MB limit)
       if (file.size > 5 * 1024 * 1024) {
         validationErrors.push(`File "${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 5MB.`);
         return;
       }
-
+      
       // Validation 4: File type validation
       const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'video/mp4'];
       if (!allowedTypes.includes(file.type)) {
@@ -570,7 +561,7 @@ export default function AdminDashboard() {
         validationErrors.push(`Duplicate file name: "${file.name}". Please rename one of the files.`);
         return;
       }
-
+      
       validFiles.push(file);
       validPreviews.push({
         file: file,
@@ -593,11 +584,11 @@ export default function AdminDashboard() {
       return;
     }
 
-    logger.debug('Bulk upload - Setting form with', {
+      logger.debug('Bulk upload - Setting form with', {
       files: validFiles.length,
       totalSize: validFiles.reduce((sum, file) => sum + file.size, 0)
     });
-
+    
     setBulkUploadForm({
       ...bulkUploadForm,
       files: validFiles,
@@ -675,14 +666,14 @@ export default function AdminDashboard() {
       variantFiles: bulkUploadForm.files.map((file, index) => ({
         file: file,
         type: file.type.startsWith('image/') ? 'image' : 'video',
-        angle: index === 0 ? 'front' :
-          index === 1 ? 'side' :
-            index === 2 ? 'back' :
-              index === 3 ? 'close-up' : 'demo',
-        description: `${signInfo.word} - ${index === 0 ? 'Front view' :
-          index === 1 ? 'Side view' :
-            index === 2 ? 'Back view' :
-              index === 3 ? 'Close-up' : 'Demo'}`
+        angle: index === 0 ? 'front' : 
+               index === 1 ? 'side' : 
+               index === 2 ? 'back' : 
+               index === 3 ? 'close-up' : 'demo',
+        description: `${signInfo.word} - ${index === 0 ? 'Front view' : 
+                     index === 1 ? 'Side view' : 
+                     index === 2 ? 'Back view' : 
+                     index === 3 ? 'Close-up' : 'Demo'}`
       }))
     };
 
@@ -706,7 +697,7 @@ export default function AdminDashboard() {
 
   const handleBulkUpload = async (e) => {
     e.preventDefault();
-
+    
     // Validation 1: Check if sign details exist
     if (bulkUploadForm.signDetails.length === 0) {
       alert('Please generate sign details first');
@@ -717,7 +708,7 @@ export default function AdminDashboard() {
 
     // Validation 2: Required fields validation
     const validationErrors = [];
-
+    
     // Word validation
     if (!signDetail.word || signDetail.word.trim() === '') {
       validationErrors.push('Sign word is required');
@@ -736,7 +727,7 @@ export default function AdminDashboard() {
       length: signDetail.description ? signDetail.description.length : 'undefined',
       trimmedLength: signDetail.description ? signDetail.description.trim().length : 'undefined'
     }, 'BULK_UPLOAD');
-
+    
     if (!signDetail.description || signDetail.description.trim() === '') {
       validationErrors.push('Sign description is required');
     } else if (signDetail.description.trim().length < 10) {
@@ -772,7 +763,7 @@ export default function AdminDashboard() {
       if (signDetail.coverFile.size > 5 * 1024 * 1024) {
         validationErrors.push('Cover image must be less than 5MB');
       }
-
+      
       // File type validation
       const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
       if (!allowedImageTypes.includes(signDetail.coverFile.type)) {
@@ -821,18 +812,18 @@ export default function AdminDashboard() {
 
     // Validation 5: Duplicate word check (client-side)
     // This is a basic check - server should also validate
-    const existingSign = contentItems.find(sign =>
-      sign.word && sign.word.toLowerCase() === signDetail.word.trim().toLowerCase() &&
+    const existingSign = contentItems.find(sign => 
+      sign.word && sign.word.toLowerCase() === signDetail.word.trim().toLowerCase() && 
       sign.category === signDetail.category
     );
-
+    
     if (existingSign) {
       // Ask user if they want to add variants to existing sign or create new one
       const userChoice = confirm(
         `Sign "${signDetail.word}" already exists in ${signDetail.category} category.\n\n` +
         `Click OK to add variants to the existing sign, or Cancel to choose a different word.`
       );
-
+      
       if (!userChoice) {
         validationErrors.push(`Sign "${signDetail.word}" already exists. Please choose a different word or add variants to the existing sign.`);
       } else {
@@ -860,12 +851,12 @@ export default function AdminDashboard() {
         alert('Authentication token not found. Please log in again.');
         return;
       }
-
+      
       logger.debug('Token exists', { hasToken: !!token }, 'BULK_UPLOAD');
       logger.debug('Sign details', signDetail, 'BULK_UPLOAD');
-
+      
       const formData = new FormData();
-
+      
       // Add sign details
       formData.append('word', signDetail.word);
       formData.append('description', signDetail.description);
@@ -879,10 +870,10 @@ export default function AdminDashboard() {
       formData.append('bodyPosition', signDetail.bodyPosition);
       formData.append('movement', signDetail.movement);
       formData.append('isActive', signDetail.isActive);
-
+      
       // Add cover image (first file)
       formData.append('coverFile', signDetail.coverFile);
-
+      
       // Add variant files
       signDetail.variantFiles.forEach((variant) => {
         formData.append(`variantFiles`, variant.file);
@@ -893,31 +884,31 @@ export default function AdminDashboard() {
 
       logger.api('POST', '/api/content/signs/bulk-variants', 'PENDING', null, 'BULK_UPLOAD');
       logger.debug('FormData entries', Object.fromEntries(formData.entries()), 'BULK_UPLOAD');
-
+      
       const headers = {
         'Authorization': `Bearer ${token}`
       };
-
+      
       // Add update header if this is an update request
       if (signDetail.isUpdateRequest) {
         headers['x-update-existing'] = 'true';
-        logger.info('Adding update header to request', {
+        logger.info('Adding update header to request', { 
           isUpdateRequest: signDetail.isUpdateRequest,
-          word: signDetail.word
+          word: signDetail.word 
         }, 'BULK_UPLOAD');
       } else {
-        logger.info('Creating new sign (no update header)', {
+        logger.info('Creating new sign (no update header)', { 
           isUpdateRequest: signDetail.isUpdateRequest,
-          word: signDetail.word
+          word: signDetail.word 
         }, 'BULK_UPLOAD');
       }
-
+      
       const response = await fetch(`${API_BASE_URL}/api/content/signs/bulk-variants`, {
         method: 'POST',
         headers: headers,
         body: formData
       });
-
+      
       logger.api('POST', '/api/content/signs/bulk-variants', response.status, null, 'BULK_UPLOAD');
 
       if (!response.ok) {
@@ -925,16 +916,16 @@ export default function AdminDashboard() {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
-          logger.error('API Error Response', {
-            status: response.status,
+          logger.error('API Error Response', { 
+            status: response.status, 
             statusText: response.statusText,
-            error: errorData
+            error: errorData 
           }, 'BULK_UPLOAD');
         } catch (parseError) {
-          logger.error('Failed to parse error response', {
-            status: response.status,
+          logger.error('Failed to parse error response', { 
+            status: response.status, 
             statusText: response.statusText,
-            parseError: parseError.message
+            parseError: parseError.message 
           }, 'BULK_UPLOAD');
           errorMessage = `${errorMessage}: ${response.status} ${response.statusText}`;
         }
@@ -942,7 +933,7 @@ export default function AdminDashboard() {
       }
 
       const result = await response.json();
-
+      
       if (signDetail.isUpdateRequest) {
         alert(`Successfully added ${signDetail.variantFiles.length} variants to existing sign "${signDetail.word}"!`);
         logger.success(`Added variants to existing sign: ${signDetail.word}`, { variantCount: signDetail.variantFiles.length }, 'BULK_UPLOAD');
@@ -950,7 +941,7 @@ export default function AdminDashboard() {
         alert(`Successfully created new sign "${signDetail.word}" with ${signDetail.variantFiles.length} variants!`);
         logger.success(`Created new sign: ${signDetail.word}`, { variantCount: signDetail.variantFiles.length }, 'BULK_UPLOAD');
       }
-
+      
       // Reset form
       setBulkUploadForm({
         category: 'alphabet',
@@ -966,21 +957,21 @@ export default function AdminDashboard() {
         }
       });
       setShowBulkUploadModal(false);
-
+      
       // Refresh content items properly
-      logger.info('Refreshing content items after bulk upload', {
+      logger.info('Refreshing content items after bulk upload', { 
         isUpdateRequest: signDetail.isUpdateRequest,
-        word: signDetail.word
+        word: signDetail.word 
       }, 'BULK_UPLOAD');
-
+      
       // Fetch updated content items
       await fetchContentItems();
-
+      
       // Also refresh the page to ensure all data is up to date
       setTimeout(() => {
         window.location.reload();
       }, 1000);
-
+      
     } catch (error) {
       logger.errorWithStack('Error uploading files', error, 'BULK_UPLOAD');
       alert(`Error uploading files: ${error.message}`);
@@ -1042,7 +1033,7 @@ export default function AdminDashboard() {
 
       if (response.ok) {
         const updatedContent = await response.json();
-        setContentItems(contentItems.map(item =>
+        setContentItems(contentItems.map(item => 
           item.id === selectedContent.id ? updatedContent.data : item
         ));
         setShowEditModal(false);
@@ -1087,8 +1078,8 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        setUserQueries(userQueries.map(query =>
-          query.id === selectedQuery.id
+        setUserQueries(userQueries.map(query => 
+          query.id === selectedQuery.id 
             ? { ...query, status: 'replied', reply: replyText }
             : query
         ));
@@ -1102,18 +1093,19 @@ export default function AdminDashboard() {
   };
 
   // Moderation Functions
-
+  
 
   const handleReportIssue = async () => {
     try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/support/report`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
+        body: JSON.stringify({ 
           section: assignedSection,
-          note: reportNote
+          note: reportNote 
         })
       });
 
@@ -1129,7 +1121,7 @@ export default function AdminDashboard() {
 
   // Analytics Functions
   const exportAnalytics = () => {
-    const csvContent = "data:text/csv;charset=utf-8," +
+    const csvContent = "data:text/csv;charset=utf-8," + 
       "Category,Views,Completions,Success Rate\n" +
       // analyticsData.map(item => 
       //   `${item.category},${item.views},${item.completions},${item.successRate}%`
@@ -1139,7 +1131,7 @@ export default function AdminDashboard() {
       "Numbers,950,600,63%\n" +
       "Phrases,700,450,64%\n" +
       "Quizzes,500,300,60%"
-
+    
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -1170,7 +1162,7 @@ export default function AdminDashboard() {
             <ShieldCheckIcon className="w-6 h-6 text-blue-500" />
             <span className="font-bold text-blue-500">ADMIN DASHBOARD</span>
           </div>
-
+          
           <div className="flex items-center space-x-4">
             <TopBarUserAvatar size={8} showName={false} />
           </div>
@@ -1203,7 +1195,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   )}
-
+                  
                   {activeTab === 'content' && (
                     <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-lg">
                       <div className="flex items-center space-x-3">
@@ -1215,7 +1207,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   )}
-
+                  
                   {activeTab === 'learning' && (
                     <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-lg">
                       <div className="flex items-center space-x-3">
@@ -1227,7 +1219,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   )}
-
+                  
                   {activeTab === 'users' && (
                     <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-lg">
                       <div className="flex items-center space-x-3">
@@ -1239,7 +1231,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   )}
-
+                  
                   {activeTab === 'analytics' && (
                     <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 rounded-lg">
                       <div className="flex items-center space-x-3">
@@ -1251,7 +1243,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   )}
-
+                  
                   {activeTab === 'messages' && (
                     <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-6 rounded-lg">
                       <div className="flex items-center space-x-3">
@@ -1265,174 +1257,174 @@ export default function AdminDashboard() {
                   )}
                 </div>
 
-                {/* Overview Tab */}
-                {activeTab === 'overview' && (
-                  <>
-                    {/* Statistics Cards */}
-                    {dashboardData && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <div className={`p-6 rounded-lg border ${border} bg-gradient-to-r from-blue-500 to-blue-600 text-white`}>
-                          <div className="flex items-center justify-between">
-                            <div>
+                                 {/* Overview Tab */}
+                 {activeTab === 'overview' && (
+                   <>
+                     {/* Statistics Cards */}
+                     {dashboardData && (
+                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                         <div className={`p-6 rounded-lg border ${border} bg-gradient-to-r from-blue-500 to-blue-600 text-white`}>
+                           <div className="flex items-center justify-between">
+                             <div>
                               <p className="text-blue-100 text-sm">Total Users</p>
-                              <p className="text-2xl font-bold">{totalUsersCount}</p>
-                            </div>
-                            <UsersIcon className="w-8 h-8 text-blue-200" />
-                          </div>
-                        </div>
+                               <p className="text-2xl font-bold">{totalUsersCount}</p>
+                             </div>
+                             <UsersIcon className="w-8 h-8 text-blue-200" />
+                           </div>
+                         </div>
 
-                        <div className={`p-6 rounded-lg border ${border} bg-gradient-to-r from-green-500 to-green-600 text-white`}>
-                          <div className="flex items-center justify-between">
-                            <div>
+                         <div className={`p-6 rounded-lg border ${border} bg-gradient-to-r from-green-500 to-green-600 text-white`}>
+                           <div className="flex items-center justify-between">
+                             <div>
                               <p className="text-green-100 text-sm">Active Users</p>
-                              <p className="text-2xl font-bold">{activeUsersCount}</p>
-                            </div>
-                            <CheckCircleIcon className="w-8 h-8 text-green-200" />
-                          </div>
-                        </div>
+                               <p className="text-2xl font-bold">{activeUsersCount}</p>
+                             </div>
+                             <CheckCircleIcon className="w-8 h-8 text-green-200" />
+                           </div>
+                         </div>
 
-                        <div className={`p-6 rounded-lg border ${border} bg-gradient-to-r from-purple-500 to-purple-600 text-white`}>
-                          <div className="flex items-center justify-between">
-                            <div>
+                         <div className={`p-6 rounded-lg border ${border} bg-gradient-to-r from-purple-500 to-purple-600 text-white`}>
+                           <div className="flex items-center justify-between">
+                             <div>
                               <p className="text-purple-100 text-sm">Content Items</p>
-                              <p className="text-2xl font-bold">{contentItemsCount}</p>
-                            </div>
-                            <DocumentTextIcon className="w-8 h-8 text-purple-200" />
-                          </div>
-                        </div>
+                               <p className="text-2xl font-bold">{contentItemsCount}</p>
+                             </div>
+                             <DocumentTextIcon className="w-8 h-8 text-purple-200" />
+                           </div>
+                         </div>
 
-                        <div className={`p-6 rounded-lg border ${border} bg-gradient-to-r from-yellow-500 to-yellow-600 text-white`}>
-                          <div className="flex items-center justify-between">
-                            <div>
+                         <div className={`p-6 rounded-lg border ${border} bg-gradient-to-r from-yellow-500 to-yellow-600 text-white`}>
+                           <div className="flex items-center justify-between">
+                             <div>
                               <p className="text-yellow-100 text-sm">Pending Reviews</p>
-                              <p className="text-2xl font-bold">{pendingReviewsCount}</p>
-                            </div>
-                            <ExclamationTriangleIcon className="w-8 h-8 text-yellow-200" />
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                               <p className="text-2xl font-bold">{pendingReviewsCount}</p>
+                             </div>
+                             <ExclamationTriangleIcon className="w-8 h-8 text-yellow-200" />
+                           </div>
+                         </div>
+                       </div>
+                     )}
 
-                    {/* Content Management Section */}
-                    <div className={`p-6 rounded-lg border ${border} mb-8`}>
-                      <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-xl font-bold">Content Management</h3>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => {
-                              setActiveTab('content');
-                              navigate('/admin?tab=content');
-                            }}
-                            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
-                          >
-                            <PlusIcon className="w-5 h-5 inline mr-2" />
-                            Manage Signs
-                          </button>
-                          <button
-                            onClick={() => setShowBulkUploadModal(true)}
-                            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-                          >
-                            <CloudArrowUpIcon className="w-5 h-5 inline mr-2" />
-                            Bulk Upload
-                          </button>
-                        </div>
-                      </div>
+                     {/* Content Management Section */}
+                     <div className={`p-6 rounded-lg border ${border} mb-8`}>
+                       <div className="flex items-center justify-between mb-6">
+                         <h3 className="text-xl font-bold">Content Management</h3>
+                         <div className="flex space-x-2">
+                           <button 
+                             onClick={() => {
+                               setActiveTab('content');
+                               navigate('/admin?tab=content');
+                             }}
+                             className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
+                           >
+                             <PlusIcon className="w-5 h-5 inline mr-2" />
+                             Manage Signs
+                           </button>
+                           <button 
+                             onClick={() => setShowBulkUploadModal(true)}
+                             className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                           >
+                             <CloudArrowUpIcon className="w-5 h-5 inline mr-2" />
+                             Bulk Upload
+                           </button>
+                         </div>
+                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Learning Modules */}
-                        <div
-                          onClick={() => {
-                            setActiveTab('learning');
-                            navigate('/admin?tab=learning');
-                          }}
-                          className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'learning' ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''}`}
-                          tabIndex={0}
-                          role="button"
-                          aria-pressed={activeTab === 'learning'}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              setActiveTab('learning');
-                              navigate('/admin?tab=learning');
-                            }
-                          }}
-                        >
-                          <div className="flex items-center space-x-3 mb-3">
-                            <AcademicCapIcon className="w-6 h-6 text-blue-500" />
-                            <h4 className="font-semibold">Learning Modules</h4>
-                          </div>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         {/* Learning Modules */}
+                         <div 
+                           onClick={() => {
+                             setActiveTab('learning');
+                             navigate('/admin?tab=learning');
+                           }}
+                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'learning' ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                           tabIndex={0}
+                           role="button"
+                           aria-pressed={activeTab === 'learning'}
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter' || e.key === ' ') {
+                               e.preventDefault();
+                               setActiveTab('learning');
+                               navigate('/admin?tab=learning');
+                             }
+                           }}
+                         >
+                           <div className="flex items-center space-x-3 mb-3">
+                             <AcademicCapIcon className="w-6 h-6 text-blue-500" />
+                             <h4 className="font-semibold">Learning Modules</h4>
+                           </div>
                           <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'} mb-3`}>Manage ISL lessons and learning paths</p>
-                          <div className="flex justify-between text-sm">
-                            <span>{contentItems.filter(item => item.type === 'lesson').length} modules</span>
-                            <span className="text-green-500">Active</span>
-                          </div>
-                        </div>
+                           <div className="flex justify-between text-sm">
+                             <span>{contentItems.filter(item => item.type === 'lesson').length} modules</span>
+                             <span className="text-green-500">Active</span>
+                           </div>
+                         </div>
 
-                        {/* Quiz Generator */}
-                        <div
-                          onClick={() => {
-                            setActiveTab('quiz-generator');
-                            navigate('/admin?tab=quiz-generator');
-                          }}
-                          className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'quiz-generator' ? 'ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-900/20' : ''}`}
-                          tabIndex={0}
-                          role="button"
-                          aria-pressed={activeTab === 'quiz-generator'}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              setActiveTab('quiz-generator');
-                              navigate('/admin?tab=quiz-generator');
-                            }
-                          }}
-                        >
-                          <div className="flex items-center space-x-3 mb-3">
-                            <PuzzlePieceIcon className="w-6 h-6 text-purple-500" />
-                            <h4 className="font-semibold">Quiz Generator</h4>
-                          </div>
+                         {/* Quiz Generator */}
+                         <div 
+                           onClick={() => {
+                             setActiveTab('quiz-generator');
+                             navigate('/admin?tab=quiz-generator');
+                           }}
+                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'quiz-generator' ? 'ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-900/20' : ''}`}
+                           tabIndex={0}
+                           role="button"
+                           aria-pressed={activeTab === 'quiz-generator'}
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter' || e.key === ' ') {
+                               e.preventDefault();
+                               setActiveTab('quiz-generator');
+                               navigate('/admin?tab=quiz-generator');
+                             }
+                           }}
+                         >
+                           <div className="flex items-center space-x-3 mb-3">
+                             <PuzzlePieceIcon className="w-6 h-6 text-purple-500" />
+                             <h4 className="font-semibold">Quiz Generator</h4>
+                           </div>
                           <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'} mb-3`}>Auto-generate quizzes from learning modules</p>
-                          <div className="flex justify-between text-sm">
-                            <span>Auto-generated</span>
-                            <span className="text-purple-500">Smart</span>
-                          </div>
-                        </div>
+                           <div className="flex justify-between text-sm">
+                             <span>Auto-generated</span>
+                             <span className="text-purple-500">Smart</span>
+                           </div>
+                         </div>
 
-                        {/* Dictionary */}
-                        <div
-                          onClick={() => {
-                            setActiveTab('content');
-                            navigate('/admin?tab=content');
-                          }}
-                          className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'content' ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-900/20' : ''}`}
-                          tabIndex={0}
-                          role="button"
-                          aria-pressed={activeTab === 'content'}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              setActiveTab('content');
-                              navigate('/admin?tab=content');
-                            }
-                          }}
-                        >
-                          <div className="flex items-center space-x-3 mb-3">
-                            <BookOpenIcon className="w-6 h-6 text-green-500" />
-                            <h4 className="font-semibold">Dictionary</h4>
-                          </div>
+                         {/* Dictionary */}
+                         <div 
+                           onClick={() => {
+                             setActiveTab('content');
+                             navigate('/admin?tab=content');
+                           }}
+                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'content' ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-900/20' : ''}`}
+                           tabIndex={0}
+                           role="button"
+                           aria-pressed={activeTab === 'content'}
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter' || e.key === ' ') {
+                               e.preventDefault();
+                               setActiveTab('content');
+                               navigate('/admin?tab=content');
+                             }
+                           }}
+                         >
+                           <div className="flex items-center space-x-3 mb-3">
+                             <BookOpenIcon className="w-6 h-6 text-green-500" />
+                             <h4 className="font-semibold">Dictionary</h4>
+                           </div>
                           <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'} mb-3`}>Update sign language dictionary</p>
-                          <div className="flex justify-between text-sm">
-                            <span>{contentItems.filter(item => item.type === 'image').length} signs</span>
-                            <span className="text-green-500">Updated</span>
-                          </div>
-                        </div>
+                           <div className="flex justify-between text-sm">
+                             <span>{contentItems.filter(item => item.type === 'image').length} signs</span>
+                             <span className="text-green-500">Updated</span>
+                           </div>
+                         </div>
 
 
 
-
+                
 
 
                         {/* Manage Quizzes */}
-                        <div
+                        <div 
                           onClick={() => {
                             setActiveTab('quizzes');
                             navigate('/admin?tab=quizzes');
@@ -1461,100 +1453,100 @@ export default function AdminDashboard() {
                         </div>
 
                         {/* Analytics */}
-                        <div
-                          onClick={() => {
-                            setActiveTab('analytics');
-                            navigate('/admin?tab=analytics');
-                          }}
-                          className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'analytics' ? 'ring-2 ring-red-500 bg-red-50 dark:bg-red-900/20' : ''}`}
-                          tabIndex={0}
-                          role="button"
-                          aria-pressed={activeTab === 'analytics'}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              setActiveTab('analytics');
-                              navigate('/admin?tab=analytics');
-                            }
-                          }}
-                        >
-                          <div className="flex items-center space-x-3 mb-3">
-                            <ChartPieIcon className="w-6 h-6 text-red-500" />
-                            <h4 className="font-semibold">Analytics</h4>
-                          </div>
+                         <div 
+                           onClick={() => {
+                             setActiveTab('analytics');
+                             navigate('/admin?tab=analytics');
+                           }}
+                           className={`p-4 rounded-lg border ${border} hover:shadow-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 hover:transform hover:scale-[1.02] focus:transform focus:scale-[1.02] ${activeTab === 'analytics' ? 'ring-2 ring-red-500 bg-red-50 dark:bg-red-900/20' : ''}`}
+                           tabIndex={0}
+                           role="button"
+                           aria-pressed={activeTab === 'analytics'}
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter' || e.key === ' ') {
+                               e.preventDefault();
+                               setActiveTab('analytics');
+                               navigate('/admin?tab=analytics');
+                             }
+                           }}
+                         >
+                           <div className="flex items-center space-x-3 mb-3">
+                             <ChartPieIcon className="w-6 h-6 text-red-500" />
+                             <h4 className="font-semibold">Analytics</h4>
+                           </div>
                           <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'} mb-3`}>View performance metrics</p>
-                          <div className="flex justify-between text-sm">
-                            <span>Reports</span>
-                            <span className="text-green-500">Available</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                           <div className="flex justify-between text-sm">
+                             <span>Reports</span>
+                             <span className="text-green-500">Available</span>
+                           </div>
+                         </div>
+                       </div>
+                     </div>
 
-                    {/* Recent Activity & Analytics */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                      <div className={`p-6 rounded-lg border ${border} ${darkMode ? 'bg-transparent' : ''}`}>
-                        <h3 className="text-xl font-bold mb-4 text-white">Recent Activity</h3>
-                        <div className="space-y-4">
+                     {/* Recent Activity & Analytics */}
+                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                       <div className={`p-6 rounded-lg border ${border} ${darkMode ? 'bg-transparent' : ''}`}>
+                         <h3 className="text-xl font-bold mb-4 text-white">Recent Activity</h3>
+                         <div className="space-y-4">
                           <div className={`flex items-center space-x-3 p-3 ${darkMode ? 'bg-transparent border ' + border : 'bg-gray-50'} rounded-lg`}>
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <div className="flex-1">
+                             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                             <div className="flex-1">
                               <p className="font-medium text-white">New lesson added</p>
                               <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Basic Hand Signs - 2 hours ago</p>
-                            </div>
-                          </div>
+                             </div>
+                           </div>
                           <div className={`flex items-center space-x-3 p-3 ${darkMode ? 'bg-transparent border ' + border : 'bg-gray-50'} rounded-lg`}>
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <div className="flex-1">
+                             <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                             <div className="flex-1">
                               <p className="font-medium text-white">Dictionary updated</p>
                               <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Added 15 new signs - 4 hours ago</p>
-                            </div>
-                          </div>
+                             </div>
+                           </div>
                           <div className={`flex items-center space-x-3 p-3 ${darkMode ? 'bg-transparent border ' + border : 'bg-gray-50'} rounded-lg`}>
-                            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                            <div className="flex-1">
+                             <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                             <div className="flex-1">
                               <p className="font-medium text-white">Forum post flagged</p>
                               <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Requires moderation - 6 hours ago</p>
-                            </div>
-                          </div>
+                             </div>
+                           </div>
                           <div className={`flex items-center space-x-3 p-3 ${darkMode ? 'bg-transparent border ' + border : 'bg-gray-50'} rounded-lg`}>
-                            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                            <div className="flex-1">
+                             <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                             <div className="flex-1">
                               <p className="font-medium text-white">Quiz created</p>
                               <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Alphabet & Numbers - 1 day ago</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                             </div>
+                           </div>
+                         </div>
+                       </div>
 
-                      <div className={`p-6 rounded-lg border ${border} ${darkMode ? 'bg-transparent' : ''}`}>
-                        <h3 className="text-xl font-bold mb-4 text-white">Content Analytics</h3>
-                        <div className="space-y-4">
+                       <div className={`p-6 rounded-lg border ${border} ${darkMode ? 'bg-transparent' : ''}`}>
+                         <h3 className="text-xl font-bold mb-4 text-white">Content Analytics</h3>
+                         <div className="space-y-4">
                           <div className={`flex justify-between items-center p-3 ${darkMode ? 'bg-transparent border ' + border : 'bg-gray-50'} rounded-lg`}>
-                            <span className={`${darkMode ? 'text-white' : ''}`}>Most Viewed Lesson</span>
-                            <span className={`font-semibold ${darkMode ? 'text-white' : ''}`}>Basic Hand Signs</span>
-                          </div>
+                             <span className={`${darkMode ? 'text-white' : ''}`}>Most Viewed Lesson</span>
+                             <span className={`font-semibold ${darkMode ? 'text-white' : ''}`}>Basic Hand Signs</span>
+                           </div>
                           <div className={`flex justify-between items-center p-3 ${darkMode ? 'bg-transparent border ' + border : 'bg-gray-50'} rounded-lg`}>
-                            <span className={`${darkMode ? 'text-white' : ''}`}>Popular Quiz</span>
-                            <span className={`font-semibold ${darkMode ? 'text-white' : ''}`}>Alphabet Test</span>
-                          </div>
+                             <span className={`${darkMode ? 'text-white' : ''}`}>Popular Quiz</span>
+                             <span className={`font-semibold ${darkMode ? 'text-white' : ''}`}>Alphabet Test</span>
+                           </div>
                           <div className={`flex justify-between items-center p-3 ${darkMode ? 'bg-transparent border ' + border : 'bg-gray-50'} rounded-lg`}>
-                            <span className={`${darkMode ? 'text-white' : ''}`}>Active Discussions</span>
-                            <span className={`font-semibold ${darkMode ? 'text-white' : ''}`}>23 topics</span>
-                          </div>
+                             <span className={`${darkMode ? 'text-white' : ''}`}>Active Discussions</span>
+                             <span className={`font-semibold ${darkMode ? 'text-white' : ''}`}>23 topics</span>
+                           </div>
                           <div className={`flex justify-between items-center p-3 ${darkMode ? 'bg-transparent border ' + border : 'bg-gray-50'} rounded-lg`}>
-                            <span className={`${darkMode ? 'text-white' : ''}`}>Content Completion</span>
-                            <span className={`font-semibold ${darkMode ? 'text-white' : ''}`}>78%</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                             <span className={`${darkMode ? 'text-white' : ''}`}>Content Completion</span>
+                             <span className={`font-semibold ${darkMode ? 'text-white' : ''}`}>78%</span>
+                           </div>
+                         </div>
+                       </div>
+                     </div>
 
-                    {/* Quick Actions */}
-                    <div className={`p-6 rounded-lg border ${border} mb-8`}>
-                      <h3 className="text-xl font-bold mb-4">Quick Actions</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <button
+                     {/* Quick Actions */}
+                     <div className={`p-6 rounded-lg border ${border} mb-8`}>
+                       <h3 className="text-xl font-bold mb-4">Quick Actions</h3>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button 
                           onClick={() => {
                             setActiveTab('users');
                             navigate('/admin?tab=users');
@@ -1570,11 +1562,11 @@ export default function AdminDashboard() {
                             }
                           }}
                         >
-                          <UsersIcon className="w-6 h-6 text-green-500 mb-2" />
-                          <p className="font-semibold">Manage Users</p>
+                           <UsersIcon className="w-6 h-6 text-green-500 mb-2" />
+                           <p className="font-semibold">Manage Users</p>
                           <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Add and manage users in your section</p>
-                        </button>
-                        <button
+                         </button>
+                        <button 
                           onClick={() => {
                             setActiveTab('subscriptions');
                             navigate('/admin?tab=subscriptions');
@@ -1590,14 +1582,14 @@ export default function AdminDashboard() {
                             }
                           }}
                         >
-                          <StarIcon className="w-6 h-6 text-blue-500 mb-2" />
-                          <p className="font-semibold">Subscription Management</p>
+                           <StarIcon className="w-6 h-6 text-blue-500 mb-2" />
+                           <p className="font-semibold">Subscription Management</p>
                           <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Manage user subscriptions and billing</p>
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
+                         </button>
+                       </div>
+                     </div>
+                   </>
+                 )}
 
                 {/* Content Management Tab */}
                 {activeTab === 'content' && (
@@ -1628,7 +1620,7 @@ export default function AdminDashboard() {
                         <span className="text-sm text-gray-500">Manage user support tickets</span>
                       </div>
                     </div>
-
+                    
                   </div>
                 )}
 
@@ -1724,8 +1716,9 @@ export default function AdminDashboard() {
                                     if (!canToggle) return;
                                     const action = userItem.isActive ? 'deactivate' : 'activate';
                                     if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${userItem.name || userItem.email}?`)) return;
-
+                                    
                                     try {
+                                      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/admin/users/${userItem._id}/toggle-status`, {
                                         method: 'PATCH',
                                         headers: {
                                           'Content-Type': 'application/json',
@@ -1733,26 +1726,20 @@ export default function AdminDashboard() {
                                         },
                                         body: JSON.stringify({ isActive: !userItem.isActive })
                                       });
-
+                                      
                                       const data = await res.json().catch(() => ({}));
                                       if (!res.ok) {
-                                        if (res.status === 401) {
-                                          alert('Session expired. Please login again.');
-                                          logout();
-                                          navigate('/login');
-                                          return;
-                                        }
                                         alert(data.message || `Failed to ${action} user`);
                                         return;
                                       }
-
+                                      
                                       // Update the user in the list
-                                      setUsers(prev => prev.map(u =>
-                                        u._id === userItem._id
+                                      setUsers(prev => prev.map(u => 
+                                        u._id === userItem._id 
                                           ? { ...u, isActive: !userItem.isActive }
                                           : u
                                       ));
-
+                                      
                                       alert(`User ${action}d successfully`);
                                     } catch (e) {
                                       console.error('Toggle failed', e);
@@ -1761,64 +1748,28 @@ export default function AdminDashboard() {
                                   };
 
                                   return (
-                                    <div className="flex items-center space-x-2">
-                                      {/* Edit User Button */}
-                                      <button
-                                        onClick={() => {
-                                          setSelectedUser(userItem);
-                                          setEditUserForm({
-                                            name: userItem.name,
-                                            role: userItem.role,
-                                            assignedSections: userItem.assignedSections || [],
-                                            isActive: userItem.isActive
-                                          });
-                                          setShowEditUserModal(true);
-                                        }}
-                                        disabled={!canToggle}
-                                        className={`p-1.5 rounded-lg transition-colors ${canToggle ? 'text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20' : 'text-gray-300 cursor-not-allowed'
-                                          }`}
-                                        title={canToggle ? "Edit User" : "Action not allowed"}
-                                      >
-                                        <PencilIcon className="w-5 h-5" />
-                                      </button>
-
-                                      {/* Toggle Status Button */}
-                                      <button
-                                        onClick={handleToggleUserStatus}
-                                        disabled={!canToggle}
-                                        className={`inline-flex items-center px-3 py-1 rounded text-sm ${canToggle
-                                          ? userItem.isActive
-                                            ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                                    <button
+                                      onClick={handleToggleUserStatus}
+                                      disabled={!canToggle}
+                                      className={`inline-flex items-center px-3 py-1 rounded text-sm ${
+                                        canToggle 
+                                          ? userItem.isActive 
+                                            ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                                             : 'bg-green-500 hover:bg-green-600 text-white'
                                           : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                          }`}
-                                        title={canToggle ? (userItem.isActive ? 'Deactivate user' : 'Activate user') : 'Action not allowed'}
-                                      >
-                                        {userItem.isActive ? (
-                                          <>
-                                            <XCircleIcon className="w-4 h-4 mr-1" /> Deactivate
-                                          </>
-                                        ) : (
-                                          <>
-                                            <CheckCircleIcon className="w-4 h-4 mr-1" /> Activate
-                                          </>
-                                        )}
-                                      </button>
-
-                                      {/* Delete User Button */}
-                                      <button
-                                        onClick={() => {
-                                          setSelectedUser(userItem);
-                                          setShowDeleteUserModal(true);
-                                        }}
-                                        disabled={!canToggle}
-                                        className={`p-1.5 rounded-lg transition-colors ${canToggle ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20' : 'text-gray-300 cursor-not-allowed'
-                                          }`}
-                                        title={canToggle ? "Delete User" : "Action not allowed"}
-                                      >
-                                        <TrashIcon className="w-5 h-5" />
-                                      </button>
-                                    </div>
+                                      }`}
+                                      title={canToggle ? (userItem.isActive ? 'Deactivate user' : 'Activate user') : 'Action not allowed'}
+                                    >
+                                      {userItem.isActive ? (
+                                        <>
+                                          <XCircleIcon className="w-4 h-4 mr-1" /> Deactivate
+                                        </>
+                                      ) : (
+                                        <>
+                                          <CheckCircleIcon className="w-4 h-4 mr-1" /> Activate
+                                        </>
+                                      )}
+                                    </button>
                                   );
                                 })()}
                               </td>
@@ -1856,7 +1807,7 @@ export default function AdminDashboard() {
                               <p className="text-sm text-gray-500">Created: {query.createdAt.toLocaleString()}</p>
                             </div>
                             <div className="flex space-x-2">
-                              <button
+                              <button 
                                 onClick={() => {
                                   setSelectedQuery(query);
                                   setShowReplyModal(true);
@@ -1894,7 +1845,7 @@ export default function AdminDashboard() {
                     {/* Analytics Header */}
                     <div className="flex items-center justify-between">
                       <h3 className="text-xl font-bold">Section Analytics</h3>
-                      <button
+                      <button 
                         onClick={exportAnalytics}
                         className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center space-x-2"
                       >
@@ -2036,7 +1987,7 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-
+                
 
                 {/* Minimal Footer */}
                 <div className="mt-12 mb-8">
@@ -2080,82 +2031,82 @@ export default function AdminDashboard() {
           className={`${bg}`}
         >
           <form onSubmit={handleUpload} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Title</label>
-              <input
-                type="text"
-                value={uploadForm.title}
-                onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Description</label>
-              <textarea
-                value={uploadForm.description}
-                onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
-                className="w-full p-2 border rounded"
-                rows="3"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Category</label>
-              <select
-                value={uploadForm.category}
-                onChange={(e) => setUploadForm({ ...uploadForm, category: e.target.value })}
-                className="w-full p-2 border rounded"
-              >
-                <option value="alphabet">Alphabet</option>
-                <option value="numbers">Numbers</option>
-                <option value="phrases">Phrases</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Level</label>
-              <select
-                value={uploadForm.level}
-                onChange={(e) => setUploadForm({ ...uploadForm, level: e.target.value })}
-                className="w-full p-2 border rounded"
-              >
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">File Upload</label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                onChange={handleFileUpload}
-                accept=".png,.jpg,.jpeg,.gif,.mp4"
-                className="w-full p-2 border rounded"
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Max 5MB. Supported: PNG, JPEG, GIF, MP4
-              </p>
-            </div>
-            {uploadForm.filePreview && (
               <div>
-                <label className="block text-sm font-medium mb-1">Preview</label>
-                {uploadForm.file?.type.startsWith('image/') ? (
-                  <img
-                    src={uploadForm.filePreview}
-                    alt="Preview"
-                    className="w-32 h-32 object-cover rounded border"
-                  />
-                ) : (
-                  <video
-                    src={uploadForm.filePreview}
-                    controls
-                    className="w-32 h-32 object-cover rounded border"
-                  />
-                )}
+                <label className="block text-sm font-medium mb-1">Title</label>
+                <input
+                  type="text"
+                  value={uploadForm.title}
+                  onChange={(e) => setUploadForm({...uploadForm, title: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  required
+                />
               </div>
-            )}
+              <div>
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <textarea
+                  value={uploadForm.description}
+                  onChange={(e) => setUploadForm({...uploadForm, description: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  rows="3"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Category</label>
+                <select
+                  value={uploadForm.category}
+                  onChange={(e) => setUploadForm({...uploadForm, category: e.target.value})}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="alphabet">Alphabet</option>
+                  <option value="numbers">Numbers</option>
+                  <option value="phrases">Phrases</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Level</label>
+                <select
+                  value={uploadForm.level}
+                  onChange={(e) => setUploadForm({...uploadForm, level: e.target.value})}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">File Upload</label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleFileUpload}
+                  accept=".png,.jpg,.jpeg,.gif,.mp4"
+                  className="w-full p-2 border rounded"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Max 5MB. Supported: PNG, JPEG, GIF, MP4
+                </p>
+              </div>
+              {uploadForm.filePreview && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Preview</label>
+                  {uploadForm.file?.type.startsWith('image/') ? (
+                    <img 
+                      src={uploadForm.filePreview} 
+                      alt="Preview" 
+                      className="w-32 h-32 object-cover rounded border"
+                    />
+                  ) : (
+                    <video 
+                      src={uploadForm.filePreview} 
+                      controls 
+                      className="w-32 h-32 object-cover rounded border"
+                    />
+                  )}
+                </div>
+              )}
           </form>
           <div className="flex justify-end space-x-2 mt-6">
             <button
@@ -2186,7 +2137,7 @@ export default function AdminDashboard() {
             {/* Step 1: Sign Information */}
             <div className={`p-6 rounded-lg border ${border}`}>
               <h3 className={`text-lg font-semibold mb-4 ${text}`}>Step 1: Sign Information</h3>
-
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className={`block text-sm font-medium mb-2 ${text}`}>Sign Word/Name *</label>
@@ -2203,7 +2154,7 @@ export default function AdminDashboard() {
                   <label className={`block text-sm font-medium mb-2 ${text}`}>Category *</label>
                   <select
                     value={bulkUploadForm.category}
-                    onChange={(e) => setBulkUploadForm({ ...bulkUploadForm, category: e.target.value })}
+                    onChange={(e) => setBulkUploadForm({...bulkUploadForm, category: e.target.value})}
                     className={`w-full p-3 border rounded-lg ${border} ${bg} ${text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   >
                     <option value="alphabet">Alphabet</option>
@@ -2221,7 +2172,7 @@ export default function AdminDashboard() {
                   <label className={`block text-sm font-medium mb-2 ${text}`}>Difficulty Level *</label>
                   <select
                     value={bulkUploadForm.level}
-                    onChange={(e) => setBulkUploadForm({ ...bulkUploadForm, level: e.target.value })}
+                    onChange={(e) => setBulkUploadForm({...bulkUploadForm, level: e.target.value})}
                     className={`w-full p-3 border rounded-lg ${border} ${bg} ${text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   >
                     <option value="Beginner">Beginner</option>
@@ -2285,12 +2236,12 @@ export default function AdminDashboard() {
                 )}
               </div>
             </div>
-
+            
             {/* Step 3: Review Sign Structure */}
             {bulkUploadForm.signDetails.length > 0 && (
               <div className={`p-6 rounded-lg border ${border}`}>
                 <h3 className={`text-lg font-semibold mb-4 ${text}`}>Step 3: Review Sign Structure</h3>
-
+                
                 {/* Sign Information */}
                 <div className="mb-6 p-4 bg-blue-50 rounded-lg">
                   <h4 className={`font-medium ${text}`}>Sign: "{bulkUploadForm.signDetails[0].word}"</h4>
@@ -2308,14 +2259,14 @@ export default function AdminDashboard() {
                   <div className="flex items-center space-x-4">
                     <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden">
                       {bulkUploadForm.signDetails[0].coverFile.type.startsWith('image/') ? (
-                        <img
-                          src={URL.createObjectURL(bulkUploadForm.signDetails[0].coverFile)}
-                          alt="Cover"
+                        <img 
+                          src={URL.createObjectURL(bulkUploadForm.signDetails[0].coverFile)} 
+                          alt="Cover" 
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <video
-                          src={URL.createObjectURL(bulkUploadForm.signDetails[0].coverFile)}
+                        <video 
+                          src={URL.createObjectURL(bulkUploadForm.signDetails[0].coverFile)} 
                           className="w-full h-full object-cover"
                           muted
                         />
@@ -2342,14 +2293,14 @@ export default function AdminDashboard() {
                         <div className="text-center">
                           <div className="w-full h-32 bg-gray-100 rounded-lg mb-3 overflow-hidden">
                             {variant.type === 'image' ? (
-                              <img
-                                src={URL.createObjectURL(variant.file)}
-                                alt="Variant"
+                              <img 
+                                src={URL.createObjectURL(variant.file)} 
+                                alt="Variant" 
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              <video
-                                src={URL.createObjectURL(variant.file)}
+                              <video 
+                                src={URL.createObjectURL(variant.file)} 
                                 className="w-full h-full object-cover"
                                 muted
                               />
@@ -2369,7 +2320,7 @@ export default function AdminDashboard() {
                     ))}
                   </div>
                 </div>
-
+                
                 <div className={`mt-4 p-4 rounded-lg ${darkMode ? 'bg-green-900/20' : 'bg-green-100'}`}>
                   <p className={`text-sm font-medium ${darkMode ? 'text-green-400' : 'text-green-800'}`}>
                     ✅ Sign "{bulkUploadForm.signDetails[0].word}" ready with cover image and {bulkUploadForm.signDetails[0].variantFiles.length} learning variants!
@@ -2405,57 +2356,57 @@ export default function AdminDashboard() {
           className={`${bg}`}
         >
           <form onSubmit={handleEdit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Title</label>
-              <input
-                type="text"
-                value={editForm.title}
-                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Description</label>
-              <ReactQuill
-                value={editForm.description}
-                onChange={(value) => setEditForm({ ...editForm, description: value })}
-                className="w-full"
-                theme="snow"
-                modules={{
-                  toolbar: [
-                    [{ 'header': [1, 2, false] }],
-                    ['bold', 'italic', 'underline'],
-                    ['link', 'image'],
-                    ['clean']
-                  ]
-                }}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Category</label>
-              <select
-                value={editForm.category}
-                onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                className="w-full p-2 border rounded"
-              >
-                <option value="alphabet">Alphabet</option>
-                <option value="numbers">Numbers</option>
-                <option value="phrases">Phrases</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Level</label>
-              <select
-                value={editForm.level}
-                onChange={(e) => setEditForm({ ...editForm, level: e.target.value })}
-                className="w-full p-2 border rounded"
-              >
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-              </select>
-            </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Title</label>
+                <input
+                  type="text"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({...editForm, title: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <ReactQuill
+                  value={editForm.description}
+                  onChange={(value) => setEditForm({...editForm, description: value})}
+                  className="w-full"
+                  theme="snow"
+                  modules={{
+                    toolbar: [
+                      [{ 'header': [1, 2, false] }],
+                      ['bold', 'italic', 'underline'],
+                      ['link', 'image'],
+                      ['clean']
+                    ]
+                  }}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Category</label>
+                <select
+                  value={editForm.category}
+                  onChange={(e) => setEditForm({...editForm, category: e.target.value})}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="alphabet">Alphabet</option>
+                  <option value="numbers">Numbers</option>
+                  <option value="phrases">Phrases</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Level</label>
+                <select
+                  value={editForm.level}
+                  onChange={(e) => setEditForm({...editForm, level: e.target.value})}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
           </form>
           <div className="flex justify-end space-x-2 mt-6">
             <button
@@ -2582,40 +2533,40 @@ export default function AdminDashboard() {
           className={`${bg}`}
         >
           <form onSubmit={handleCreateAdmin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Name</label>
-              <input
-                type="text"
-                name="name"
-                value={addAdminForm.name}
-                onChange={handleAddAdminFormChange}
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Email</label>
-              <input
-                type="email"
-                name="email"
-                value={addAdminForm.email}
-                onChange={handleAddAdminFormChange}
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Temporary Password</label>
-              <input
-                type="password"
-                autoComplete="new-password"
-                name="password"
-                value={addAdminForm.password}
-                onChange={handleAddAdminFormChange}
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={addAdminForm.name}
+                  onChange={handleAddAdminFormChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={addAdminForm.email}
+                  onChange={handleAddAdminFormChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Temporary Password</label>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  name="password"
+                  value={addAdminForm.password}
+                  onChange={handleAddAdminFormChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
           </form>
           <div className="flex justify-end space-x-2 mt-6">
             <button
@@ -2634,156 +2585,10 @@ export default function AdminDashboard() {
         </Modal>
       )}
 
-      {/* Edit User Modal */}
-      {showEditUserModal && selectedUser && (
-        <Modal
-          isOpen={showEditUserModal}
-          onClose={() => setShowEditUserModal(false)}
-          title="Edit User"
-          className={bg}
-        >
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Name</label>
-              <input
-                type="text"
-                value={editUserForm.name}
-                onChange={(e) => setEditUserForm({ ...editUserForm, name: e.target.value })}
-                className="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-700"
-                disabled
-              />
-              <p className="text-xs text-gray-500">Name cannot be changed by admin.</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Role</label>
-              <select
-                value={editUserForm.role}
-                onChange={(e) => setEditUserForm({ ...editUserForm, role: e.target.value })}
-                className="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-700"
-              >
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Assigned Sections</label>
-              <div className="space-y-2">
-                {['Section A', 'Section B', 'Section C'].map(sec => (
-                  <label key={sec} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={editUserForm.assignedSections.includes(sec)}
-                      onChange={(e) => {
-                        const newSections = e.target.checked
-                          ? [...editUserForm.assignedSections, sec]
-                          : editUserForm.assignedSections.filter(s => s !== sec);
-                        setEditUserForm({ ...editUserForm, assignedSections: newSections });
-                      }}
-                      className="rounded border-gray-300"
-                    />
-                    <span>{sec}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2 mt-6">
-              <button
-                onClick={() => setShowEditUserModal(false)}
-                className="px-4 py-2 border rounded hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    const response = await fetch(`${API_BASE_URL}/api/admin/users/${selectedUser._id}`, {
-                      method: 'PUT',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                      },
-                      body: JSON.stringify(editUserForm)
-                    });
-
-                    if (response.ok) {
-                      const data = await response.json();
-                      setUsers(users.map(u => u._id === selectedUser._id ? data.data : u));
-                      setShowEditUserModal(false);
-                      alert('User updated successfully');
-                    } else {
-                      const err = await response.json();
-                      alert(err.message || 'Failed to update user');
-                    }
-                  } catch (e) {
-                    alert('Error calling API');
-                  }
-                }}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Delete User Modal */}
-      {showDeleteUserModal && selectedUser && (
-        <Modal
-          isOpen={showDeleteUserModal}
-          onClose={() => setShowDeleteUserModal(false)}
-          title="Delete User"
-          className={bg}
-        >
-          <div className="space-y-4">
-            <p>Are you sure you want to delete user <strong>{selectedUser.name}</strong>?</p>
-            <p className="text-red-500 text-sm">This action will soft-delete the user account.</p>
-
-            <div className="flex justify-end space-x-2 mt-6">
-              <button
-                onClick={() => setShowDeleteUserModal(false)}
-                className="px-4 py-2 border rounded hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    const response = await fetch(`${API_BASE_URL}/api/admin/users/${selectedUser._id}`, {
-                      method: 'DELETE',
-                      headers: {
-                        'Authorization': `Bearer ${token}`
-                      }
-                    });
-
-                    if (response.ok) {
-                      setUsers(users.filter(u => u._id !== selectedUser._id));
-                      setShowDeleteUserModal(false);
-                      alert('User deleted successfully');
-                    } else {
-                      const err = await response.json();
-                      alert(err.message || 'Failed to delete user');
-                    }
-                  } catch (e) {
-                    alert('Error deleting user');
-                  }
-                }}
-                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-              >
-                Delete User
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
 
       {/* Enhanced Scroll to Top Button */}
       {showScrollTop && (
-        <button
+        <button 
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           className="fixed bottom-8 right-8 bg-green-500 text-white p-4 rounded-full hover:bg-green-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-110 z-50"
           title="Scroll to top"

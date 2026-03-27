@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  PlusIcon,
-  PencilIcon,
-  TrashIcon,
+import { 
+  PlusIcon, 
+  PencilIcon, 
+  TrashIcon, 
   EyeIcon,
   PlayIcon,
   PauseIcon,
@@ -26,8 +26,6 @@ const AdminQuizManagement = () => {
     description: '',
     category: 'alphabet',
     difficulty: 'Beginner',
-    quizType: 'standard', // Default type
-    level: 1, // Default level
     timeLimit: 10,
     passingScore: 70,
     maxAttempts: 3,
@@ -125,7 +123,7 @@ const AdminQuizManagement = () => {
       const transformedQuestions = quizForm.questions.map(question => {
         console.log('Creating question:', question);
         console.log('Correct answer index:', question.correctAnswer);
-
+        
         const transformed = {
           question: question.question,
           type: 'multiple-choice',
@@ -140,7 +138,7 @@ const AdminQuizManagement = () => {
           mediaUrl: question.image || null,  // Save image to mediaUrl field
           videoUrl: question.video || null  // Save video to videoUrl field
         };
-
+        
         console.log('Transformed question:', transformed);
         return transformed;
       });
@@ -205,7 +203,7 @@ const AdminQuizManagement = () => {
       }
     } catch (error) {
       console.error('❌ Error creating quiz:', error);
-
+      
       // Provide more specific error messages
       let errorMessage = error.message;
       if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
@@ -213,7 +211,7 @@ const AdminQuizManagement = () => {
       } else if (error.name === 'TypeError' && error.message.includes('NetworkError')) {
         errorMessage = 'Network error: Check your internet connection and server status.';
       }
-
+      
       alert(`Error creating quiz: ${errorMessage}`);
     }
   };
@@ -225,7 +223,7 @@ const AdminQuizManagement = () => {
       const transformedQuestions = quizForm.questions.map(question => {
         console.log('Updating question:', question);
         console.log('Correct answer index:', question.correctAnswer);
-
+        
         const transformed = {
           question: question.question,
           type: 'multiple-choice',
@@ -240,7 +238,7 @@ const AdminQuizManagement = () => {
           mediaUrl: question.image || null,  // Save image to mediaUrl field
           videoUrl: question.video || null  // Save video to videoUrl field
         };
-
+        
         console.log('Transformed question:', transformed);
         return transformed;
       });
@@ -307,7 +305,7 @@ const AdminQuizManagement = () => {
       }
     } catch (error) {
       console.error('❌ Error updating quiz:', error);
-
+      
       // Provide more specific error messages
       let errorMessage = error.message;
       if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
@@ -315,7 +313,7 @@ const AdminQuizManagement = () => {
       } else if (error.name === 'TypeError' && error.message.includes('NetworkError')) {
         errorMessage = 'Network error: Check your internet connection and server status.';
       }
-
+      
       alert(`Error updating quiz: ${errorMessage}`);
     }
   };
@@ -356,7 +354,7 @@ const AdminQuizManagement = () => {
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          setQuizzes(quizzes.filter(quiz => quiz._id !== quizId));
+        setQuizzes(quizzes.filter(quiz => quiz._id !== quizId));
         }
       }
     } catch (error) {
@@ -376,11 +374,11 @@ const AdminQuizManagement = () => {
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          setQuizzes(quizzes.map(quiz =>
-            quiz._id === quizId
-              ? { ...quiz, isActive: !currentStatus }
-              : quiz
-          ));
+        setQuizzes(quizzes.map(quiz => 
+          quiz._id === quizId 
+            ? { ...quiz, isActive: !currentStatus }
+            : quiz
+        ));
         }
       }
     } catch (error) {
@@ -391,14 +389,14 @@ const AdminQuizManagement = () => {
 
   const handleEditQuiz = (quiz) => {
     setSelectedQuiz(quiz);
-
+    
     // Transform questions from backend format to frontend format
     const transformedQuestions = (quiz.questions || []).map(question => {
       const correctAnswerIndex = question.options.findIndex(opt => opt.isCorrect);
       console.log('Question:', question.question);
       console.log('Options:', question.options);
       console.log('Correct Answer Index:', correctAnswerIndex);
-
+      
       return {
         question: question.question,
         options: question.options.map(opt => opt.text),
@@ -415,8 +413,6 @@ const AdminQuizManagement = () => {
       description: quiz.description,
       category: quiz.category,
       difficulty: quiz.difficulty,
-      quizType: quiz.quizType || 'standard',
-      level: quiz.level || 1,
       timeLimit: quiz.timeLimit,
       passingScore: quiz.passingScore,
       maxAttempts: quiz.maxAttempts,
@@ -448,8 +444,6 @@ const AdminQuizManagement = () => {
       description: '',
       category: 'alphabet',
       difficulty: 'Beginner',
-      quizType: 'standard',
-      level: 1,
       timeLimit: 10,
       passingScore: 70,
       maxAttempts: 3,
@@ -533,45 +527,18 @@ const AdminQuizManagement = () => {
     setEditingQuestionIndex(null);
   };
 
-  const uploadFile = async (file, type) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('folder', 'quizzes');
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
-
-      const data = await response.json();
-      return data.data.url;
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      alert(`Failed to upload ${type}. Please try again.`);
-      return null;
-    }
-  };
-
-  const handleImageUpload = async (e) => {
+  const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Show loading or optimistic update could go here
-      const url = await uploadFile(file, 'image');
-      if (url) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
         setQuestionForm({
           ...questionForm,
-          image: url, // Store URL directly
-          imagePreview: url
+          image: file,
+          imagePreview: e.target.result
         });
-      }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -583,17 +550,18 @@ const AdminQuizManagement = () => {
     });
   };
 
-  const handleVideoUpload = async (e) => {
+  const handleVideoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const url = await uploadFile(file, 'video');
-      if (url) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
         setQuestionForm({
           ...questionForm,
-          video: url, // Store URL directly
-          videoPreview: url
+          video: file,
+          videoPreview: e.target.result
         });
-      }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -607,7 +575,7 @@ const AdminQuizManagement = () => {
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
-    setCurrentPage(1);
+        setCurrentPage(1);
   };
 
   const getDifficultyColor = (difficulty) => {
@@ -626,7 +594,6 @@ const AdminQuizManagement = () => {
       case 'family': return 'bg-pink-500/20 text-pink-400 border border-pink-500/30';
       case 'activities': return 'bg-orange-500/20 text-orange-400 border border-orange-500/30';
       case 'advanced': return 'bg-red-500/20 text-red-400 border border-red-500/30';
-      case 'arena': return 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 font-bold shadow-[0_0_15px_rgba(234,179,8,0.4)] animate-pulse';
       default: return 'bg-gray-500/20 text-gray-300 border border-gray-500/30';
     }
   };
@@ -669,7 +636,7 @@ const AdminQuizManagement = () => {
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
               className="w-full pl-10 pr-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 backdrop-blur-sm"
-              onFocus={(e) => e.target.select && e.target.select()}
+              onFocus={(e)=> e.target.select && e.target.select()}
             />
             {loading && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -677,7 +644,7 @@ const AdminQuizManagement = () => {
               </div>
             )}
           </div>
-
+          
           <select
             value={filters.category}
             onChange={(e) => handleFilterChange('category', e.target.value)}
@@ -690,7 +657,6 @@ const AdminQuizManagement = () => {
             <option value="family" className="bg-gray-800 text-white">Family</option>
             <option value="activities" className="bg-gray-800 text-white">Activities</option>
             <option value="advanced" className="bg-gray-800 text-white">Advanced</option>
-            <option value="arena" className="bg-yellow-600 text-white font-bold">⚡ Arena Mode</option>
           </select>
 
           <select
@@ -790,10 +756,11 @@ const AdminQuizManagement = () => {
                     <div className="font-medium">Completion: {quiz.stats?.completionRate || 0}%</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${quiz.isActive
-                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                      : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                      }`}>
+                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                      quiz.isActive 
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    }`}>
                       {quiz.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
@@ -862,163 +829,162 @@ const AdminQuizManagement = () => {
       {showCreateModal && (
         <Modal isOpen={showCreateModal} onClose={() => { setShowCreateModal(false); resetQuizForm(); }} title="Create New Quiz" className={`bg-transparent border border-white/20 backdrop-blur-sm max-w-4xl w-full mx-4 rounded-2xl`}>
           <form onSubmit={handleCreateQuiz} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">Quiz Title</label>
+                  <input
+                    type="text"
+                    value={quizForm.title}
+                    onChange={(e) => setQuizForm({...quizForm, title: e.target.value})}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">Category</label>
+                  <select
+                    value={quizForm.category}
+                    onChange={(e) => setQuizForm({...quizForm, category: e.target.value})}
+                    className="glass-select w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
+                  >
+                    <option value="alphabet" className="bg-gray-800 text-white">Alphabet</option>
+                    <option value="phrases" className="bg-gray-800 text-white">Phrases</option>
+                    <option value="family" className="bg-gray-800 text-white">Family</option>
+                    <option value="activities" className="bg-gray-800 text-white">Activities</option>
+                    <option value="advanced" className="bg-gray-800 text-white">Advanced</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">Difficulty</label>
+                  <select
+                    value={quizForm.difficulty}
+                    onChange={(e) => setQuizForm({...quizForm, difficulty: e.target.value})}
+                    className="glass-select w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
+                  >
+                    <option value="Beginner" className="bg-gray-800 text-white">Beginner</option>
+                    <option value="Intermediate" className="bg-gray-800 text-white">Intermediate</option>
+                    <option value="Advanced" className="bg-gray-800 text-white">Advanced</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">Time Limit (minutes)</label>
+                  <input
+                    type="number"
+                    value={quizForm.timeLimit}
+                    onChange={(e) => setQuizForm({...quizForm, timeLimit: parseInt(e.target.value)})}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
+                    min="1"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">Passing Score (%)</label>
+                  <input
+                    type="number"
+                    value={quizForm.passingScore}
+                    onChange={(e) => setQuizForm({...quizForm, passingScore: parseInt(e.target.value)})}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
+                    min="1"
+                    max="100"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">Max Attempts</label>
+                  <input
+                    type="number"
+                    value={quizForm.maxAttempts}
+                    onChange={(e) => setQuizForm({...quizForm, maxAttempts: parseInt(e.target.value)})}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
+                    min="1"
+                    required
+                  />
+                </div>
+              </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">Quiz Title</label>
-                <input
-                  type="text"
-                  value={quizForm.title}
-                  onChange={(e) => setQuizForm({ ...quizForm, title: e.target.value })}
+                <label className="block text-sm font-semibold text-gray-300 mb-2">Description</label>
+                <textarea
+                  value={quizForm.description}
+                  onChange={(e) => setQuizForm({...quizForm, description: e.target.value})}
                   className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
+                  rows="3"
                   required
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">Category</label>
-                <select
-                  value={quizForm.category}
-                  onChange={(e) => setQuizForm({ ...quizForm, category: e.target.value })}
-                  className="glass-select w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
-                >
-                  <option value="alphabet" className="bg-gray-800 text-white">Alphabet</option>
-                  <option value="phrases" className="bg-gray-800 text-white">Phrases</option>
-                  <option value="family" className="bg-gray-800 text-white">Family</option>
-                  <option value="activities" className="bg-gray-800 text-white">Activities</option>
-                  <option value="advanced" className="bg-gray-800 text-white">Advanced</option>
-                  <option value="arena" className="bg-yellow-600 text-white font-bold">⚡ Arena Mode</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">Difficulty</label>
-                <select
-                  value={quizForm.difficulty}
-                  onChange={(e) => setQuizForm({ ...quizForm, difficulty: e.target.value })}
-                  className="glass-select w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
-                >
-                  <option value="Beginner" className="bg-gray-800 text-white">Beginner</option>
-                  <option value="Intermediate" className="bg-gray-800 text-white">Intermediate</option>
-                  <option value="Advanced" className="bg-gray-800 text-white">Advanced</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">Time Limit (minutes)</label>
-                <input
-                  type="number"
-                  value={quizForm.timeLimit}
-                  onChange={(e) => setQuizForm({ ...quizForm, timeLimit: parseInt(e.target.value) })}
-                  className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
-                  min="1"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">Passing Score (%)</label>
-                <input
-                  type="number"
-                  value={quizForm.passingScore}
-                  onChange={(e) => setQuizForm({ ...quizForm, passingScore: parseInt(e.target.value) })}
-                  className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
-                  min="1"
-                  max="100"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">Max Attempts</label>
-                <input
-                  type="number"
-                  value={quizForm.maxAttempts}
-                  onChange={(e) => setQuizForm({ ...quizForm, maxAttempts: parseInt(e.target.value) })}
-                  className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
-                  min="1"
-                  required
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-300 mb-2">Description</label>
-              <textarea
-                value={quizForm.description}
-                onChange={(e) => setQuizForm({ ...quizForm, description: e.target.value })}
-                className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
-                rows="3"
-                required
-              />
-            </div>
-
-            {/* Questions Section */}
-            <div className="border-t pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-white">Quiz Questions ({quizForm.questions.length})</h3>
-                <button
-                  type="button"
-                  onClick={handleAddQuestion}
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center space-x-2"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  <span>Add Question</span>
-                </button>
               </div>
 
-              {/* Questions List */}
-              <div className="space-y-3 max-h-60 overflow-y-auto">
-                {quizForm.questions.map((question, index) => (
-                  <div key={index} className="p-4 border border-white/20 rounded-2xl bg-transparent backdrop-blur-sm">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <span className="text-sm font-semibold text-gray-300">Q{index + 1}:</span>
-                          <span className="text-sm font-bold text-white">{question.question}</span>
-                        </div>
-                        {question.image && (
-                          <div className="mb-2">
-                            <img
-                              src={question.image}
-                              alt="Question"
-                              className="w-20 h-20 object-cover rounded border"
-                            />
+              {/* Questions Section */}
+              <div className="border-t pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-white">Quiz Questions ({quizForm.questions.length})</h3>
+                  <button
+                    type="button"
+                    onClick={handleAddQuestion}
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center space-x-2"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    <span>Add Question</span>
+                  </button>
+                </div>
+
+                {/* Questions List */}
+                <div className="space-y-3 max-h-60 overflow-y-auto">
+                  {quizForm.questions.map((question, index) => (
+                    <div key={index} className="p-4 border border-white/20 rounded-2xl bg-transparent backdrop-blur-sm">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className="text-sm font-semibold text-gray-300">Q{index + 1}:</span>
+                            <span className="text-sm font-bold text-white">{question.question}</span>
                           </div>
-                        )}
-                        <div className="text-xs text-gray-300 font-semibold">
-                          {question.options?.length || 0} options • {question.points || 1} point(s) • Correct: Option {(question.correctAnswer || 0) + 1}
+                          {question.image && (
+                            <div className="mb-2">
+                              <img 
+                                src={question.image} 
+                                alt="Question" 
+                                className="w-20 h-20 object-cover rounded border"
+                              />
+                            </div>
+                          )}
+                          <div className="text-xs text-gray-300 font-semibold">
+                            {question.options?.length || 0} options • {question.points || 1} point(s) • Correct: Option {(question.correctAnswer || 0) + 1}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => handleEditQuestion(index)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Edit Question"
-                        >
-                          <PencilIcon className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteQuestion(index)}
-                          className="text-red-600 hover:text-red-800"
-                          title="Delete Question"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditQuestion(index)}
+                            className="text-blue-600 hover:text-blue-800"
+                            title="Edit Question"
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteQuestion(index)}
+                            className="text-red-600 hover:text-red-800"
+                            title="Delete Question"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-
-                {quizForm.questions.length === 0 && (
-                  <div className="text-center py-8 text-gray-600">
-                    <PuzzlePieceIcon className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                    <p className="font-medium">No questions added yet</p>
-                    <p className="text-sm font-medium">Click "Add Question" to get started</p>
-                  </div>
-                )}
+                  ))}
+                  
+                  {quizForm.questions.length === 0 && (
+                    <div className="text-center py-8 text-gray-600">
+                      <PuzzlePieceIcon className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                      <p className="font-medium">No questions added yet</p>
+                      <p className="text-sm font-medium">Click "Add Question" to get started</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
             {/* Validation summary */}
             <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
               <h4 className="text-base font-semibold text-white mb-2">Validation</h4>
               <ul className="list-disc pl-5 text-sm text-gray-300 space-y-1">
-                <li className={`${(quizForm.title || '').trim().length >= 3 ? 'text-green-400' : 'text-red-400'}`}>Title at least 3 characters</li>
+                <li className={`${(quizForm.title||'').trim().length>=3 ? 'text-green-400' : 'text-red-400'}`}>Title at least 3 characters</li>
                 <li>Category selected</li>
                 <li>Difficulty selected</li>
                 <li>Time limit ≥ 1</li>
@@ -1036,8 +1002,8 @@ const AdminQuizManagement = () => {
                 Cancel
               </button>
               <button
-                type="submit"
-                className="px-6 py-3 bg-blue-500/90 backdrop-blur-sm text-white rounded-2xl hover:bg-blue-600 font-semibold text-base transition-colors border border-blue-400/30"
+                  type="submit"
+                  className="px-6 py-3 bg-blue-500/90 backdrop-blur-sm text-white rounded-2xl hover:bg-blue-600 font-semibold text-base transition-colors border border-blue-400/30"
               >
                 Create Quiz
               </button>
@@ -1050,194 +1016,166 @@ const AdminQuizManagement = () => {
       {showEditModal && selectedQuiz && (
         <Modal isOpen={showEditModal} onClose={() => { setShowEditModal(false); resetQuizForm(); }} title="Edit Quiz" className={`bg-transparent border border-white/20 backdrop-blur-sm max-w-4xl w-full mx-4 rounded-2xl`}>
           <form onSubmit={handleUpdateQuiz} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Quiz Title</label>
-                <input
-                  type="text"
-                  value={quizForm.title}
-                  onChange={(e) => setQuizForm({ ...quizForm, title: e.target.value })}
-                  className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
-                <select
-                  value={quizForm.category}
-                  onChange={(e) => setQuizForm({ ...quizForm, category: e.target.value })}
-                  className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
-                >
-                  <option value="alphabet">Alphabet</option>
-                  <option value="phrases">Phrases</option>
-                  <option value="family">Family</option>
-                  <option value="activities">Activities</option>
-                  <option value="advanced">Advanced</option>
-                  <option value="arena" className="bg-yellow-600 text-white font-bold">⚡ Arena Mode</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Quiz Type</label>
-                <select
-                  value={quizForm.quizType}
-                  onChange={(e) => setQuizForm({ ...quizForm, quizType: e.target.value })}
-                  className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
-                >
-                  <option value="standard">Standard Quiz</option>
-                  <option value="mastery">Level Mastery</option>
-                  <option value="arena">Arena Challenge</option>
-                </select>
-              </div>
-              {quizForm.quizType === 'mastery' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Level</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Quiz Title</label>
                   <input
-                    type="number"
-                    value={quizForm.level}
-                    onChange={(e) => setQuizForm({ ...quizForm, level: parseInt(e.target.value) })}
+                    type="text"
+                    value={quizForm.title}
+                    onChange={(e) => setQuizForm({...quizForm, title: e.target.value})}
                     className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
-                    min="1"
-                    max="10"
                     required
                   />
                 </div>
-              )}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Difficulty</label>
-                <select
-                  value={quizForm.difficulty}
-                  onChange={(e) => setQuizForm({ ...quizForm, difficulty: e.target.value })}
-                  className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
-                >
-                  <option value="Beginner">Beginner</option>
-                  <option value="Intermediate">Intermediate</option>
-                  <option value="Advanced">Advanced</option>
-                </select>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
+                  <select
+                    value={quizForm.category}
+                    onChange={(e) => setQuizForm({...quizForm, category: e.target.value})}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
+                  >
+                    <option value="alphabet">Alphabet</option>
+                    <option value="phrases">Phrases</option>
+                    <option value="family">Family</option>
+                    <option value="activities">Activities</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Difficulty</label>
+                  <select
+                    value={quizForm.difficulty}
+                    onChange={(e) => setQuizForm({...quizForm, difficulty: e.target.value})}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
+                  >
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Time Limit (minutes)</label>
+                  <input
+                    type="number"
+                    value={quizForm.timeLimit}
+                    onChange={(e) => setQuizForm({...quizForm, timeLimit: parseInt(e.target.value)})}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
+                    min="1"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Passing Score (%)</label>
+                  <input
+                    type="number"
+                    value={quizForm.passingScore}
+                    onChange={(e) => setQuizForm({...quizForm, passingScore: parseInt(e.target.value)})}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
+                    min="1"
+                    max="100"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Max Attempts</label>
+                  <input
+                    type="number"
+                    value={quizForm.maxAttempts}
+                    onChange={(e) => setQuizForm({...quizForm, maxAttempts: parseInt(e.target.value)})}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
+                    min="1"
+                    required
+                  />
+                </div>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Time Limit (minutes)</label>
-                <input
-                  type="number"
-                  value={quizForm.timeLimit}
-                  onChange={(e) => setQuizForm({ ...quizForm, timeLimit: parseInt(e.target.value) })}
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
+                <textarea
+                  value={quizForm.description}
+                  onChange={(e) => setQuizForm({...quizForm, description: e.target.value})}
                   className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
-                  min="1"
+                  rows="3"
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Passing Score (%)</label>
-                <input
-                  type="number"
-                  value={quizForm.passingScore}
-                  onChange={(e) => setQuizForm({ ...quizForm, passingScore: parseInt(e.target.value) })}
-                  className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
-                  min="1"
-                  max="100"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Max Attempts</label>
-                <input
-                  type="number"
-                  value={quizForm.maxAttempts}
-                  onChange={(e) => setQuizForm({ ...quizForm, maxAttempts: parseInt(e.target.value) })}
-                  className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
-                  min="1"
-                  required
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
-              <textarea
-                value={quizForm.description}
-                onChange={(e) => setQuizForm({ ...quizForm, description: e.target.value })}
-                className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm"
-                rows="3"
-                required
-              />
-            </div>
 
-            {/* Questions Section */}
-            <div className="border-t pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-800">Quiz Questions ({quizForm.questions.length})</h3>
-                <button
-                  type="button"
-                  onClick={handleAddQuestion}
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center space-x-2"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  <span>Add Question</span>
-                </button>
-              </div>
+              {/* Questions Section */}
+              <div className="border-t pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-gray-800">Quiz Questions ({quizForm.questions.length})</h3>
+                  <button
+                    type="button"
+                    onClick={handleAddQuestion}
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center space-x-2"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    <span>Add Question</span>
+                  </button>
+                </div>
 
-              {/* Questions List */}
-              <div className="space-y-3 max-h-60 overflow-y-auto">
-                {quizForm.questions.map((question, index) => (
-                  <div key={index} className="p-4 border-2 border-gray-300 rounded-lg bg-transparent backdrop-blur-sm">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <span className="text-sm font-semibold text-gray-600">Q{index + 1}:</span>
-                          <span className="text-sm font-bold text-gray-800">{question.question}</span>
-                        </div>
-                        {question.image && (
-                          <div className="mb-2">
-                            <img
-                              src={question.image}
-                              alt="Question"
-                              className="w-20 h-20 object-cover rounded border"
-                            />
+                {/* Questions List */}
+                <div className="space-y-3 max-h-60 overflow-y-auto">
+                  {quizForm.questions.map((question, index) => (
+                    <div key={index} className="p-4 border-2 border-gray-300 rounded-lg bg-transparent backdrop-blur-sm">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className="text-sm font-semibold text-gray-600">Q{index + 1}:</span>
+                            <span className="text-sm font-bold text-gray-800">{question.question}</span>
                           </div>
-                        )}
-                        {question.video && (
-                          <div className="mb-2">
-                            <video
-                              src={question.video}
-                              controls
-                              className="w-32 h-20 object-cover rounded border"
-                            />
+                          {question.image && (
+                            <div className="mb-2">
+                              <img 
+                                src={question.image} 
+                                alt="Question" 
+                                className="w-20 h-20 object-cover rounded border"
+                              />
+                            </div>
+                          )}
+                          {question.video && (
+                            <div className="mb-2">
+                              <video 
+                                src={question.video} 
+                                controls
+                                className="w-32 h-20 object-cover rounded border"
+                              />
+                            </div>
+                          )}
+                          <div className="text-xs text-gray-600 font-semibold">
+                            {question.options?.length || 0} options • {question.points || 1} point(s) • Correct: Option {(question.correctAnswer || 0) + 1}
                           </div>
-                        )}
-                        <div className="text-xs text-gray-600 font-semibold">
-                          {question.options?.length || 0} options • {question.points || 1} point(s) • Correct: Option {(question.correctAnswer || 0) + 1}
                         </div>
-                      </div>
-                      <div className="flex space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => handleEditQuestion(index)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Edit Question"
-                        >
-                          <PencilIcon className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteQuestion(index)}
-                          className="text-red-600 hover:text-red-800"
-                          title="Delete Question"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditQuestion(index)}
+                            className="text-blue-600 hover:text-blue-800"
+                            title="Edit Question"
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteQuestion(index)}
+                            className="text-red-600 hover:text-red-800"
+                            title="Delete Question"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-
-                {quizForm.questions.length === 0 && (
-                  <div className="text-center py-8 text-gray-600">
-                    <PuzzlePieceIcon className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                    <p className="font-medium">No questions added yet</p>
-                    <p className="text-sm font-medium">Click "Add Question" to get started</p>
-                  </div>
-                )}
+                  ))}
+                  
+                  {quizForm.questions.length === 0 && (
+                    <div className="text-center py-8 text-gray-600">
+                      <PuzzlePieceIcon className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                      <p className="font-medium">No questions added yet</p>
+                      <p className="text-sm font-medium">Click "Add Question" to get started</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
             {/* Changes Summary */}
             <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
               <h4 className="text-base font-semibold text-white mb-2">Changes Summary</h4>
@@ -1251,7 +1189,7 @@ const AdminQuizManagement = () => {
                     {quizForm.timeLimit !== selectedQuiz.timeLimit && <li>Time limit will be updated</li>}
                     {quizForm.passingScore !== selectedQuiz.passingScore && <li>Passing score will be updated</li>}
                     {quizForm.maxAttempts !== selectedQuiz.maxAttempts && <li>Max attempts will be updated</li>}
-                    {JSON.stringify(quizForm.tags || []) !== JSON.stringify(selectedQuiz.tags || []) && <li>Tags will be updated</li>}
+                    {JSON.stringify(quizForm.tags||[]) !== JSON.stringify(selectedQuiz.tags||[]) && <li>Tags will be updated</li>}
                     {quizForm.questions.length !== selectedQuiz.questions.length && <li>Questions will be updated</li>}
                   </ul>
                 ) : (
@@ -1262,36 +1200,34 @@ const AdminQuizManagement = () => {
 
             <div className="flex justify-end space-x-2">
               <button
-                type="button"
+                  type="button"
                 onClick={() => { setShowEditModal(false); resetQuizForm(); }}
-                className="px-6 py-3 border border-white/20 text-white rounded-2xl hover:bg-white/10 font-semibold text-base transition-colors"
+                  className="px-6 py-3 border border-white/20 text-white rounded-2xl hover:bg-white/10 font-semibold text-base transition-colors"
               >
                 Cancel
               </button>
               <button
-                type="submit"
-                className="px-6 py-3 bg-blue-500/90 backdrop-blur-sm text-white rounded-2xl hover:bg-blue-600 font-semibold text-base transition-colors border border-blue-400/30"
+                  type="submit"
+                  className="px-6 py-3 bg-blue-500/90 backdrop-blur-sm text-white rounded-2xl hover:bg-blue-600 font-semibold text-base transition-colors border border-blue-400/30"
               >
-                Update Quiz
+                  Update Quiz
               </button>
             </div>
           </form>
         </Modal>
-      )
-      }
+      )}
 
 
       {/* Question Management Modal */}
-      {
-        showQuestionModal && (
-          <Modal isOpen={showQuestionModal} onClose={() => setShowQuestionModal(false)} title={editingQuestionIndex !== null ? 'Edit Question' : 'Add New Question'} className={`bg-transparent border-2 border-gray-300 rounded-lg`} widthClass="w-full max-w-4xl mx-4">
-            <form onSubmit={(e) => { e.preventDefault(); handleSaveQuestion(); }} className="space-y-4">
+      {showQuestionModal && (
+        <Modal isOpen={showQuestionModal} onClose={() => setShowQuestionModal(false)} title={editingQuestionIndex !== null ? 'Edit Question' : 'Add New Question'} className={`bg-transparent border-2 border-gray-300 rounded-lg`} widthClass="w-full max-w-4xl mx-4">
+          <form onSubmit={(e) => { e.preventDefault(); handleSaveQuestion(); }} className="space-y-4">
               {/* Question Text */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Question Text</label>
                 <textarea
                   value={questionForm.question}
-                  onChange={(e) => setQuestionForm({ ...questionForm, question: e.target.value })}
+                  onChange={(e) => setQuestionForm({...questionForm, question: e.target.value})}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-transparent backdrop-blur-sm text-gray-700 font-medium placeholder-gray-500"
                   rows="3"
                   placeholder="Enter your question here..."
@@ -1311,9 +1247,9 @@ const AdminQuizManagement = () => {
                   />
                   {questionForm.imagePreview && (
                     <div className="relative inline-block">
-                      <img
-                        src={questionForm.imagePreview}
-                        alt="Preview"
+                      <img 
+                        src={questionForm.imagePreview} 
+                        alt="Preview" 
                         className="w-32 h-32 object-cover rounded border"
                       />
                       <button
@@ -1340,8 +1276,8 @@ const AdminQuizManagement = () => {
                   />
                   {questionForm.videoPreview && (
                     <div className="relative inline-block">
-                      <video
-                        src={questionForm.videoPreview}
+                      <video 
+                        src={questionForm.videoPreview} 
                         controls
                         className="w-64 h-48 object-cover rounded border"
                       />
@@ -1368,7 +1304,7 @@ const AdminQuizManagement = () => {
                         name="correctAnswer"
                         value={index}
                         checked={questionForm.correctAnswer === index}
-                        onChange={(e) => setQuestionForm({ ...questionForm, correctAnswer: parseInt(e.target.value) })}
+                        onChange={(e) => setQuestionForm({...questionForm, correctAnswer: parseInt(e.target.value)})}
                         className="w-4 h-4 text-blue-600"
                       />
                       <input
@@ -1377,7 +1313,7 @@ const AdminQuizManagement = () => {
                         onChange={(e) => {
                           const newOptions = [...(questionForm.options || [])];
                           newOptions[index] = e.target.value;
-                          setQuestionForm({ ...questionForm, options: newOptions });
+                          setQuestionForm({...questionForm, options: newOptions});
                         }}
                         className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-transparent backdrop-blur-sm text-gray-700 font-medium placeholder-gray-500"
                         placeholder={`Option ${index + 1}`}
@@ -1387,9 +1323,9 @@ const AdminQuizManagement = () => {
                           type="button"
                           onClick={() => {
                             const newOptions = (questionForm.options || []).filter((_, i) => i !== index);
-                            setQuestionForm({ ...questionForm, options: newOptions });
+                            setQuestionForm({...questionForm, options: newOptions});
                             if (questionForm.correctAnswer >= index) {
-                              setQuestionForm({ ...questionForm, options: newOptions, correctAnswer: Math.max(0, questionForm.correctAnswer - 1) });
+                              setQuestionForm({...questionForm, options: newOptions, correctAnswer: Math.max(0, questionForm.correctAnswer - 1)});
                             }
                           }}
                           className="text-red-600 hover:text-red-800"
@@ -1399,23 +1335,23 @@ const AdminQuizManagement = () => {
                       )}
                     </div>
                   ))}
-                  {/* Explicit correct answer text */}
-                  <div className="flex items-center space-x-3">
-                    <span className="text-sm text-gray-600">Correct Answer (text)</span>
-                    <input
-                      type="text"
-                      value={questionForm.correctAnswerText || (questionForm.options || [])[questionForm.correctAnswer] || ''}
-                      onChange={(e) => setQuestionForm({ ...questionForm, correctAnswerText: e.target.value })}
-                      className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-transparent backdrop-blur-sm text-gray-700 font-medium placeholder-gray-500"
-                      placeholder="Type the exact correct answer"
-                    />
-                  </div>
+            {/* Explicit correct answer text */}
+            <div className="flex items-center space-x-3">
+              <span className="text-sm text-gray-600">Correct Answer (text)</span>
+              <input
+                type="text"
+                value={questionForm.correctAnswerText || (questionForm.options||[])[questionForm.correctAnswer] || ''}
+                onChange={(e)=> setQuestionForm({...questionForm, correctAnswerText: e.target.value})}
+                className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-transparent backdrop-blur-sm text-gray-700 font-medium placeholder-gray-500"
+                placeholder="Type the exact correct answer"
+              />
+            </div>
                   {(questionForm.options || []).length < 6 && (
                     <button
                       type="button"
                       onClick={() => {
                         const newOptions = [...(questionForm.options || []), ''];
-                        setQuestionForm({ ...questionForm, options: newOptions });
+                        setQuestionForm({...questionForm, options: newOptions});
                       }}
                       className="text-blue-600 hover:text-blue-800 text-sm flex items-center space-x-1"
                     >
@@ -1433,7 +1369,7 @@ const AdminQuizManagement = () => {
                   <input
                     type="number"
                     value={questionForm.points}
-                    onChange={(e) => setQuestionForm({ ...questionForm, points: parseInt(e.target.value) })}
+                    onChange={(e) => setQuestionForm({...questionForm, points: parseInt(e.target.value)})}
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-transparent backdrop-blur-sm text-gray-700 font-medium placeholder-gray-500"
                     min="1"
                     required
@@ -1443,7 +1379,7 @@ const AdminQuizManagement = () => {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Explanation (Optional)</label>
                   <textarea
                     value={questionForm.explanation}
-                    onChange={(e) => setQuestionForm({ ...questionForm, explanation: e.target.value })}
+                    onChange={(e) => setQuestionForm({...questionForm, explanation: e.target.value})}
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-transparent backdrop-blur-sm text-gray-700 font-medium placeholder-gray-500"
                     rows="2"
                     placeholder="Explain why this is the correct answer..."
@@ -1462,8 +1398,9 @@ const AdminQuizManagement = () => {
                   <div className="space-y-1">
                     {questionForm.options.filter(opt => opt && typeof opt === 'string' && opt.trim()).map((option, index) => (
                       <div key={index} className="flex items-center space-x-2">
-                        <div className={`w-4 h-4 rounded-full border-2 ${questionForm.correctAnswer === index ? 'bg-green-500 border-green-500' : 'border-gray-300'
-                          }`}></div>
+                        <div className={`w-4 h-4 rounded-full border-2 ${
+                          questionForm.correctAnswer === index ? 'bg-green-500 border-green-500' : 'border-gray-300'
+                        }`}></div>
                         <span className="text-sm font-medium text-gray-700">{option || `Option ${index + 1}`}</span>
                       </div>
                     ))}
@@ -1486,11 +1423,10 @@ const AdminQuizManagement = () => {
                   {editingQuestionIndex !== null ? 'Update Question' : 'Add Question'}
                 </button>
               </div>
-            </form>
-          </Modal>
-        )
-      }
-    </div >
+          </form>
+        </Modal>
+      )}
+    </div>
   );
 };
 

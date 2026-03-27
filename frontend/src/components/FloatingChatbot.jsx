@@ -18,7 +18,7 @@ const FloatingChatbot = ({ detectedSign, signDictionary }) => {
     <div className="fixed bottom-20 right-8 md:bottom-10 md:right-14 z-50">
       {/* Panel */}
       {isOpen && (
-        <div className="mb-3 w-[420px] max-w-[95vw] rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl supports-[backdrop-filter]:bg-white/80 animate-fade-in-up">
+        <div className="mb-3 w-[340px] max-w-[92vw] rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-800/90 backdrop-blur supports-[backdrop-filter]:bg-white/60">
           <div className="p-3">
             <SignLearningChatbot
               detectedSign={detectedSign}

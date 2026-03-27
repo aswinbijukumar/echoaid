@@ -9,7 +9,6 @@ const GoogleAuthSuccess = () => {
 
   useEffect(() => {
     const token = searchParams.get('token');
-    const refreshToken = searchParams.get('refreshToken');
     const error = searchParams.get('error');
 
     if (error) {
@@ -19,15 +18,10 @@ const GoogleAuthSuccess = () => {
     }
 
     if (token) {
-      // Store the tokens
+      // Store the token
       localStorage.setItem('token', token);
       setToken(token);
-
-      if (refreshToken) {
-        localStorage.setItem('refreshToken', refreshToken);
-        // Assuming setRefreshToken is available from useAuth, if not, it will be picked up by AuthContext from localStorage
-      }
-
+      
       // Add a small delay to show the success message
       // AuthContext will automatically fetch user data and set user state
       setTimeout(() => {
@@ -49,10 +43,10 @@ const GoogleAuthSuccess = () => {
             </svg>
           </div>
         </div>
-
+        
         <h2 className="text-white text-3xl font-bold mb-4">Welcome back to EchoAid!</h2>
         <p className="text-gray-400 mb-8 text-lg">You are being signed in securely</p>
-
+        
         {/* Progress steps */}
         <div className="space-y-4 text-left bg-[#23272F] p-6 rounded-xl">
           <div className="flex items-center text-green-400">
@@ -76,7 +70,7 @@ const GoogleAuthSuccess = () => {
             <span className="text-sm font-medium">Redirecting to dashboard...</span>
           </div>
         </div>
-
+        
         <p className="text-gray-500 text-sm mt-6">
           You'll be redirected automatically in a few seconds
         </p>

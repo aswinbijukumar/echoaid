@@ -44,26 +44,22 @@ export default function RoleBasedRoute({ children, allowedRoles }) {
       }
 
       // Check if user is authorized for this route
-      if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-        console.log(`[RoleBasedRoute] User role ${user.role} not authorized for route, redirecting to appropriate dashboard`);
+      if (!isAuthorizedForRoute(user.role, allowedRoles)) {
+        console.log(`User role ${user.role} not authorized for route, redirecting to appropriate dashboard`);
         const redirectPath = getRoleBasedRedirect(user.role, location.pathname);
         if (redirectPath) {
-          navigate(redirectPath, { replace: true });
+          navigate(redirectPath);
         }
         return;
       }
 
-      // Handle root-level dashboard redirects or role corrections
-      // If we are at /dashboard (generic) or strictly unauthorized, bounce them to their home.
-      if (location.pathname === '/dashboard') {
-        const correctPath = getRoleBasedRedirect(user.role, '/dashboard');
-        if (correctPath && correctPath !== '/dashboard') {
-          navigate(correctPath, { replace: true });
-          return;
-        }
+      // Handle /dashboard route redirection
+      const redirectPath = getRoleBasedRedirect(user.role, location.pathname);
+      if (redirectPath) {
+        console.log(`Redirecting ${user.role} from ${location.pathname} to ${redirectPath}`);
+        navigate(redirectPath);
+        return;
       }
-    } else {
-      console.log('[RoleBasedRoute] Loading...', { loading, user: !!user });
     }
   }, [user, loading, navigate, allowedRoles, location.pathname]);
 

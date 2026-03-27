@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContextConstants';
-import { useUserStats } from '../hooks/useUserStats';
 import LearningFlow from './LearningFlow';
 import Sidebar from './Sidebar';
-import {
-  FireIcon,
-  HeartIcon,
-  SparklesIcon,
+import { 
+  FireIcon, 
+  HeartIcon, 
+  SparklesIcon, 
   UserCircleIcon,
   ArrowUpIcon,
   HandRaisedIcon,
@@ -19,12 +18,12 @@ import {
   LightBulbIcon
 } from '@heroicons/react/24/outline';
 
+  const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api`;
 
 export default function UnifiedLearning() {
   const { darkMode } = useTheme();
   const { user, logout, token } = useAuth();
-  const { stats: userStats, refreshUserStats } = useUserStats();
-
+  
   // State management
   const [currentView, setCurrentView] = useState('dictionary'); // 'dictionary', 'learning'
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,6 +33,7 @@ export default function UnifiedLearning() {
   const [selectedSign, setSelectedSign] = useState(null);
   const [userProgress, setUserProgress] = useState({});
   const [loading, setLoading] = useState(true);
+  const [userStats, setUserStats] = useState({ streak: 0, xp: 0 });
 
   // Theme variables
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
@@ -50,17 +50,17 @@ export default function UnifiedLearning() {
   const fetchData = async () => {
     try {
       setLoading(true);
-
+      
       // Fetch categories
       const categoriesResponse = await fetch(`${API_BASE_URL}/content/categories`);
       const categoriesData = await categoriesResponse.json();
       setCategories(categoriesData.categories || []);
-
+      
       // Fetch signs
       const signsResponse = await fetch(`${API_BASE_URL}/dictionary/db/signs?limit=500`);
       const signsData = await signsResponse.json();
       setSigns(signsData.signs || []);
-
+      
       // Fetch user progress
       if (token) {
         const progressResponse = await fetch(`${API_BASE_URL}/practice/progress`, {
@@ -71,7 +71,7 @@ export default function UnifiedLearning() {
           setUserProgress(progressData.data || {});
         }
       }
-
+      
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -88,12 +88,11 @@ export default function UnifiedLearning() {
   const getSignProgress = (sign) => {
     const progress = userProgress[sign._id];
     if (!progress) return { level: 0, accuracy: 0, practiceCount: 0 };
-
+    
     return {
       level: progress.level || 0,
       accuracy: progress.accuracy || 0,
-      practiceCount: progress.practiceCount || 0,
-      isRelearning: progress.isRelearning || false
+      practiceCount: progress.practiceCount || 0
     };
   };
 
@@ -138,17 +137,11 @@ export default function UnifiedLearning() {
     );
   }
 
-  const handleFlowComplete = async () => {
-    await fetchData(); // Refresh local progress
-    refreshUserStats(); // Refresh global XP/Streak
-  };
-
   if (currentView === 'learning' && selectedSign) {
     return (
       <LearningFlow
         selectedSign={selectedSign}
         onBack={handleBackToDictionary}
-        onComplete={handleFlowComplete}
         userProgress={userProgress}
       />
     );
@@ -162,15 +155,15 @@ export default function UnifiedLearning() {
           <div className="flex items-center space-x-4">
             {/* Empty space on the left */}
           </div>
-
+          
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <FireIcon className="w-5 h-5 text-orange-400" />
-              <span className="font-semibold">{userStats.streak || 0}</span>
+              <span className="font-semibold">{user?.learningStats?.streak || 0}</span>
             </div>
             <div className="flex items-center space-x-2">
               <SparklesIcon className="w-5 h-5 text-blue-400" />
-              <span className="font-semibold">{userStats.totalXP || 0}</span>
+              <span className="font-semibold">{user?.learningStats?.totalXP || 0}</span>
             </div>
             <div className="flex items-center space-x-2">
               <UserCircleIcon className="w-8 h-8 text-gray-300" />
@@ -250,19 +243,13 @@ export default function UnifiedLearning() {
                         <div className="mb-4">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-sm font-medium">Progress</span>
-                            {progress.isRelearning ? (
-                              <span className={`text-xs px-2 py-1 rounded-full text-white bg-orange-600 animate-pulse`}>
-                                Relearn Required
-                              </span>
-                            ) : (
-                              <span className={`text-xs px-2 py-1 rounded-full text-white ${getProgressColor(progress.level)}`}>
-                                {getProgressText(progress.level)}
-                              </span>
-                            )}
+                            <span className={`text-xs px-2 py-1 rounded-full text-white ${getProgressColor(progress.level)}`}>
+                              {getProgressText(progress.level)}
+                            </span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className={`h-2 rounded-full transition-all duration-300 ${progress.isRelearning ? 'bg-orange-500' : getProgressColor(progress.level)}`}
+                            <div 
+                              className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(progress.level)}`}
                               style={{ width: `${(progress.level / 4) * 100}%` }}
                             ></div>
                           </div>
@@ -275,10 +262,8 @@ export default function UnifiedLearning() {
                         </div>
 
                         {/* Action Button */}
-                        <button className={`w-full py-2 text-white rounded-lg transition-colors font-medium ${progress.isRelearning
-                          ? 'bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/30'
-                          : 'bg-green-500 hover:bg-green-600'}`}>
-                          {progress.isRelearning ? 'Review Now' : (progress.level === 0 ? 'Start Learning' : 'Continue Practice')}
+                        <button className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium">
+                          {progress.level === 0 ? 'Start Learning' : 'Continue Practice'}
                         </button>
                       </div>
                     );
