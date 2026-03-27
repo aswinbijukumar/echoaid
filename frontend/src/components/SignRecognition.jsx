@@ -1437,7 +1437,31 @@ export default function SignRecognition({
           </div>
 
           {/* Webcam Controls */}
-          <div className="flex justify-center space-x-4">
+          <div className="flex flex-wrap justify-center gap-4">
+            {/* Camera Selector */}
+            <div className="w-full md:w-auto">
+              <select
+                value={selectedCameraId}
+                onChange={(e) => {
+                  setSelectedCameraId(e.target.value);
+                  if (isWebcamActive) {
+                    initializeWebcam(e.target.value);
+                  }
+                }}
+                className={`w-full px-4 py-3 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-700'} focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm`}
+              >
+                {availableCameras.length > 0 ? (
+                  availableCameras.map((camera) => (
+                    <option key={camera.deviceId} value={camera.deviceId}>
+                      {camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">No cameras found</option>
+                )}
+              </select>
+            </div>
+
             {!isWebcamActive ? (
               <button
                 onClick={initializeWebcam}

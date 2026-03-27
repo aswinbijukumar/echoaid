@@ -37,7 +37,19 @@ with open(CLASS_MAP_PATH) as f:
 if isinstance(raw, list):
     CLASS_MAP = {i: label for i, label in enumerate(raw)}
 elif isinstance(raw, dict):
-    if all(k.isdigit() for k in list(raw.keys())[:5]):
+    # Check if keys are numeric indices (as strings)
+    sample_keys = list(raw.keys())
+    is_numeric = True
+    # Check at most 5 samples manually to avoid slice indexing issues
+    count = 0
+    for k in sample_keys:
+        if count >= 5: break
+        if not str(k).isdigit():
+            is_numeric = False
+            break
+        count += 1
+    
+    if is_numeric:
         CLASS_MAP = {int(k): v for k, v in raw.items()}
     else:
         CLASS_MAP = {v: k for k, v in raw.items()}
@@ -104,8 +116,8 @@ def predict_landmarks(landmarks: np.ndarray, top_k: int = 5):
     results = []
     for idx in top_indices:
         label = CLASS_MAP.get(int(idx), str(idx))
-        conf = float(probs[idx]) * 100
-        results.append({"label": label, "confidence": round(conf, 2)})
+        conf_val = float(probs[idx])
+        results.append({"label": label, "confidence": float(round(conf_val, 4))})
     return results
 
 

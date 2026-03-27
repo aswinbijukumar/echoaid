@@ -51,6 +51,8 @@ export default function WordBuilder({ onComplete, onExit }) {
   const [kerasResult, setKerasResult] = useState(null);   // { label, confidence }
   const [feedback, setFeedback] = useState(null);          // 'correct' | 'wrong' | null
   const [error, setError] = useState('');
+  const [availableCameras, setAvailableCameras] = useState([]);
+  const [selectedCameraId, setSelectedCameraId] = useState('');
 
   /* ── refs ── */
   const videoRef = useRef(null);
@@ -132,13 +134,21 @@ export default function WordBuilder({ onComplete, onExit }) {
   }, []);
 
   /* ── start webcam ── */
-  const startWebcam = useCallback(async () => {
+  const startWebcam = useCallback(async (deviceId = null) => {
     try {
       setError('');
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+      
+      const constraints = {
+        video: { 
+          width: { ideal: 640 }, 
+          height: { ideal: 480 },
+          deviceId: deviceId ? { exact: deviceId } : undefined,
+          facingMode: deviceId ? undefined : 'user'
+        },
         audio: false,
-      });
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
@@ -151,9 +161,27 @@ export default function WordBuilder({ onComplete, onExit }) {
         await initHands();
       }
     } catch (err) {
+      console.error('Camera error:', err);
       setError('Camera error: ' + (err?.message || 'Could not access camera'));
     }
   }, [initHands]);
+
+  /* ── enumerate cameras ── */
+  useEffect(() => {
+    const getCameras = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        setAvailableCameras(videoDevices);
+        if (videoDevices.length > 0 && !selectedCameraId) {
+          setSelectedCameraId(videoDevices[0].deviceId);
+        }
+      } catch (err) {
+        console.error('Error enumerating cameras:', err);
+      }
+    };
+    getCameras();
+  }, [selectedCameraId]);
 
   /* ── stop webcam ── */
   const stopWebcam = useCallback(() => {
@@ -238,15 +266,16 @@ export default function WordBuilder({ onComplete, onExit }) {
         const data = JSON.parse(event.data);
         if (data.detections && data.detections.length > 0) {
           const top = data.detections[0];
-          setKerasResult(top);
+          const confidencePercent = Math.round(top.confidence * 100);
+          setKerasResult({ ...top, confidence: confidencePercent });
 
           const expected = wordRef.current[currentIdxRef.current].toUpperCase();
-          if (top.label === expected && top.confidence >= MIN_CONFIDENCE) {
+          if (top.label === expected && confidencePercent >= MIN_CONFIDENCE) {
             feedbackLockRef.current = true;
             setFeedback('correct');
-            const xp = top.confidence >= 90 ? 30 : top.confidence >= 70 ? 20 : 10;
+            const xp = confidencePercent >= 90 ? 30 : confidencePercent >= 70 ? 20 : 10;
             setTimeout(() => advanceLetter(false, xp), 900);
-          } else if (top.confidence >= MIN_CONFIDENCE + 10) {
+          } else if (confidencePercent >= MIN_CONFIDENCE + 10) {
              // Show 'wrong' feedback if they sign something else clearly
              setFeedback('wrong');
              // Clear 'wrong' feedback after a short delay
@@ -524,13 +553,32 @@ export default function WordBuilder({ onComplete, onExit }) {
             )}
 
             {!isWebcamActive && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20 p-6 space-y-4">
+                {/* Camera Selector Overlay */}
+                <div className="w-full max-w-[240px]">
+                  <select
+                    value={selectedCameraId}
+                    onChange={(e) => setSelectedCameraId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-600 text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  >
+                    {availableCameras.length > 0 ? (
+                      availableCameras.map((camera) => (
+                        <option key={camera.deviceId} value={camera.deviceId}>
+                          {camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">No cameras found</option>
+                    )}
+                  </select>
+                </div>
+
                 <button
-                  onClick={startWebcam}
+                  onClick={() => startWebcam(selectedCameraId)}
                   className="flex flex-col items-center gap-2 text-white/80 hover:text-white transition-colors"
                 >
                   <PlayIcon className="w-12 h-12" />
-                  <span className="text-sm font-medium">Start Camera</span>
+                  <span className="text-sm font-medium">Start Selected Camera</span>
                 </button>
               </div>
             )}
@@ -541,12 +589,31 @@ export default function WordBuilder({ onComplete, onExit }) {
               High-speed WebSocket AI · Accuracy Threshold {MIN_CONFIDENCE}%
             </p>
           ) : (
-            <button
-              onClick={startWebcam}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors"
-            >
-              <PlayIcon className="w-4 h-4" /> Start Camera
-            </button>
+            <div className="flex flex-col items-center gap-3 w-full">
+              <div className="w-full max-w-[240px]">
+                <select
+                  value={selectedCameraId}
+                  onChange={(e) => setSelectedCameraId(e.target.value)}
+                  className={`w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-700'} focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm text-sm`}
+                >
+                  {availableCameras.length > 0 ? (
+                    availableCameras.map((camera) => (
+                      <option key={camera.deviceId} value={camera.deviceId}>
+                        {camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">No cameras found</option>
+                  )}
+                </select>
+              </div>
+              <button
+                onClick={() => startWebcam(selectedCameraId)}
+                className="flex items-center gap-2 px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors shadow-lg"
+              >
+                <PlayIcon className="w-4 h-4" /> Start Camera
+              </button>
+            </div>
           )}
         </div>
       </div>
