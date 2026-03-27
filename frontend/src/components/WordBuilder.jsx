@@ -81,8 +81,8 @@ export default function WordBuilder({ onComplete, onExit }) {
     hands.setOptions({
       maxNumHands: 2, // Track 2 hands for stable overlapping/occlusion
       modelComplexity: 1,
-      minDetectionConfidence: 0.75,
-      minTrackingConfidence: 0.75,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5,
     });
     hands.onResults((results) => {
       const multiLandmarks = results.multiHandLandmarks;
@@ -104,6 +104,8 @@ export default function WordBuilder({ onComplete, onExit }) {
         if (wsRef.current && wsReadyRef.current && !isProcessingWsRef.current) {
           isProcessingWsRef.current = true;
           wsRef.current.send(JSON.stringify({ landmarks: vector, width: vw, height: vh }));
+          // Safety timeout
+          setTimeout(() => { isProcessingWsRef.current = false; }, 200);
         }
       }
 
@@ -119,8 +121,8 @@ export default function WordBuilder({ onComplete, onExit }) {
         ctx.clearRect(0, 0, ov.width, ov.height);
         if (detected) {
           for (const lm of results.multiHandLandmarks) {
-            drawConnectors(ctx, lm, HAND_CONNECTIONS, { color: '#00FF88', lineWidth: 2 });
-            drawLandmarks(ctx, lm, { color: '#FF3366', lineWidth: 1, radius: 3 });
+            drawConnectors(ctx, lm, HAND_CONNECTIONS, { color: '#00FF88', lineWidth: 4 });
+            drawLandmarks(ctx, lm, { color: '#FF3D00', lineWidth: 2, radius: 4 });
           }
         }
       }
@@ -518,7 +520,7 @@ export default function WordBuilder({ onComplete, onExit }) {
         </div>
 
         {/* Right: webcam */}
-        <div className={`${card} border rounded-2xl p-4 flex flex-col items-center gap-3`}>
+        <div className={`${card} border rounded-2xl p-4 flex flex-col items-center gap-3 shrink-0`}>
           {error && (
             <div className="w-full text-sm text-red-400 bg-red-500/10 rounded-lg p-3 border border-red-500/20">
               {error}
@@ -550,62 +552,63 @@ export default function WordBuilder({ onComplete, onExit }) {
               </div>
             )}
 
-            {/* Processing spinner */}
-            {isRecognising && (
-              <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1 bg-black/60 rounded-full px-2 py-1">
-                <div className="w-2.5 h-2.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                <span className="text-xs text-white/70">Keras model</span>
-              </div>
-            )}
-
-            {/* Correct flash */}
-            {feedback === 'correct' && (
-              <div className="absolute inset-0 z-30 bg-green-500/20 flex items-center justify-center animate-pulse">
-                <CheckCircleIcon className="w-16 h-16 text-green-400" />
-              </div>
-            )}
-
             {!isWebcamActive && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20 p-6 space-y-4">
-                <div className="text-center">
-                  <div className="text-4xl mb-2">📹</div>
-                  <p className="text-white/60 font-medium">Camera Off</p>
-                </div>
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20 p-6 space-y-4 text-center">
+                <div className="text-4xl mb-2">📹</div>
+                <p className="text-white/60 font-medium">Camera Off</p>
+                <p className="text-white/40 text-xs px-4">Start the camera to begin your word-building challenge.</p>
               </div>
             )}
           </div>
 
-          {isWebcamActive ? (
-            <p className={`text-xs ${sub}`}>
-              High-speed WebSocket AI · Accuracy Threshold {MIN_CONFIDENCE}%
-            </p>
-          ) : (
-            <div className="flex flex-col items-center gap-3 w-full">
-              <div className="w-full max-w-[240px]">
-                <select
-                  value={selectedCameraId}
-                  onChange={(e) => setSelectedCameraId(e.target.value)}
-                  className={`w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-700'} focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm text-sm`}
+          <div className="flex flex-col items-center gap-4 w-full pt-2">
+            <div className="w-full max-w-[280px]">
+              <label className={`text-[10px] uppercase tracking-widest ${sub} mb-1.5 block px-1`}>Video Source</label>
+              <select
+                value={selectedCameraId}
+                onChange={(e) => {
+                  const newId = e.target.value;
+                  setSelectedCameraId(newId);
+                  if (isWebcamActive) {
+                    stopWebcam();
+                    setTimeout(() => startWebcam(newId), 300);
+                  }
+                }}
+                className={`w-full px-4 py-2.5 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-700'} focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm text-sm`}
+              >
+                {availableCameras.length > 0 ? (
+                  availableCameras.map((camera) => (
+                    <option key={camera.deviceId} value={camera.deviceId}>
+                      {camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">No cameras found</option>
+                )}
+              </select>
+            </div>
+
+            {isWebcamActive ? (
+              <div className="flex flex-col items-center gap-1">
+                <button
+                  onClick={() => stopWebcam()}
+                  className="px-8 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl font-semibold transition-all border border-red-500/20"
                 >
-                  {availableCameras.length > 0 ? (
-                    availableCameras.map((camera) => (
-                      <option key={camera.deviceId} value={camera.deviceId}>
-                        {camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">No cameras found</option>
-                  )}
-                </select>
+                  Stop Camera
+                </button>
+                <p className={`text-[10px] ${sub} italic mt-1`}>
+                  WebSocket Active · {MIN_CONFIDENCE}% Detection Min
+                </p>
               </div>
+            ) : (
               <button
                 onClick={() => startWebcam(selectedCameraId)}
-                className="flex items-center gap-2 px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors shadow-lg"
+                className="flex items-center gap-2 px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-lg active:scale-95 shadow-blue-500/25"
               >
-                <PlayIcon className="w-4 h-4" /> Start Camera
+                <PlayIcon className="w-5 h-5" /> Start Camera
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

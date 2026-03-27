@@ -599,8 +599,8 @@ export default function SignRecognition({
       hands.setOptions({
         maxNumHands: 2, // Track 2 hands for stable overlapping/occlusion
         modelComplexity: 1,
-        minDetectionConfidence: 0.75,
-        minTrackingConfidence: 0.75
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
       });
 
       hands.onResults((results) => {
@@ -623,6 +623,8 @@ export default function SignRecognition({
         if (wsRef.current && wsReadyRef.current && !isProcessingWsRef.current) {
           isProcessingWsRef.current = true;
           wsRef.current.send(JSON.stringify({ landmarks: vector, width: vw, height: vh }));
+          // Safety timeout to prevent WS freezing
+          setTimeout(() => { isProcessingWsRef.current = false; }, 200);
         }
 
           // 3. Keep drawing overlay
@@ -637,8 +639,8 @@ export default function SignRecognition({
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
             for (const landmarks of multiLandmarks) {
-              drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 5 });
-              drawLandmarks(canvasCtx, landmarks, { color: '#FF0000', lineWidth: 2 });
+              drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#00FF88', lineWidth: 4 });
+              drawLandmarks(canvasCtx, landmarks, { color: '#FF3D00', lineWidth: 2, radius: 4 });
             }
             canvasCtx.restore();
           }
@@ -1439,9 +1441,12 @@ export default function SignRecognition({
               <select
                 value={selectedCameraId}
                 onChange={(e) => {
-                  setSelectedCameraId(e.target.value);
+                  const newId = e.target.value;
+                  setSelectedCameraId(newId);
                   if (isWebcamActive) {
-                    initializeWebcam(e.target.value);
+                    // Force restart with new ID
+                    stopWebcam();
+                    setTimeout(() => initializeWebcam(newId), 300);
                   }
                 }}
                 className={`w-full px-4 py-3 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-700'} focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm`}
@@ -1502,21 +1507,39 @@ export default function SignRecognition({
                 <span className="p-2 bg-blue-500 rounded-lg text-white">📊</span>
                 Detailed Detection Insights
               </h4>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {detailedDetections.length > 0 ? (
-                  detailedDetections.map((det, idx) => (
-                    <div key={idx} className={`p-3 rounded-xl ${idx === 0 ? (darkMode ? 'bg-blue-900/30 border border-blue-500/30' : 'bg-white border border-blue-200 shadow-sm') : ''}`}>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className={`font-bold ${idx === 0 ? 'text-blue-500 text-lg' : (darkMode ? 'text-gray-400' : 'text-gray-600')}`}>
-                          {det.label} {idx === 0 && ' (Primary)'}
-                        </span>
-                        <span className="font-mono text-sm">{det.confidence}%</span>
+                  detailedDetections.map((det, i) => (
+                    <div key={i} className={`p-3 rounded-xl border flex items-center justify-between shadow-sm transition-all ${
+                      i === 0 ? 'bg-blue-500/10 border-blue-500/30' : 'bg-white/5 border-white/10'
+                    }`}>
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold ${
+                          i === 0 ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'
+                        }`}>
+                          {det.label}
+                        </div>
+                        <div>
+                          <div className="text-white font-medium">{det.label} Sign</div>
+                          <div className="text-white/40 text-[10px] uppercase tracking-tighter">Confidence Rank #{i+1}</div>
+                        </div>
                       </div>
-                      <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full transition-all duration-500 ${idx === 0 ? 'bg-blue-500' : 'bg-gray-400'}`}
-                          style={{ width: `${det.confidence}%` }}
-                        />
+                      <div className="text-right">
+                        <div className={`font-mono font-bold ${
+                          det.confidence >= 80 ? 'text-green-400' :
+                          det.confidence >= 50 ? 'text-yellow-400' : 'text-red-400'
+                        }`}>
+                          {det.confidence}%
+                        </div>
+                        <div className="w-16 h-1 bg-white/10 rounded-full mt-1 overflow-hidden">
+                          <div 
+                            className={`h-full ${
+                              det.confidence >= 80 ? 'bg-green-500' :
+                              det.confidence >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                            }`}
+                            style={{ width: `${det.confidence}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
                   ))
