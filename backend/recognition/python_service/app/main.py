@@ -86,38 +86,48 @@ try:
 except Exception as e:
     logger.error(f"❌ MediaPipe not available: {e}")
 
+def pre_process_landmark(landmark_list):
+    """
+    Mimics dataset_keypoint_generation.py preprocessing.
+    Normalizes coordinates relative to the wrist and scales to [-1, 1].
+    Expected: list of [x, y, z] for 21 points.
+    """
+    import copy
+    temp = copy.deepcopy(landmark_list)
+    base_x, base_y, base_z = temp[0][0], temp[0][1], temp[0][2]
+    
+    for i in range(len(temp)):
+        temp[i][0] -= base_x
+        temp[i][1] -= base_y
+        temp[i][2] -= base_z
+        
+    import itertools
+    flat = list(itertools.chain.from_iterable(temp))
+    
+    # Calculate max absolute value for normalization
+    abs_flat = [abs(v) for v in flat]
+    max_val = max(abs_flat) if abs_flat else 1.0
+    if max_val == 0: max_val = 1.0
+    
+    return np.array([v / max_val for v in flat], dtype=np.float32)
 
-def extract_landmarks(image_rgb: np.ndarray):
-    """Extract 63 (x,y,z) hand landmarks via MediaPipe. Returns flat array or None."""
-    if mp_hands is None:
-        return None
-    with mp_hands.Hands(
-        static_image_mode=True,
-        max_num_hands=1,
-        min_detection_confidence=0.5
-    ) as hands:
-        result = hands.process(image_rgb)
-        if not result.multi_hand_landmarks:
-            return None
-        lm = result.multi_hand_landmarks[0]
-        flat = []
-        for p in lm.landmark:
-            flat.extend([p.x, p.y, p.z])
-        return np.array(flat, dtype=np.float32)
 
-
-def predict_landmarks(landmarks: np.ndarray, top_k: int = 5):
-    """Run Keras model on landmark vector. Returns list of {label, confidence}."""
+def predict_landmarks(landmarks_vector, top_k=5):
+    """Run Keras model on pre-processed landmark vector."""
     if model is None:
         return []
-    inp = landmarks.reshape(1, -1)
+    inp = landmarks_vector.reshape(1, -1)
     probs = model.predict(inp, verbose=0)[0]
     top_indices = np.argsort(probs)[::-1][:top_k]
     results = []
     for idx in top_indices:
         label = CLASS_MAP.get(int(idx), str(idx))
         conf_val = float(probs[idx])
-        results.append({"label": label, "confidence": float(round(conf_val, 4))})
+        # Use string formatting to avoid round() ndigits lint issues if any
+        results.append({
+            "label": label, 
+            "confidence": float("{:.4f}".format(conf_val))
+        })
     return results
 
 
@@ -136,19 +146,47 @@ def health():
 def process_pil_image(pil_img, t0):
     """Internal helper to process a PIL image and return Keras detections."""
     img_rgb = np.array(pil_img)
-    landmarks = extract_landmarks(img_rgb)
-    if landmarks is None:
+    h, w = img_rgb.shape[:2]
+    
+    # Extract landmarks raw
+    landmarks_raw = extract_landmarks_raw(img_rgb)
+    if landmarks_raw is None:
         return {
             "detections": [],
             "message": "No hand detected in image",
             "time_ms": round((time.time() - t0) * 1000, 1)
         }
-    detections = predict_landmarks(landmarks, top_k=5)
+    
+    # Convert to pixel coordinates as per training script
+    lm_px = []
+    for lp in landmarks_raw:
+        lm_px.append([lp.x * w, lp.y * h, lp.z]) # z is already relative in MP
+        
+    # Pre-process using the training-time algorithm
+    processed_vector = pre_process_landmark(lm_px)
+    
+    # Run model
+    detections = predict_landmarks(processed_vector, top_k=5)
     return {
         "detections": detections,
         "time_ms": round((time.time() - t0) * 1000, 1),
         "landmarks_detected": True
     }
+
+
+def extract_landmarks_raw(image_rgb: np.ndarray):
+    """Extract 21 landmark objects via MediaPipe. Returns list or None."""
+    if mp_hands is None:
+        return None
+    with mp_hands.Hands(
+        static_image_mode=True,
+        max_num_hands=1,
+        min_detection_confidence=0.5
+    ) as hands:
+        result = hands.process(image_rgb)
+        if not result.multi_hand_landmarks:
+            return None
+        return result.multi_hand_landmarks[0].landmark
 
 
 @app.post("/detect")
@@ -207,16 +245,31 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             # Expecting a JSON with a 'landmarks' key: [x1, y1, z1, ..., x21, y21, z21]
+            # IN THE WEB BROWSER, these are likely 0-1 values.
+            # We assume a standard 640x480 resolution for resolution-dependent scaling used in training.
             data = await websocket.receive_json()
             landmarks_list = data.get("landmarks")
             
             if not landmarks_list or len(landmarks_list) != 63:
-                # Silently ignore or send error
                 continue
             
+            # Reshape to [21, 3]
+            lm_array = []
+            for i in range(0, 63, 3):
+                # Scale if they are normalized 0-1 (which frontend sends)
+                # Training used pixel coordinates on 640x480 (or flipped BGR)
+                # We'll use 640 and 480 as standard scale factors
+                lm_array.append([
+                    landmarks_list[i] * 640,
+                    landmarks_list[i+1] * 480,
+                    landmarks_list[i+2]
+                ])
+
+            # Pre-process
+            processed_vector = pre_process_landmark(lm_array)
+            
             # Predict
-            landmarks = np.array(landmarks_list, dtype=np.float32)
-            detections = predict_landmarks(landmarks, top_k=3)
+            detections = predict_landmarks(processed_vector, top_k=3)
             
             await websocket.send_json({
                 "detections": detections,
