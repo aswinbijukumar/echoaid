@@ -1,7 +1,9 @@
 // API configuration constants
 import { ENV_CONFIG } from '../config/prettyConfig.js';
 
-export const API_BASE_URL = ENV_CONFIG.API_BASE_URL.endsWith('/api') ? ENV_CONFIG.API_BASE_URL : `${ENV_CONFIG.API_BASE_URL}/api`;
+// Ensure the base URL ends with /api but doesn't have it twice
+const rawBase = ENV_CONFIG.API_BASE_URL.replace(/\/api\/?$/, '').replace(/\/$/, '');
+export const API_BASE_URL = `${rawBase}/api`;
 
 // Helper to build full API URL
 export const apiUrl = (path) => {
