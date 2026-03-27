@@ -39,6 +39,7 @@ export default function SignRecognition({
   // Floating chatbot now replaces inline toggle
   const wsRef = useRef(null);
   const wsReadyRef = useRef(false);
+  const isProcessingWsRef = useRef(false);
   const handsRef = useRef(null);
   const kerasIntervalRef = useRef(null);
   const [kerasPrediction, setKerasPrediction] = useState(null); // { label, confidence }
@@ -618,10 +619,11 @@ export default function SignRecognition({
             vector.push(p.x * vw, p.y * vh, p.z);
           });
 
-          // 2. Send to WebSocket for real-time Keras inference
-          if (wsRef.current && wsReadyRef.current) {
-            wsRef.current.send(JSON.stringify({ landmarks: vector, width: vw, height: vh }));
-          }
+          // 2. Send to WebSocket ONLY if previous frame finished, to prevent lag queueing
+        if (wsRef.current && wsReadyRef.current && !isProcessingWsRef.current) {
+          isProcessingWsRef.current = true;
+          wsRef.current.send(JSON.stringify({ landmarks: vector, width: vw, height: vh }));
+        }
 
           // 3. Keep drawing overlay
           const canvasElement = overlayRef.current;
@@ -859,6 +861,7 @@ export default function SignRecognition({
       };
 
       ws.onmessage = (event) => {
+        isProcessingWsRef.current = false;
         const data = JSON.parse(event.data);
         if (data.detections && data.detections.length > 0) {
           const top = data.detections[0];

@@ -67,6 +67,7 @@ export default function WordBuilder({ onComplete, onExit }) {
   const feedbackLockRef = useRef(false); // prevent double-advance
   const wsRef = useRef(null);
   const wsReadyRef = useRef(false);
+  const isProcessingWsRef = useRef(false);
 
   useEffect(() => { currentIdxRef.current = currentIdx; }, [currentIdx]);
   useEffect(() => { wordRef.current = word; }, [word]);
@@ -99,8 +100,9 @@ export default function WordBuilder({ onComplete, onExit }) {
           vector.push(p.x * vw, p.y * vh, p.z);
         });
 
-        // 2. Send to WebSocket for real-time Keras inference
-        if (wsRef.current && wsReadyRef.current) {
+        // 2. Send to WebSocket ONLY if previous frame finished, to prevent lag queueing
+        if (wsRef.current && wsReadyRef.current && !isProcessingWsRef.current) {
+          isProcessingWsRef.current = true;
           wsRef.current.send(JSON.stringify({ landmarks: vector, width: vw, height: vh }));
         }
       }
@@ -271,6 +273,7 @@ export default function WordBuilder({ onComplete, onExit }) {
       };
 
       ws.onmessage = (event) => {
+        isProcessingWsRef.current = false;
         if (feedbackLockRef.current) return;
         
         const data = JSON.parse(event.data);
@@ -522,7 +525,7 @@ export default function WordBuilder({ onComplete, onExit }) {
             </div>
           )}
 
-          <div className="relative w-full max-w-sm aspect-video bg-black rounded-xl overflow-hidden">
+          <div className="relative w-full h-96 bg-black rounded-xl overflow-hidden shadow-lg border border-white/10">
             <video
               ref={videoRef}
               className="w-full h-full object-cover scale-x-[-1]"
