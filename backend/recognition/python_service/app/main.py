@@ -60,32 +60,44 @@ NUM_CLASSES = len(CLASS_MAP)
 logger.info(f"Loaded {NUM_CLASSES} classes from class_mapping.json")
 
 # ─── Load Keras model ──────────────────────────────────────────────────────────
-MODEL_PATH = os.path.join(BASE_DIR, "model.h5")
+MODEL_PATH = os.path.join(BASE_DIR, "model.keras")
+if not os.path.exists(MODEL_PATH):
+    MODEL_PATH = os.path.join(BASE_DIR, "model.h5")
+
 model = None
 
-try:
-    # Try importing standalone keras (v3+) first for better H5 compatibility
+def build_sign_model(num_classes):
+    """Reconstruct exact architecture to avoid deserialization errors."""
     try:
         import keras
-        model = keras.models.load_model(MODEL_PATH)
-        logger.info(f"✅ Model loaded using standalone Keras {keras.__version__}")
-    except (ImportError, Exception):
-        import tensorflow as tf
-        model = tf.keras.models.load_model(MODEL_PATH)
-        logger.info("✅ Model loaded using tf.keras")
-    
+        m = keras.Sequential([
+            keras.layers.Input(shape=(63,)),
+            keras.layers.Dense(256, activation='relu'),
+            keras.layers.Dropout(0.2),
+            keras.layers.Dense(128, activation='relu'),
+            keras.layers.Dropout(0.2),
+            keras.layers.Dense(64, activation='relu'),
+            keras.layers.Dense(num_classes, activation='softmax')
+        ])
+        return m
+    except Exception as e:
+        logger.error(f"Failed to build model manually: {e}")
+        return None
+
+try:
+    model = build_sign_model(NUM_CLASSES)
     if model:
+        # Load weights from the saved model (.keras or .h5)
+        # Keras 3 load_weights is very robust if architecture matches
+        model.load_weights(MODEL_PATH)
+        logger.info(f"✅ Keras weights loaded from {MODEL_PATH}")
         # Warm up
         dummy = np.zeros((1, 63), dtype=np.float32)
         model.predict(dummy, verbose=0)
-        # Handle different Keras versions for input_shape
-        try:
-            in_shape = model.input_shape
-        except:
-            in_shape = "unknown"
-        logger.info(f"✅ Keras model ready | input shape: {in_shape}")
+    else:
+        logger.error("❌ Model architecture build failed.")
 except Exception as e:
-    logger.error(f"❌ Could not load Keras model: {e}")
+    logger.error(f"❌ Error during manual model load: {e}")
     logger.error(traceback.format_exc())
 
 # ─── Load MediaPipe Hands ──────────────────────────────────────────────────────
