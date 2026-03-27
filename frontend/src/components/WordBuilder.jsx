@@ -102,6 +102,7 @@ export default function WordBuilder({ onComplete, onExit }) {
         });
 
         // 2. Send to WebSocket ONLY if previous frame finished, to prevent lag queueing
+        // 2. Send to WebSocket ONLY if previous frame finished, to prevent lag queueing
         if (wsRef.current && wsReadyRef.current && !isProcessingWsRef.current) {
           isProcessingWsRef.current = true;
           wsRef.current.send(JSON.stringify({ 
@@ -110,8 +111,9 @@ export default function WordBuilder({ onComplete, onExit }) {
             height: vh,
             isMirrored: isMirrored
           }));
-          // Safety timeout
-          setTimeout(() => { isProcessingWsRef.current = false; }, 200);
+          // Safety timeout (1s) to prevent WS freezing if response lost
+          if (kerasIntervalRef.current) clearTimeout(kerasIntervalRef.current);
+          kerasIntervalRef.current = setTimeout(() => { isProcessingWsRef.current = false; }, 1000);
         }
       }
 
@@ -281,7 +283,10 @@ export default function WordBuilder({ onComplete, onExit }) {
       };
 
       ws.onmessage = (event) => {
+        // Clear safety timeout and unlock
+        if (kerasIntervalRef.current) clearTimeout(kerasIntervalRef.current);
         isProcessingWsRef.current = false;
+        
         if (feedbackLockRef.current) return;
         
         const data = JSON.parse(event.data);

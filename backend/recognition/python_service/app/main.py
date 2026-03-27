@@ -91,6 +91,19 @@ def build_sign_model(num_classes):
         logger.error(f"Failed to build model manually: {e}")
         return None
 
+# Global MediaPipe Hands instance to avoid heavy re-initialization
+hands_static = None
+if mp_hands:
+    try:
+        hands_static = mp_hands.Hands(
+            static_image_mode=True,
+            max_num_hands=2,
+            min_detection_confidence=0.5
+        )
+        logger.info("✅ Global MediaPipe Hands (static) initialized")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize MediaPipe Hands: {e}")
+
 try:
     model = build_sign_model(NUM_CLASSES)
     if model:
@@ -216,18 +229,19 @@ def process_pil_image(pil_img, t0, is_mirrored=True):
 
 def extract_landmarks_raw(image_rgb: np.ndarray):
     """Extract 21 landmark objects via MediaPipe. Returns list or None."""
-    if mp_hands is None:
+    global hands_static
+    if mp_hands is None or hands_static is None:
         return None
-    with mp_hands.Hands(
-        static_image_mode=True,
-        max_num_hands=2, # Increased to 2 for better robustness with two-hand signs
-        min_detection_confidence=0.5
-    ) as hands:
-        result = hands.process(image_rgb)
+    
+    try:
+        result = hands_static.process(image_rgb)
         if not result.multi_hand_landmarks:
             return None
         # Return first hand detected
         return result.multi_hand_landmarks[0].landmark
+    except Exception as e:
+        logger.error(f"MediaPipe processing error: {e}")
+        return None
 
 
 @app.post("/detect")

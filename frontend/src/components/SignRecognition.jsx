@@ -629,8 +629,9 @@ export default function SignRecognition({
             height: vh,
             isMirrored: isMirrored 
           }));
-          // Safety timeout to prevent WS freezing
-          setTimeout(() => { isProcessingWsRef.current = false; }, 200);
+          // Safety timeout (1s) to prevent WS freezing if response lost
+          if (kerasIntervalRef.current) clearTimeout(kerasIntervalRef.current);
+          kerasIntervalRef.current = setTimeout(() => { isProcessingWsRef.current = false; }, 1000);
         }
 
           // 3. Keep drawing overlay
@@ -739,9 +740,10 @@ export default function SignRecognition({
 
       const constraints = {
         video: {
-          width: { ideal: 640, min: 320 },
-          height: { ideal: 480, min: 240 },
-          ...((overrideDeviceId || selectedCameraId) ? { deviceId: { exact: overrideDeviceId || selectedCameraId } } : { facingMode: 'user' })
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: overrideDeviceId || selectedCameraId ? undefined : 'user',
+          deviceId: overrideDeviceId || selectedCameraId ? { exact: overrideDeviceId || selectedCameraId } : undefined
         },
         audio: false
       };
@@ -869,7 +871,10 @@ export default function SignRecognition({
       };
 
       ws.onmessage = (event) => {
+        // Clear safety timeout and unlock
+        if (kerasIntervalRef.current) clearTimeout(kerasIntervalRef.current);
         isProcessingWsRef.current = false;
+        
         const data = JSON.parse(event.data);
         if (data.detections && data.detections.length > 0) {
           const top = data.detections[0];
@@ -930,7 +935,7 @@ export default function SignRecognition({
       console.log('[recognition] Starting detection for image:', imageDataUrl?.substring(0, 50) + '...');
 
       // Use the new data URL function
-      const data = await detectImageFromDataUrl(imageDataUrl, { signId, isMirrored });
+      const data = await detectImageFromDataUrl(imageDataUrl, { signId: targetSign?._id, isMirrored });
       const expected = getExpectedLabel();
 
       // Map YOLO detections to a single result for session scoring
@@ -1472,10 +1477,11 @@ export default function SignRecognition({
                 onChange={(e) => {
                   const newId = e.target.value;
                   setSelectedCameraId(newId);
+                  // Auto-restart if active
                   if (isWebcamActive) {
-                    // Force restart with new ID
                     stopWebcam();
-                    setTimeout(() => initializeWebcam(newId), 300);
+                    // Small delay to ensure tracks are fully released by OS
+                    setTimeout(() => initializeWebcam(newId), 500);
                   }
                 }}
                 className={`w-full px-4 py-3 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-700'} focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm`}
