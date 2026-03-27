@@ -68,8 +68,10 @@ export const recognize = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid image data' });
     }
 
-    const pyUrl = ENV_CONFIG.PY_SERVICE_URL;
-    let data;
+    let pyUrl = ENV_CONFIG.PY_SERVICE_URL;
+    if (!pyUrl || (process.env.NODE_ENV === 'production' && pyUrl.includes('localhost'))) {
+      pyUrl = 'https://echoaid-recognition.onrender.com';
+    }
 
     logger.recognition('Calling Python service', {
       url: pyUrl,
