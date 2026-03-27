@@ -1,12 +1,12 @@
 // API configuration constants
 import { ENV_CONFIG } from '../config/prettyConfig.js';
 
-export const API_BASE_URL = ENV_CONFIG.API_BASE_URL;
+export const API_BASE_URL = ENV_CONFIG.API_BASE_URL.endsWith('/api') ? ENV_CONFIG.API_BASE_URL : `${ENV_CONFIG.API_BASE_URL}/api`;
 
 // Helper to build full API URL
 export const apiUrl = (path) => {
   const safePath = path.startsWith('/') ? path : `/${path}`;
-  return `${API_BASE_URL}/api${safePath}`;
+  return `${API_BASE_URL}${safePath}`;
 };
 
 // Helper to include Bearer token automatically

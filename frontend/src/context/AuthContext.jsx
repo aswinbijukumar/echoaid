@@ -15,7 +15,7 @@ export function AuthProvider({ children }) {
     try {
       // Revoke session on server
       if (refreshToken) {
-        await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        await fetch(`${API_BASE_URL}/auth/logout`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -43,7 +43,7 @@ export function AuthProvider({ children }) {
       if (_token) {
         try {
           logger.auth('Checking authentication', { tokenPreview: _token.substring(0, 20) + '...' }, 'AUTH');
-          const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          const response = await fetch(`${API_BASE_URL}/auth/me`, {
             headers: {
               'Authorization': `Bearer ${_token}`
             }
@@ -106,7 +106,7 @@ export function AuthProvider({ children }) {
   const login = async (credentials) => {
     try {
       logger.auth('Attempting login', { email: credentials.email }, 'AUTH');
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -147,7 +147,7 @@ export function AuthProvider({ children }) {
   };
 
   const signup = async (userData) => {
-    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -168,7 +168,7 @@ export function AuthProvider({ children }) {
   };
 
   const googleAuth = async (googleToken) => {
-    const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
+    const response = await fetch(`${API_BASE_URL}/auth/google`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -190,7 +190,7 @@ export function AuthProvider({ children }) {
 
   const forgotPassword = async (email) => {
     // cspell:ignore forgotpassword
-    const response = await fetch(`${API_BASE_URL}/api/auth/forgotpassword`, {
+    const response = await fetch(`${API_BASE_URL}/auth/forgotpassword`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -210,7 +210,7 @@ export function AuthProvider({ children }) {
   const refreshUser = useCallback(async () => {
     if (_token) {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        const response = await fetch(`${API_BASE_URL}/auth/me`, {
           headers: {
             'Authorization': `Bearer ${_token}`
           }

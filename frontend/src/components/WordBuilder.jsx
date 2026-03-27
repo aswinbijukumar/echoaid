@@ -217,7 +217,7 @@ export default function WordBuilder({ onComplete, onExit }) {
       const getWsUrl = () => {
         const envUrl = import.meta.env.VITE_RECOGNITION_SERVICE_URL;
         if (envUrl) return envUrl;
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const protocol = window.location.protocol.startsWith('https') ? 'wss:' : 'ws:';
         return `${protocol}//${window.location.hostname}:8001/ws/recognize`;
       };
 

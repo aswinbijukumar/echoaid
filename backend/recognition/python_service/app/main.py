@@ -121,24 +121,9 @@ def health():
     }
 
 
-@app.post("/detect")
-async def detect(image: UploadFile = File(...)):
-    t0 = time.time()
-
-    if model is None:
-        raise HTTPException(503, "Keras model not loaded")
-    if mp_hands is None:
-        raise HTTPException(503, "MediaPipe not available")
-
-    # Read image
-    contents = await image.read()
-    try:
-        pil_img = Image.open(io.BytesIO(contents)).convert("RGB")
-        img_rgb = np.array(pil_img)
-    except Exception as e:
-        raise HTTPException(400, f"Cannot read image: {e}")
-
-    # Extract landmarks
+def process_pil_image(pil_img, t0):
+    """Internal helper to process a PIL image and return Keras detections."""
+    img_rgb = np.array(pil_img)
     landmarks = extract_landmarks(img_rgb)
     if landmarks is None:
         return {
@@ -146,15 +131,55 @@ async def detect(image: UploadFile = File(...)):
             "message": "No hand detected in image",
             "time_ms": round((time.time() - t0) * 1000, 1)
         }
-
-    # Run model
     detections = predict_landmarks(landmarks, top_k=5)
-
     return {
         "detections": detections,
         "time_ms": round((time.time() - t0) * 1000, 1),
         "landmarks_detected": True
     }
+
+
+@app.post("/detect")
+async def detect(image: UploadFile = File(...)):
+    t0 = time.time()
+    if model is None: raise HTTPException(503, "Keras model not loaded")
+    if mp_hands is None: raise HTTPException(503, "MediaPipe not available")
+
+    contents = await image.read()
+    try:
+        pil_img = Image.open(io.BytesIO(contents)).convert("RGB")
+        return process_pil_image(pil_img, t0)
+    except Exception as e:
+        raise HTTPException(400, f"Cannot read image: {e}")
+
+
+@app.post("/detect_base64")
+async def detect_base64(data: dict):
+    """Accepts JSON { 'image': 'data:image/jpeg;base64,...' } for Node.js compatibility."""
+    t0 = time.time()
+    if model is None: raise HTTPException(503, "Keras model not loaded")
+    if mp_hands is None: raise HTTPException(503, "MediaPipe not available")
+
+    image_data = data.get("image")
+    if not image_data:
+        raise HTTPException(400, "Missed 'image' key in JSON")
+
+    try:
+        if "," in image_data:
+            image_data = image_data.split(",")[1]
+        
+        import base64
+        contents = base64.b64decode(image_data)
+        pil_img = Image.open(io.BytesIO(contents)).convert("RGB")
+        return process_pil_image(pil_img, t0)
+    except Exception as e:
+        raise HTTPException(400, f"Invalid base64 image: {e}")
+
+
+@app.post("/score")
+async def score(data: dict):
+    """Alias for /detect_base64 to replace YOLO path seamlessly."""
+    return await detect_base64(data)
 
 
 @app.post("/recognize")
