@@ -10,6 +10,7 @@ import time
 import json
 import logging
 import traceback
+from typing import List
 import numpy as np
 from fastapi import FastAPI, File, UploadFile, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -118,14 +119,16 @@ try:
 except Exception as e:
     logger.error(f"❌ MediaPipe not available: {e}")
 
-def pre_process_landmark(landmark_list):
+def pre_process_landmark(landmark_list: List[List[float]]):
     """
     Mimics dataset_keypoint_generation.py preprocessing.
     Normalizes coordinates relative to the wrist and scales to [-1, 1].
     Expected: list of [x, y, z] for 21 points.
     """
     import copy
-    temp = copy.deepcopy(landmark_list)
+    temp = copy.deepcopy(list(landmark_list))
+    if not temp: return np.zeros(63, dtype=np.float32)
+    
     base_x, base_y, base_z = temp[0][0], temp[0][1], temp[0][2]
     
     for i in range(len(temp)):
@@ -148,13 +151,14 @@ def predict_landmarks(landmarks_vector, top_k=5):
     """Run Keras model on pre-processed landmark vector."""
     if model is None:
         return []
-    inp = landmarks_vector.reshape(1, -1)
-    probs = model.predict(inp, verbose=0)[0]
-    top_indices = np.argsort(probs)[::-1][:top_k]
+        
+    prediction = model.predict(np.array([landmarks_vector]), verbose=0)
+    indices = np.argsort(prediction[0])[::-1][:top_k]
+    
     results = []
-    for idx in top_indices:
+    for idx in indices:
         label = CLASS_MAP.get(int(idx), str(idx))
-        conf_val = float(probs[idx])
+        conf_val = float(prediction[0][idx])
         # Use string formatting to avoid round() ndigits lint issues if any
         results.append({
             "label": label, 
@@ -177,6 +181,9 @@ def health():
 
 def process_pil_image(pil_img, t0):
     """Internal helper to process a PIL image and return Keras detections."""
+    # FLIP IMAGE to match training-time 'cv2.flip(img, 1)'
+    pil_img = pil_img.transpose(Image.FLIP_LEFT_RIGHT)
+    
     img_rgb = np.array(pil_img)
     h, w = img_rgb.shape[:2]
     
@@ -186,7 +193,7 @@ def process_pil_image(pil_img, t0):
         return {
             "detections": [],
             "message": "No hand detected in image",
-            "time_ms": round((time.time() - t0) * 1000, 1)
+            "time_ms": round(float((time.time() - t0) * 1000), 1)
         }
     
     # Convert to pixel coordinates as per training script
@@ -201,7 +208,7 @@ def process_pil_image(pil_img, t0):
     detections = predict_landmarks(processed_vector, top_k=5)
     return {
         "detections": detections,
-        "time_ms": round((time.time() - t0) * 1000, 1),
+        "time_ms": round(float((time.time() - t0) * 1000), 1),
         "landmarks_detected": True
     }
 
@@ -212,12 +219,13 @@ def extract_landmarks_raw(image_rgb: np.ndarray):
         return None
     with mp_hands.Hands(
         static_image_mode=True,
-        max_num_hands=1,
+        max_num_hands=2, # Increased to 2 for better robustness with two-hand signs
         min_detection_confidence=0.5
     ) as hands:
         result = hands.process(image_rgb)
         if not result.multi_hand_landmarks:
             return None
+        # Return first hand detected
         return result.multi_hand_landmarks[0].landmark
 
 
@@ -277,10 +285,10 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             # Expecting a JSON with a 'landmarks' key: [x1, y1, z1, ..., x21, y21, z21]
-            # IN THE WEB BROWSER, these are likely 0-1 values.
-            # We assume a standard 640x480 resolution for resolution-dependent scaling used in training.
             data = await websocket.receive_json()
             landmarks_list = data.get("landmarks")
+            vw = data.get("width", 640)
+            # vh = data.get("height", 480) # not strictly needed if x is already pixel-scaled
             
             if not landmarks_list or len(landmarks_list) != 63:
                 continue
@@ -289,8 +297,6 @@ async def websocket_endpoint(websocket: WebSocket):
             lm_array = []
             for i in range(0, 63, 3):
                 # Coordinates from frontend are now raw pixel coordinates (x * vw, y * vh)
-                # which perfectly preserves the physical aspect ratio of the user's camera.
-                # If they are legacy (normalized 0-1), scale them back, otherwise use as is.
                 x = landmarks_list[i]
                 y = landmarks_list[i+1]
                 z = landmarks_list[i+2]
@@ -299,6 +305,9 @@ async def websocket_endpoint(websocket: WebSocket):
                     # Legacy fallback for cached frontends
                     x *= 640
                     y *= 480
+                
+                # MIRROR X to match training-time flip
+                x = vw - x
                     
                 lm_array.append([x, y, z])
 
