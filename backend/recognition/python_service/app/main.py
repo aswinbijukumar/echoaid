@@ -15,6 +15,13 @@ import numpy as np
 from fastapi import FastAPI, File, UploadFile, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
+try:
+    import mediapipe as mp
+    mp_hands = mp.solutions.hands
+    mp_drawing = mp.solutions.drawing_utils
+except ImportError:
+    mp_hands = None
+    mp_drawing = None
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -120,18 +127,6 @@ except Exception as e:
     logger.error(f"❌ Error during manual model load: {e}")
     logger.error(traceback.format_exc())
 
-# ─── Load MediaPipe Hands ──────────────────────────────────────────────────────
-mp_hands = None
-mp_drawing = None
-
-try:
-    import mediapipe as mp
-    mp_hands = mp.solutions.hands
-    mp_drawing = mp.solutions.drawing_utils
-    logger.info("✅ MediaPipe loaded")
-except Exception as e:
-    logger.error(f"❌ MediaPipe not available: {e}")
-
 def pre_process_landmark(landmark_list: List[List[float]]):
     """
     Mimics dataset_keypoint_generation.py preprocessing.
@@ -194,6 +189,15 @@ def health():
 
 def process_pil_image(pil_img, t0, is_mirrored=True):
     """Internal helper to process a PIL image and return Keras detections."""
+    # RESIZE for speed - landmarks don't need 4K resolution
+    # 640px height is a good balance for MediaPipe accuracy vs speed
+    w_orig, h_orig = pil_img.size
+    if h_orig > 640:
+        scale = 640 / h_orig
+        new_size = (int(w_orig * scale), 640)
+        pil_img = pil_img.resize(new_size, Image.Resampling.LANCZOS)
+        logger.info(f"Resized image from {h_orig}p to 640p for recognition speed")
+
     if is_mirrored:
         # FLIP IMAGE to match training-time 'cv2.flip(img, 1)'
         pil_img = pil_img.transpose(Image.FLIP_LEFT_RIGHT)

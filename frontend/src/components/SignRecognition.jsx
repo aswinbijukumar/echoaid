@@ -1827,6 +1827,12 @@ export default function SignRecognition({
                     <div className="text-lg font-bold text-purple-600">{recognitionResult.time_ms || '—'} ms</div>
                   </div>
                   <div className="p-3 bg-white rounded-lg shadow-sm">
+                    <div className="text-[10px] text-gray-400 font-semibold uppercase">Source</div>
+                    <div className="text-lg font-bold text-orange-600">
+                      {isWebcamActive ? 'Webcam' : 'Upload'}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-white rounded-lg shadow-sm">
                     <div className="text-[10px] text-gray-400 font-semibold uppercase">Landmarks</div>
                     <div className="text-lg font-bold text-green-600">{recognitionResult.landmark_count || '21'} pts</div>
                   </div>
