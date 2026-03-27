@@ -111,7 +111,14 @@ export default function LearningModule({ skill, onComplete, onBack, nextSkill, o
     setIsCompleted(true);
     setShowResults(true);
 
-    // Module complete — no popup, results shown inline below
+    // Progression message for initial complete
+    setProgressionMessage(`🎉 Module "${skill.title}" completed!`);
+    setShowProgressionMessage(true);
+
+    // Hide initial message after 1.5 seconds to make room for follow-up
+    setTimeout(() => {
+      setShowProgressionMessage(false);
+    }, 1500);
 
     // Send completion to backend
     try {
@@ -155,7 +162,12 @@ export default function LearningModule({ skill, onComplete, onBack, nextSkill, o
             setShowProgressionMessage(true);
             setShowQuizButton(true);
 
-            // No auto-redirect — user can click Take Quiz themselves
+            // Auto redirect smoothly after shorter delay if they don't click
+            setTimeout(() => {
+              if (window.location.pathname.includes('/learn')) {
+                navigate(`/quiz/${data.unlockedQuizId}`, { replace: true });
+              }
+            }, 2500);
           }, 800);
         } else if (data.isLastModuleInLevel) {
           setTimeout(() => {
@@ -435,7 +447,23 @@ export default function LearningModule({ skill, onComplete, onBack, nextSkill, o
         )}
       </div>
 
-      {/* Progression message removed — no intrusive popup */}
+      {/* Progression Message */}
+      {showProgressionMessage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl">
+            <div className="text-6xl mb-4">🎉</div>
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+              Great Job!
+            </h3>
+            <p className="text-lg text-gray-600 dark:text-gray-300 mb-6">
+              {progressionMessage}
+            </p>
+            <div className="flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quiz Button */}
       {showQuizButton && (
