@@ -69,6 +69,7 @@ export default function WordBuilder({ onComplete, onExit }) {
   const wsRef = useRef(null);
   const wsReadyRef = useRef(false);
   const isProcessingWsRef = useRef(false);
+  const kerasIntervalRef = useRef(null);
 
   useEffect(() => { currentIdxRef.current = currentIdx; }, [currentIdx]);
   useEffect(() => { wordRef.current = word; }, [word]);
@@ -148,7 +149,8 @@ export default function WordBuilder({ onComplete, onExit }) {
     });
     await camera.start();
     cameraRef.current = camera;
-  }, []);
+    console.log('[WordBuilder-hand] MediaPipe Hands initialized');
+  }, [isMirrored]);
 
   /* ── start webcam ── */
   const startWebcam = useCallback(async (deviceId = null) => {
@@ -217,6 +219,8 @@ export default function WordBuilder({ onComplete, onExit }) {
     }
     setIsWebcamActive(false);
     setHandDetected(false);
+    isProcessingWsRef.current = false; // Reset lock
+    if (kerasIntervalRef.current) clearTimeout(kerasIntervalRef.current);
   }, []);
 
   /* ── capture frame → blob ── */
@@ -280,6 +284,7 @@ export default function WordBuilder({ onComplete, onExit }) {
       ws.onopen = () => {
         console.log('[WordBuilder-ws] Connected');
         wsReadyRef.current = true;
+        isProcessingWsRef.current = false; // Reset lock
       };
 
       ws.onmessage = (event) => {

@@ -42,6 +42,7 @@ export default function SignRecognition({
   const wsReadyRef = useRef(false);
   const isProcessingWsRef = useRef(false);
   const handsRef = useRef(null);
+  const cameraRef = useRef(null);
   const kerasIntervalRef = useRef(null);
   const [kerasPrediction, setKerasPrediction] = useState(null); // { label, confidence }
   const [detailedDetections, setDetailedDetections] = useState([]);
@@ -604,6 +605,7 @@ export default function SignRecognition({
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.7 // Increased for better hand "stickiness"
       });
+      handsRef.current = hands;
 
       hands.onResults((results) => {
         const multiLandmarks = results.multiHandLandmarks;
@@ -681,9 +683,11 @@ export default function SignRecognition({
         }
       });
 
-      handsRef.current = hands;
-
       // Start Camera
+      if (cameraRef.current) {
+        try { cameraRef.current.stop(); } catch (_) {}
+      }
+
       const camera = new Camera(videoRef.current, {
         onFrame: async () => {
           if (videoRef.current && handsRef.current) {
@@ -693,6 +697,7 @@ export default function SignRecognition({
         width: 640,
         height: 480
       });
+      cameraRef.current = camera;
       camera.start();
 
       console.log('[hand] MediaPipe Hands initialized');
@@ -869,6 +874,7 @@ export default function SignRecognition({
       ws.onopen = () => {
         console.log('[ws] Connected');
         wsReadyRef.current = true;
+        isProcessingWsRef.current = false; // Reset lock on open
       };
 
       ws.onmessage = (event) => {
@@ -914,6 +920,7 @@ export default function SignRecognition({
       ws.onerror = (err) => {
         console.error('[ws] Error', err);
         wsReadyRef.current = false;
+        isProcessingWsRef.current = false; // Reset lock on error
       };
 
       return () => {
@@ -1021,6 +1028,29 @@ export default function SignRecognition({
       clearInterval(kerasIntervalRef.current);
       kerasIntervalRef.current = null;
     }
+    
+    // Explicitly stop MediaPipe Camera helper
+    if (cameraRef.current) {
+      try { 
+        cameraRef.current.stop(); 
+        console.log('[camera] MediaPipe Camera helper stopped');
+      } catch (e) {
+        console.warn('[camera] Error stopping MediaPipe Camera:', e);
+      }
+      cameraRef.current = null;
+    }
+
+    // Explicitly close MediaPipe Hands
+    if (handsRef.current) {
+      try {
+        handsRef.current.close();
+        console.log('[hand] MediaPipe Hands instance closed');
+      } catch (e) {
+        console.warn('[hand] Error closing MediaPipe Hands:', e);
+      }
+      handsRef.current = null;
+    }
+
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
@@ -1028,6 +1058,8 @@ export default function SignRecognition({
     setIsWebcamActive(false);
     setIsVideoReady(false);
     setKerasPrediction(null);
+    setHandDetected(false);
+    isProcessingWsRef.current = false; // Reset lock on stop
   }, []);
 
   // Capture frame from webcam with optional cropping; returns null if frame is too dark/blank
