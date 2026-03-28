@@ -44,6 +44,8 @@ export default function SignRecognition({
   const handsRef = useRef(null);
   const cameraRef = useRef(null);
   const kerasIntervalRef = useRef(null);
+  const recognitionResultRef = useRef(null);
+  const isMirroredRef = useRef(isMirrored);
   const [kerasPrediction, setKerasPrediction] = useState(null); // { label, confidence }
   const [detailedDetections, setDetailedDetections] = useState([]);
   const [guidanceNotes, setGuidanceNotes] = useState([]);
@@ -58,7 +60,8 @@ export default function SignRecognition({
     targetSignRef.current = targetSign;
     currentModeRef.current = currentMode;
     onRecognitionRef.current = onRecognition;
-  }, [targetSign, currentMode, onRecognition]);
+    isMirroredRef.current = isMirrored;
+  }, [targetSign, currentMode, onRecognition, isMirrored]);
 
   // Enhanced sign dictionary with gamification elements - UPDATED FOR ISL (Indian Sign Language)
   const signDictionary = useMemo(() => ({
@@ -630,7 +633,7 @@ export default function SignRecognition({
             landmarks: vector, 
             width: vw, 
             height: vh,
-            isMirrored: isMirrored 
+            isMirrored: isMirroredRef.current 
           }));
           // Safety timeout (1s) to prevent WS freezing if response lost
           if (kerasIntervalRef.current) clearTimeout(kerasIntervalRef.current);
@@ -656,21 +659,26 @@ export default function SignRecognition({
           }
 
           // 4. Fallback/Dual Analysis (Geometric) - ONLY if targetSign is active
-          const signKey = getExpectedLabel();
-          if (signKey) {
-             const analysis = analyzeSign(multiLandmarks, results.multiHandedness, signKey);
-             if (analysis.isMatch && !recognitionResult?.isCorrect) {
-                // Trigger success for geometric match
-                setRecognitionResult({
-                  label: signKey,
-                  confidence: analysis.score,
-                  isCorrect: true,
-                  feedback: "Geometric Match!",
-                  modelSource: 'Geometric'
-                });
-             }
-          }
-
+          const checkGeometricMatch = () => {
+            const signKey = getExpectedLabel();
+            if (signKey) {
+               const analysis = analyzeSign(multiLandmarks, results.multiHandedness, signKey);
+               if (analysis.isMatch && !recognitionResultRef.current?.isCorrect) {
+                  // Trigger success for geometric match
+                  const result = {
+                    label: signKey,
+                    confidence: analysis.score,
+                    isCorrect: true,
+                    feedback: "Geometric Match!",
+                    modelSource: 'Geometric'
+                  };
+                  setRecognitionResult(result);
+                  recognitionResultRef.current = result;
+                  if (onRecognitionRef.current) onRecognitionRef.current(result);
+               }
+            }
+          };
+          checkGeometricMatch();
         } else {
           setHandDetected(false);
           setKerasPrediction(null);
@@ -705,7 +713,7 @@ export default function SignRecognition({
       console.error('[hand] Failed to initialize MediaPipe Hands:', error);
       setError("Failed to load hand tracking model.");
     }
-  }, [getExpectedLabel, recognitionResult]); 
+  }, [getExpectedLabel]); 
 
   // Enumerate available cameras
   const enumerateCameras = useCallback(async () => {
@@ -788,6 +796,15 @@ export default function SignRecognition({
           await video.play();
           setIsWebcamActive(true);
           setIsVideoReady(true);
+
+          const track = stream.getVideoTracks()[0];
+          const settings = track.getSettings();
+          if (settings && settings.facingMode) {
+             setIsMirrored(settings.facingMode === 'user');
+          } else {
+             const label = track.label.toLowerCase();
+             setIsMirrored(label.includes('front') || label.includes('selfie') || label.includes('user'));
+          }
 
           // Initialize hand detection
           await initializeHands();
@@ -1009,6 +1026,7 @@ export default function SignRecognition({
 
       console.log('[recognition] Processed result:', result);
       setRecognitionResult(result);
+      recognitionResultRef.current = result;
       onRecognition(result);
       return true;
     } catch (e) {
@@ -1038,6 +1056,16 @@ export default function SignRecognition({
         console.warn('[camera] Error stopping MediaPipe Camera:', e);
       }
       cameraRef.current = null;
+    }
+
+    // Clear canvas overlay
+    if (overlayRef.current) {
+      try {
+        const ctx = overlayRef.current.getContext('2d');
+        ctx.clearRect(0, 0, overlayRef.current.width, overlayRef.current.height);
+      } catch (e) {
+        console.warn('[camera] Error clearing canvas:', e);
+      }
     }
 
     // Explicitly close MediaPipe Hands
@@ -1434,24 +1462,24 @@ export default function SignRecognition({
               autoPlay
               playsInline
               muted
-              className={`w-full h-96 object-cover rounded-xl ${!isWebcamActive
+              className={`w-full h-full object-cover rounded-xl ${!isWebcamActive
                 ? darkMode
                   ? 'bg-gray-700'
                   : 'bg-gray-200'
                 : ''
-                } ${darkMode ? 'ring-1 ring-gray-700' : 'ring-1 ring-gray-200'}`}
+                }`}
               style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }}
             />
             {/* Overlay for detections */}
             <canvas
               ref={overlayRef}
-              className="pointer-events-none absolute inset-0 w-full h-96 object-cover rounded-xl"
-              style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }}
+              className="pointer-events-none absolute inset-0 w-full h-full object-cover rounded-xl"
+              style={{ transform: isMirrored ? 'scaleX(-1)' : 'none', zIndex: 10 }}
             />
             <canvas ref={canvasRef} className="hidden" />
 
             {!isWebcamActive && (
-              <div className={`absolute inset-0 flex items-center justify-center ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-xl h-96`}>
+              <div className={`absolute inset-0 flex items-center justify-center ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-xl h-96 z-10`}>
                 <div className="text-center">
                   <div className="text-4xl mb-2">📹</div>
                   <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Webcam not active</p>

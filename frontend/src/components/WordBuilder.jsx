@@ -69,10 +69,12 @@ export default function WordBuilder({ onComplete, onExit }) {
   const wsRef = useRef(null);
   const wsReadyRef = useRef(false);
   const isProcessingWsRef = useRef(false);
+  const isMirroredRef = useRef(isMirrored);
   const kerasIntervalRef = useRef(null);
 
   useEffect(() => { currentIdxRef.current = currentIdx; }, [currentIdx]);
   useEffect(() => { wordRef.current = word; }, [word]);
+  useEffect(() => { isMirroredRef.current = isMirrored; }, [isMirrored]);
 
   /* ── MediaPipe hands ── */
   const initHands = useCallback(async () => {
@@ -110,7 +112,7 @@ export default function WordBuilder({ onComplete, onExit }) {
             landmarks: vector, 
             width: vw, 
             height: vh,
-            isMirrored: isMirrored
+            isMirrored: isMirroredRef.current
           }));
           // Safety timeout (1s) to prevent WS freezing if response lost
           if (kerasIntervalRef.current) clearTimeout(kerasIntervalRef.current);
@@ -150,7 +152,7 @@ export default function WordBuilder({ onComplete, onExit }) {
     await camera.start();
     cameraRef.current = camera;
     console.log('[WordBuilder-hand] MediaPipe Hands initialized');
-  }, [isMirrored]);
+  }, []);
 
   /* ── start webcam ── */
   const startWebcam = useCallback(async (deviceId = null) => {
@@ -177,6 +179,16 @@ export default function WordBuilder({ onComplete, onExit }) {
         });
         await videoRef.current.play();
         setIsWebcamActive(true);
+
+        const track = stream.getVideoTracks()[0];
+        const settings = track.getSettings();
+        if (settings && settings.facingMode) {
+          setIsMirrored(settings.facingMode === 'user');
+        } else {
+          const label = track.label.toLowerCase();
+          setIsMirrored(label.includes('front') || label.includes('selfie') || label.includes('user'));
+        }
+
         await initHands();
       }
     } catch (err) {
@@ -218,6 +230,15 @@ export default function WordBuilder({ onComplete, onExit }) {
       streamRef.current = null;
     }
     setIsWebcamActive(false);
+    if (overlayRef.current) {
+      try {
+        const ctx = overlayRef.current.getContext('2d');
+        ctx.clearRect(0, 0, overlayRef.current.width, overlayRef.current.height);
+      } catch (e) {
+        console.warn('[WordBuilder] Error clearing canvas:', e);
+      }
+    }
+
     setHandDetected(false);
     isProcessingWsRef.current = false; // Reset lock
     if (kerasIntervalRef.current) clearTimeout(kerasIntervalRef.current);
@@ -255,6 +276,16 @@ export default function WordBuilder({ onComplete, onExit }) {
     if (next >= w.length) {
       setIsComplete(true);
       stopWebcam();
+      // Notify parent on completion
+      if (onComplete) {
+        onComplete({
+          word: w,
+          totalXP: totalXP + (skipped ? 0 : xpEarned),
+          completedCount: completedLetters.length + (skipped ? 0 : 1),
+          skippedCount: skippedLetters.length + (skipped ? 1 : 0),
+          isPerfect: skippedLetters.length + (skipped ? 1 : 0) === 0
+        });
+      }
     } else {
       setCurrentIdx(next);
     }
@@ -345,6 +376,11 @@ export default function WordBuilder({ onComplete, onExit }) {
     feedbackLockRef.current = false;
     setTotalXP(0);
     setError('');
+    // Clear any pending feedback timeouts
+    if (kerasIntervalRef.current) {
+       clearTimeout(kerasIntervalRef.current);
+       kerasIntervalRef.current = null;
+    }
   }, [stopWebcam]);
 
   /* ── theme ── */
@@ -549,16 +585,16 @@ export default function WordBuilder({ onComplete, onExit }) {
               autoPlay
               playsInline
               muted
-              className={`w-full h-80 object-cover rounded-xl ${!isWebcamActive
+              className={`w-full h-full object-cover rounded-xl ${!isWebcamActive
                 ? darkMode ? 'bg-gray-800' : 'bg-gray-200'
                 : ''
-                } ${darkMode ? 'ring-1 ring-white/10' : 'ring-1 ring-black/5'}`}
+                }`}
               style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }}
             />
             {/* MediaPipe overlay */}
             <canvas
               ref={overlayRef}
-              className="absolute inset-0 w-full h-80 object-cover pointer-events-none rounded-xl"
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none rounded-xl"
               style={{ transform: isMirrored ? 'scaleX(-1)' : 'none', zIndex: 10 }}
             />
             {/* Hidden capture canvas */}
