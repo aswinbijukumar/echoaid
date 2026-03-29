@@ -21,14 +21,17 @@ const StarFieldBackground = () => {
 
         const initStars = () => {
             stars = [];
-            const numStars = Math.floor((canvas.width * canvas.height) / 3000); // Density
+            // Reduced density on mobile screens to save GPU
+            const isMobile = window.innerWidth < 768;
+            const density = isMobile ? 8000 : 3000;
+            const numStars = Math.floor((canvas.width * canvas.height) / density);
 
             for (let i = 0; i < numStars; i++) {
                 stars.push({
                     x: Math.random() * canvas.width,
                     y: Math.random() * canvas.height,
-                    radius: Math.random() * 1.5,
-                    color: `rgba(${Math.random() * 55 + 200}, ${Math.random() * 55 + 200}, 255, ${Math.random()})`, // Bluish white
+                    radius: Math.random() * (isMobile ? 1.0 : 1.5),
+                    color: `rgba(${Math.random() * 55 + 200}, ${Math.random() * 55 + 200}, 255, ${Math.random()})`,
                     velocity: Math.random() * 0.5 + 0.1,
                     alpha: Math.random(),
                     fading: Math.random() > 0.5
@@ -37,21 +40,18 @@ const StarFieldBackground = () => {
         };
 
         const animate = () => {
-            // Clear with trail effect
             ctx.fillStyle = darkMode ? 'rgba(10, 10, 20, 0.2)' : 'rgba(240, 245, 255, 0.2)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            const isMobile = window.innerWidth < 768;
             stars.forEach(star => {
-                // Update position
-                star.y -= star.velocity; // Move up
+                star.y -= star.velocity;
 
-                // Wrap around
                 if (star.y < 0) {
                     star.y = canvas.height;
                     star.x = Math.random() * canvas.width;
                 }
 
-                // Twinkle
                 if (star.fading) {
                     star.alpha -= 0.01;
                     if (star.alpha <= 0.2) star.fading = false;
@@ -60,16 +60,15 @@ const StarFieldBackground = () => {
                     if (star.alpha >= 1) star.fading = true;
                 }
 
-                // Draw
                 ctx.beginPath();
                 ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
                 ctx.fillStyle = darkMode
                     ? `rgba(255, 255, 255, ${star.alpha})`
-                    : `rgba(50, 50, 150, ${star.alpha})`; // Blue stars in light mode
+                    : `rgba(50, 50, 150, ${star.alpha})`;
                 ctx.fill();
 
-                // Glow effect for larger stars
-                if (star.radius > 1 && darkMode) {
+                // Glow effect only for Desktop (shadowBlur is heavy on mobile)
+                if (star.radius > 1 && darkMode && !isMobile) {
                     ctx.shadowBlur = 5;
                     ctx.shadowColor = "white";
                 } else {

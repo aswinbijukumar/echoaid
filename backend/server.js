@@ -67,10 +67,10 @@ app.use(cors({
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:5173',
     'https://echoaid.vercel.app',
+    'https://echoaid-three.vercel.app', // Common Vercel pattern
+    'https://echoaid.onrender.com',
+    'https://echoaid-frontend.onrender.com',
     'http://localhost:3000',
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:3000'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],

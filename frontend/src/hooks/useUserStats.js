@@ -14,9 +14,17 @@ export function useUserStats() {
   const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      
+      let token = null;
+      try {
+        token = localStorage.getItem('token');
+      } catch (lsError) {
+        console.warn('LocalStorage access blocked by browser settings');
+      }
+
       if (!token) {
-        throw new Error('No authentication token found');
+        setLoading(false);
+        return; // Silent return for unauthenticated users
       }
 
       const response = await fetch(`${ENV_CONFIG.API_BASE_URL}/api/auth/me`, {
