@@ -13,7 +13,9 @@ import UserSession from '../models/UserSession.js';
 
 import { ENV_CONFIG } from '../config/prettyConfig.js';
 
+import { calculateLevel, calculateXPToNextLevel } from '../utils/gamificationUtils.js';
 const FRONTEND_URL = ENV_CONFIG.FRONTEND_URL;
+
 const BACKEND_URL = ENV_CONFIG.BACKEND_URL;
 
 const generateToken = (id) => {
@@ -752,7 +754,7 @@ export const getMe = async (req, res) => {
           longestStreak: user.learningStats?.longestStreak || 0,
           totalXP: user.learningStats?.totalXP || 0,
           level: user.learningStats?.level || 1,
-          xpToNextLevel: user.learningStats?.xpToNextLevel ?? Math.max(0, ((Math.floor((user.learningStats?.totalXP || 0) / 200) + 1) * 200) - (user.learningStats?.totalXP || 0)),
+          xpToNextLevel: user.learningStats?.xpToNextLevel ?? calculateXPToNextLevel(user.learningStats?.totalXP || 0),
           quizzesCompleted: user.learningStats?.quizzesCompleted || 0,
           perfectQuizzes: user.learningStats?.perfectQuizzes || 0,
           averageQuizScore: user.learningStats?.averageQuizScore || 0,

@@ -5,6 +5,9 @@ import Lesson from '../models/Lesson.js';
 import Exercise from '../models/Exercise.js';
 import UserProgress from '../models/UserProgress.js';
 import User from '../models/User.js';
+import Certificate from '../models/Certificate.js';
+import { calculateLevel } from '../utils/gamificationUtils.js';
+
 
 // Get all learning paths with user progress
 export const getLearningPaths = async (req, res) => {
@@ -110,7 +113,7 @@ export const getLearningPath = async (req, res) => {
         isCompleted: !!completedUnit,
         score: completedUnit?.score || 0,
         completedAt: completedUnit?.completedAt,
-        isUnlocked: checkUnitUnlock(unit, userPathProgress)
+        isUnlocked: await checkUnitUnlock(unit, userPathProgress, userId)
       };
     });
 
@@ -366,8 +369,8 @@ export const completeExercise = async (req, res) => {
 
     userProgress.dailyGoals.current += 1;
 
-    // Check for level up
-    const newLevel = Math.floor(userProgress.overall.totalXP / 200) + 1;
+    // Check for level up using shared utility
+    const newLevel = calculateLevel(userProgress.overall.totalXP);
     const leveledUp = newLevel > userProgress.overall.level;
     userProgress.overall.level = newLevel;
 
@@ -429,12 +432,13 @@ export const completeExercise = async (req, res) => {
 
     await userProgress.save();
 
-    // Update User model learning stats
+    // Update User model learning stats (ensure consistency)
     await User.findByIdAndUpdate(userId, {
       $set: {
         'learningStats.totalXP': userProgress.overall.totalXP,
         'learningStats.level': userProgress.overall.level,
-        'learningStats.lastActiveDate': userProgress.overall.lastActiveDate
+        'learningStats.lastActiveDate': userProgress.overall.lastActiveDate,
+        'learningStats.xpToNextLevel': Math.max(0, (userProgress.overall.level * 1000) - userProgress.overall.totalXP)
       }
     });
 
@@ -483,8 +487,21 @@ const checkLearningPathPrerequisites = (learningPath, userProgress) => {
   return hasPrerequisites && meetsLevel && meetsXP;
 };
 
-const checkUnitUnlock = (unit, userPathProgress) => {
-  if (!userPathProgress) return unit.order === 1;
+const checkUnitUnlock = async (unit, userPathProgress, userId) => {
+  if (!userPathProgress) {
+    // SELF-HEALING: Check if user has a certificate for this level/unit
+    if (userId) {
+      const hasCert = await Certificate.findOne({
+        user: userId,
+        $or: [
+          { title: new RegExp(unit.title, 'i') },
+          { title: new RegExp(`Level ${unit.level}`, 'i') }
+        ]
+      });
+      if (hasCert) return true;
+    }
+    return unit.level === 0 && unit.order === 1;
+  }
 
   // Check prerequisites
   const completedUnitIds = userPathProgress.completedUnits.map(cu => cu.unit.toString());
@@ -496,10 +513,15 @@ const checkUnitUnlock = (unit, userPathProgress) => {
 };
 
 const checkLessonUnlock = (lesson, userPathProgress, unit) => {
+  // If unit is unlocked via Certificate/order, and it's the first lesson, allow it
   if (!userPathProgress) return lesson.order === 1;
 
-  // Check prerequisites
+  // Prerequisites check
   const completedLessonIds = userPathProgress.completedLessons.map(cl => cl.lesson.toString());
+  
+  // If it's the first lesson of a unit, it's unlocked if the unit is accessible
+  if (lesson.order === 1) return true;
+
   const hasPrerequisites = lesson.prerequisites.every(prereq =>
     completedLessonIds.includes(prereq.toString())
   );

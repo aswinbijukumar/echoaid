@@ -56,7 +56,8 @@ export default function Dashboard() {
   const [streakNotificationData, setStreakNotificationData] = useState(null);
   const [previousStreak, setPreviousStreak] = useState(0);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false); // Added state
-  const [prevLevel, setPrevLevel] = useState(null); // Added state
+  const [prevLevel, setPrevLevel] = useState(stats.level); // Added state
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const { darkMode } = useTheme();
   const { logout } = useAuth();
@@ -96,11 +97,14 @@ export default function Dashboard() {
       setPreviousStreak(currentStreak);
 
       // Check for Level Up
-      if (userStats.level) {
-        if (prevLevel !== null && userStats.level > prevLevel) {
+      if (userStats.level > 0) {
+        if (!isInitialized) {
+          setPrevLevel(userStats.level);
+          setIsInitialized(true);
+        } else if (userStats.level > prevLevel) {
           setShowLevelUpModal(true);
+          setPrevLevel(userStats.level);
         }
-        setPrevLevel(userStats.level);
       }
     }
   }, [userStats, previousStreak, prevLevel]);
@@ -292,98 +296,21 @@ export default function Dashboard() {
     handleBackToCurriculum();
   };
 
-  // Show loading screen while data is being fetched or user is not loaded
-  if (loading || !userStats) {
+  if (loading && categories.length === 0) {
     return (
-      <div className={`min-h-screen ${bg} ${text} overflow-x-hidden`}>
-        {/* Top Status Bar */}
-        <div className={`${statusBarBg} border-b ${border} px-6 py-3 pl-64 sticky top-0 z-30`}>
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center space-x-4">
-              {/* Empty space on the left */}
+      <div className={`min-h-screen ${bg} ${text} flex`}>
+        <Sidebar handleLogout={() => {}} />
+        <div className="flex-1 ml-64 p-8 pt-24">
+          <div className="animate-pulse space-y-8">
+            <div className="h-12 bg-gray-700 rounded-lg w-1/4"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map(i => (
+                <div key={i} className={`h-40 ${cardBg} rounded-lg border ${border}`}></div>
+              ))}
             </div>
-
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setShowMessageForm(true)}
-                className="flex items-center space-x-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-                title="Send Message to Support"
-              >
-                <ChatBubbleLeftRightIcon className="h-4 w-4" />
-                <span className="hidden sm:inline text-sm font-medium">Support</span>
-              </button>
-              <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-400"></div>
-                <span className="font-semibold">Loading...</span>
-              </div>
-            </div>
+            <div className="h-64 bg-gray-700 rounded-lg w-full"></div>
           </div>
         </div>
-
-        <div className="flex">
-          {/* Fixed Left Sidebar - Navigation */}
-          <Sidebar handleLogout={handleLogout} />
-
-          {/* Main Content Area with Left Margin */}
-          <div className={`flex-1 ml-64 ${bg} overflow-hidden`}>
-            <div className="max-w-6xl mx-auto min-h-0">
-              <div className="flex min-h-0">
-                {/* Main Content */}
-                <div className="flex-1 p-6">
-                  {/* Support Section - Always Visible */}
-                  <div className={`${cardBg} rounded-lg border ${border} p-6 mb-6`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className={`p-3 rounded-lg ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100/50'}`}>
-                          <ChatBubbleLeftRightIcon className="h-6 w-6 text-blue-600" />
-                        </div>
-                        <div>
-                          <h3 className={`text-lg font-semibold ${textPrimary}`}>Need Help?</h3>
-                          <p className={`text-sm ${textSecondary}`}>Contact our support team for assistance</p>
-                        </div>
-                      </div>
-                      <div className="flex space-x-3">
-                        <Link
-                          to="/support"
-                          className={`px-4 py-2 ${cardBg} border ${border} rounded-lg ${text} ${hoverBg} transition-all duration-200 flex items-center space-x-2`}
-                        >
-                          <EyeIcon className="h-4 w-4" />
-                          <span>View Messages</span>
-                        </Link>
-                        <button
-                          onClick={() => setShowMessageForm(true)}
-                          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-200 flex items-center space-x-2"
-                        >
-                          <PlusIcon className="h-4 w-4" />
-                          <span>Send Message</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Loading Message */}
-                  <div className={`${cardBg} rounded-lg border ${border} p-6 text-center`}>
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00CC00] mx-auto mb-4"></div>
-                    <p className={`text-lg ${textPrimary}`}>Loading your dashboard...</p>
-                    <p className={`text-sm ${textSecondary} mt-2`}>Please wait while we fetch your learning progress</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Message Form Modal */}
-        {showMessageForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <UserMessageForm
-                onMessageSent={() => setShowMessageForm(false)}
-                onClose={() => setShowMessageForm(false)}
-              />
-            </div>
-          </div>
-        )}
       </div>
     );
   }

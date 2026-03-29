@@ -6,7 +6,9 @@ import User from '../models/User.js';
 import dotenv from 'dotenv';
 import logger from '../utils/prettyLogger.js';
 import { ENV_CONFIG } from '../config/prettyConfig.js';
+import { calculateLevel, calculateXPToNextLevel } from '../utils/gamificationUtils.js';
 dotenv.config();
+
 
 export const recognize = async (req, res) => {
   try {
@@ -422,7 +424,20 @@ export const getUserProgress = async (req, res) => {
   }
 };
 
-// Update user gamification stats after practice attempt
+export const warmup = async (req, res) => {
+  try {
+    // Proactively ping the Python service to wake it up (ignore failures)
+    const pythonUrl = process.env.PY_SERVICE_URL || 'https://echoaid-python.onrender.com';
+    axios.get(`${pythonUrl}/health`, { timeout: 2000 }).catch(() => {});
+    res.status(200).json({ success: true, message: 'Warm-up initiated' });
+  } catch (err) {
+    res.status(200).json({ success: true });
+  }
+};
+
+/**
+ * Update user stats consistently using shared utility
+ */
 const updateUserGamificationStats = async (userId, practiceAttempt) => {
   try {
     const user = await User.findById(userId);
@@ -513,10 +528,10 @@ const updateUserGamificationStats = async (userId, practiceAttempt) => {
       user.learningStats.streak || 0
     );
 
-    // Update level based on total XP
-    const newLevel = Math.floor(user.learningStats.totalXP / 1000) + 1;
+    // Update level based on total XP using shared utility
+    const newLevel = calculateLevel(user.learningStats.totalXP);
     user.learningStats.level = Math.max(user.learningStats.level || 1, newLevel);
-    user.learningStats.xpToNextLevel = Math.max(0, (user.learningStats.level * 1000) - user.learningStats.totalXP);
+    user.learningStats.xpToNextLevel = calculateXPToNextLevel(user.learningStats.totalXP);
 
     // Update category progress if sign has category
     if (practiceAttempt.expectedWord) {

@@ -79,12 +79,20 @@ export default function Learn() {
     await refresh();
   };
 
-  if (loading) {
+  if (loading && learningPath.length === 0) {
     return (
-      <div className={`min-h-screen ${bg} flex items-center justify-center`}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className={`text-lg ${text}`}>Loading your learning path...</p>
+      <div className={`min-h-screen ${bg} ${text} flex`}>
+        <Sidebar handleLogout={() => {}} />
+        <div className="flex-1 ml-64 p-8 pt-24">
+          <div className="animate-pulse space-y-8">
+            <div className="h-12 bg-gray-700 rounded-lg w-1/3"></div>
+            <div className={`h-32 ${cardBg} rounded-lg border ${border}`}></div>
+            <div className="space-y-4">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-16 bg-gray-700 rounded-lg w-full"></div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );

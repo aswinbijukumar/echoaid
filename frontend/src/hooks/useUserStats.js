@@ -32,9 +32,8 @@ export function useUserStats() {
         const ls = data.user?.learningStats || {};
         const totalXP = ls.totalXP || 0;
         // Use backend-provided level if available, otherwise fallback (sync with backend 1000xp rule)
-        const level = ls.level || Math.floor(totalXP / 1000) + 1;
-        // recalculate xpToNextLevel based on 1000xp tiers if not provided
-        const xpToNextLevel = ls.xpToNextLevel !== undefined ? ls.xpToNextLevel : Math.max(0, (level * 1000) - totalXP);
+        const level = ls.level || 1;
+        const xpToNextLevel = ls.xpToNextLevel || 0;
         setStats({
           streak: ls.streak || 0,
           totalXP,

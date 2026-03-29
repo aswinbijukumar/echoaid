@@ -10,7 +10,9 @@ import UserSkillProgress from '../models/UserSkillProgress.js';
 import Certificate from '../models/Certificate.js';
 import { generateCertificatePDF } from '../utils/pdfGenerator.js';
 import { checkSubscriptionAccess, checkDailyLimits } from '../middleware/subscriptionAuth.js';
+import { calculateLevel, calculateXPToNextLevel } from '../utils/gamificationUtils.js';
 import { updateUserStreak } from './streakController.js';
+
 
 // Get all quizzes with filtering and pagination
 export const getQuizzes = async (req, res) => {
@@ -789,10 +791,10 @@ const updateUserStats = async (userId, quizAttempt) => {
   const totalScore = allAttempts.reduce((sum, attempt) => sum + attempt.percentage, 0);
   user.learningStats.averageQuizScore = Math.round(totalScore / allAttempts.length);
 
-  // Update level and xpToNextLevel consistently
-  const newLevel = Math.floor(user.learningStats.totalXP / 1000) + 1;
+  // Update level based on total XP using shared utility
+  const newLevel = calculateLevel(user.learningStats.totalXP);
   user.learningStats.level = Math.max(user.learningStats.level || 1, newLevel);
-  user.learningStats.xpToNextLevel = Math.max(0, (user.learningStats.level * 1000) - user.learningStats.totalXP);
+  user.learningStats.xpToNextLevel = calculateXPToNextLevel(user.learningStats.totalXP);
 
   await user.save();
 };

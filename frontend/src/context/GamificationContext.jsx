@@ -10,19 +10,29 @@ export function useGamification() {
 
 export function GamificationProvider({ children }) {
     const { stats, refreshUserStats } = useUserStats();
+    const [isInitialized, setIsInitialized] = useState(false);
     const [prevLevel, setPrevLevel] = useState(stats.level);
     const [isLevelModalOpen, setIsLevelModalOpen] = useState(false);
     const [leveledUpTo, setLeveledUpTo] = useState(1);
 
+    // Initial sync
+    useEffect(() => {
+        if (!isInitialized && stats.level > 0) {
+            setPrevLevel(stats.level);
+            setIsInitialized(true);
+        }
+    }, [stats.level, isInitialized]);
+
     // Check for level up
     useEffect(() => {
-        if (stats.level > prevLevel) {
+        if (isInitialized && stats.level > prevLevel) {
             setLeveledUpTo(stats.level);
             setIsLevelModalOpen(true);
-            // Play sound effect here if implemented
         }
-        setPrevLevel(stats.level);
-    }, [stats.level]);
+        if (stats.level > 0) {
+            setPrevLevel(stats.level);
+        }
+    }, [stats.level, isInitialized, prevLevel]);
 
     const closeLevelModal = () => {
         setIsLevelModalOpen(false);

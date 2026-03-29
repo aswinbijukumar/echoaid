@@ -56,7 +56,9 @@ export const LearningProvider = ({ children }) => {
             const [skillsRes, progressRes, quizRes] = await Promise.all([
                 fetch(`${API_BASE_URL}/api/skills`, { headers }),
                 fetch(`${API_BASE_URL}/api/skills/progress`, { headers }),
-                fetch(`${API_BASE_URL}/api/quiz?limit=100`, { headers }) // Fetch all to filter locally
+                fetch(`${API_BASE_URL}/api/quiz?limit=100`, { headers }),
+                // Proactive warm-up for Python AI service
+                fetch(`${API_BASE_URL}/api/practice/warmup`, { headers }).catch(() => {}) 
             ]);
 
             console.log('🔄 Fetching Data');
@@ -79,7 +81,7 @@ export const LearningProvider = ({ children }) => {
                     type: 'skill', // Explicit type
                     isCompleted: skill.isCompleted || false,
                     isRelearning: skill.isRelearning || false,
-                    isUnlocked: devMode || skill.isUnlocked || (skill.level === 1 && skill.order === 1), // Unlock all in devMode
+                    isUnlocked: devMode || skill.isUnlocked || (skill.level === 0 && skill.order === 1), // Unlock first item of Level 0
                     progress: skill.progress || 0,
                     userScore: skill.userScore || 0
                 };

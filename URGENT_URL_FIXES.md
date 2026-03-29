@@ -45,3 +45,8 @@ The user registration is still failing because there are more hardcoded URLs. I 
 - Google OAuth should work  
 - Normal login should work
 - All API calls should use Railway backend
+
+
+
+
+when i am checking locally still image uplaod recgonition seeems slower but is getting detetced but very slower and laggy feels and also only a particular external camer showing outputts realtime, i mean droid cam only, when i change the camers input its not showing, detailed outputs and results and messeges, corect that errros also., rest is working properly
