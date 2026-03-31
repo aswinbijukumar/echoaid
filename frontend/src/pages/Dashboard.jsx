@@ -56,7 +56,7 @@ export default function Dashboard() {
   const [streakNotificationData, setStreakNotificationData] = useState(null);
   const [previousStreak, setPreviousStreak] = useState(0);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false); // Added state
-  const [prevLevel, setPrevLevel] = useState(stats.level); // Added state
+  const [prevLevel, setPrevLevel] = useState(userStats?.level || 0); // Added state
   const [isInitialized, setIsInitialized] = useState(false);
 
   const { darkMode } = useTheme();
