@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContextConstants';
 import { API_BASE_URL } from '../constants/api';
+import { useLearning } from '../context/LearningContext';
 import Flashcard from './Flashcard';
 import QuizCard from './QuizCard';
 import LevelUpAnimation from './LevelUpAnimation';
@@ -20,6 +21,7 @@ export default function LearningModule({ skill, onComplete, onBack, nextSkill, o
   const navigate = useNavigate();
   const { darkMode } = useTheme();
   const { token } = useAuth();
+  const { refresh: refreshPath } = useLearning();
 
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -177,6 +179,11 @@ export default function LearningModule({ skill, onComplete, onBack, nextSkill, o
           }, 1000);
         }
 
+        if (data.user) {
+          // Trigger global refresh to unlock next units immediately
+          await refreshPath();
+        }
+
         // Notify parent about completion with full data
         if (onComplete) {
           onComplete({
@@ -239,8 +246,8 @@ export default function LearningModule({ skill, onComplete, onBack, nextSkill, o
 
   if (showResults) {
     return (
-      <div className="min-h-screen bg-[#1A1A1A] text-white p-6">
-        <div className="max-w-2xl mx-auto bg-transparent border border-white/20 backdrop-blur-sm rounded-3xl p-8">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md overflow-y-auto">
+        <div className="max-w-2xl w-full bg-[#1A1A1A] border border-white/20 rounded-3xl p-8 shadow-2xl relative">
           {/* Back Button */}
           <button
             onClick={onBack}
@@ -338,8 +345,8 @@ export default function LearningModule({ skill, onComplete, onBack, nextSkill, o
   }
 
   return (
-    <div className="min-h-screen bg-[#1A1A1A] text-white p-6">
-      <div className="max-w-4xl mx-auto bg-transparent border border-white/20 backdrop-blur-sm rounded-3xl p-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md overflow-y-auto px-4 py-12 md:p-12">
+      <div className="max-w-4xl w-full bg-[#1A1A1A] border border-white/20 rounded-3xl p-8 shadow-2xl relative">
         {/* Header */}
         <div className="mb-6">
           <button
@@ -447,10 +454,9 @@ export default function LearningModule({ skill, onComplete, onBack, nextSkill, o
         )}
       </div>
 
-      {/* Progression Message */}
       {showProgressionMessage && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[60]">
+          <div className="bg-white dark:bg-[#23272F] border border-white/20 rounded-3xl p-10 max-w-md mx-4 text-center shadow-2xl scale-110">
             <div className="text-6xl mb-4">🎉</div>
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
               Great Job!
@@ -467,8 +473,8 @@ export default function LearningModule({ skill, onComplete, onBack, nextSkill, o
 
       {/* Quiz Button */}
       {showQuizButton && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[60]">
+          <div className="bg-white dark:bg-[#23272F] border border-white/20 rounded-3xl p-10 max-w-md mx-4 text-center shadow-2xl">
             <div className="text-6xl mb-4">🎯</div>
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
               {unlockedQuizInfo ? `Quiz Ready!` : `Level ${skill.level} Complete!`}

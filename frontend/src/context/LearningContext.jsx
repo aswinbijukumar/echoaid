@@ -15,7 +15,7 @@ export const useLearning = () => {
 
 export const LearningProvider = ({ children }) => {
     const { user } = useAuth();
-    const { stats, fetchStats } = useUserStats(); // Use existing stats hook for XP/Streak
+    const { stats, refreshUserStats: fetchStats } = useUserStats(); // Use existing stats hook for XP/Streak
 
     const [learningPath, setLearningPath] = useState([]);
     const [userProgress, setUserProgress] = useState({});

@@ -289,10 +289,11 @@ export default function Dashboard() {
     refreshSkills();
   };
 
-  const handleLessonComplete = (data) => {
+  const handleLessonComplete = async (data) => {
     console.log('Lesson completed:', data);
     // Show completion notification
     alert(`Lesson completed! You earned ${data.xpEarned} XP. ${data.leveledUp ? 'Level up!' : ''}`);
+    await refreshSkills();
     handleBackToCurriculum();
   };
 
