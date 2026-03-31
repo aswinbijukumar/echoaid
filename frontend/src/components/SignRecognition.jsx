@@ -132,6 +132,17 @@ export default function SignRecognition({
       learningLevel: 'Foundation',
       xpValue: 10
     },
+    '2': {
+      name: 'Number 2',
+      description: 'Extend your index and middle fingers in a "V" shape (BACK of hand to camera).',
+      usage: 'Used for counting, mathematics, and numerical communication.',
+      difficulty: 'Beginner',
+      category: 'Numbers',
+      tips: ['Show the BACK of your hand', 'Spread fingers for V shape', 'Keep fingers straight'],
+      commonMistakes: ['Palm facing camera', 'Fingers touching', 'Thumb sticking out'],
+      learningLevel: 'Foundation',
+      xpValue: 10
+    },
     '6': {
       name: 'Number 6',
       description: 'Extend only your pinky finger vertically.',
@@ -411,12 +422,12 @@ export default function SignRecognition({
     },
     'V': {
       name: 'Letter V',
-      description: 'Hold your index and middle fingers in a "V" (palm facing out).',
+      description: 'Hold your index and middle fingers in a "V" (PALM facing camera).',
       usage: 'Used in spelling words, names, and as a standalone letter.',
       difficulty: 'Beginner',
       category: 'Alphabet',
-      tips: ['Spread index and middle', 'V shape', 'Palm forward'],
-      commonMistakes: ['Fingers together', 'Palm back', '3 fingers up'],
+      tips: ['Show the PALM of your hand', 'V shape', 'Palm forward'],
+      commonMistakes: ['Back of hand to camera (that is 2!)', 'Fingers together', '3 fingers up'],
       learningLevel: 'Foundation',
       xpValue: 10
     },
@@ -584,8 +595,14 @@ export default function SignRecognition({
   // Compute expected label from the selected sign word (first alphanumeric uppercased)
   const getExpectedLabel = useCallback(() => {
     const word = targetSign?.word || '';
+    if (word === 'Free Practice' || targetSign?.id === 'free-practice') return null;
+    
+    // If it's a single alphanumeric character, return it
     const match = (word.match(/[A-Za-z0-9]/) || [null])[0];
-    return match ? match.toUpperCase() : null;
+    if (match && word.length === 1) return match.toUpperCase();
+    
+    // For full words (dictionary), return the word itself if it's in our mapping
+    return word.toUpperCase();
   }, [targetSign]);
 
   // MediaPipe initialization removed
@@ -865,7 +882,7 @@ export default function SignRecognition({
         streamRef.current = null;
       }
     };
-  }, [selectedCameraId, enumerateCameras, initializeHands]);
+  }, [selectedCameraId, enumerateCameras, initializeHands, currentMode]);
 
   // Periodic Keras Recognition Polling - REPLACED BY WEBSOCKET
   useEffect(() => {
@@ -1335,9 +1352,11 @@ export default function SignRecognition({
 
   // Initialize webcam when component mounts
   useEffect(() => {
-    if (mode === 'webcam') {
+    if (currentMode === 'webcam') {
       initializeWebcam();
       openWebSocket();
+    } else {
+      stopWebcam();
     }
 
     const onVisibility = () => {
@@ -1362,7 +1381,7 @@ export default function SignRecognition({
       }
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [mode, initializeWebcam, stopWebcam, openWebSocket]);
+  }, [mode, currentMode, initializeWebcam, stopWebcam, openWebSocket]);
 
   return (
     <div className="w-full">
@@ -1794,6 +1813,7 @@ export default function SignRecognition({
                   onClick={() => {
                     setPreviewUrl(null);
                     setRecognitionResult(null);
+                    setKerasPrediction(null);
                     setError('');
                   }}
                   className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-semibold"
