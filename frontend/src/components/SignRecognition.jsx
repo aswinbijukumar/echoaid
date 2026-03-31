@@ -3,6 +3,7 @@ import { detectImageFromDataUrl } from '../utils/recognitionClient';
 import { analyzeSign } from '../utils/HandGeometry';
 import { SIGN_RULES } from '../constants/SignRules';
 import { useTheme } from '../hooks/useTheme';
+import { compressImage } from '../utils/imageUtils';
 import FloatingChatbot from './FloatingChatbot';
 import {
   ChatBubbleLeftRightIcon,
@@ -980,8 +981,20 @@ export default function SignRecognition({
 
       console.log('[recognition] Starting detection for image:', imageDataUrl?.substring(0, 50) + '...');
 
-      // Use the new data URL function
-      const data = await detectImageFromDataUrl(imageDataUrl, { signId: targetSign?._id, isMirrored });
+      // 1. COMPRESS ON CLIENT SIDE (Optimization)
+      // This reduces upload payload from ~2MB to ~50KB, drastically lowering latency
+      let processedImageData = imageDataUrl;
+      try {
+        console.time('compression');
+        processedImageData = await compressImage(imageDataUrl, 640);
+        console.timeEnd('compression');
+        console.log('[recognition] Client-side compression complete');
+      } catch (compErr) {
+        console.warn('[recognition] Compression failed, falling back to original:', compErr);
+      }
+
+      // 2. SEND TO BACKEND
+      const data = await detectImageFromDataUrl(processedImageData, { signId: targetSign?._id, isMirrored });
       const expected = getExpectedLabel();
 
       // Map YOLO detections to a single result for session scoring
@@ -1100,12 +1113,37 @@ export default function SignRecognition({
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-    setIsWebcamActive(false);
     setIsVideoReady(false);
     setKerasPrediction(null);
     setHandDetected(false);
     isProcessingWsRef.current = false; // Reset lock on stop
   }, []);
+
+  // Handle manual refresh (reset state + restart camera)
+  const handleRefresh = useCallback(async () => {
+    console.log('[ui] Manual refresh triggered');
+    try {
+      // 1. Clear all recognition states
+      setRecognitionResult(null);
+      setKerasPrediction(null);
+      setDetailedDetections([]);
+      setGuidanceNotes([]);
+      setError('');
+      
+      // 2. Restart camera lifecycle
+      stopWebcam();
+      await enumerateCameras();
+      
+      if (currentMode === 'webcam') {
+        setTimeout(() => initializeWebcam(), 300);
+      }
+      
+      console.log('[ui] Refresh complete');
+    } catch (err) {
+      console.error('[ui] Refresh failed:', err);
+      setError('Failed to refresh system.');
+    }
+  }, [stopWebcam, enumerateCameras, initializeWebcam, currentMode]);
 
   // Capture frame from webcam with optional cropping; returns null if frame is too dark/blank
   const captureFrame = useCallback((cropArea = null) => {
@@ -1428,12 +1466,13 @@ export default function SignRecognition({
               </button>
             </div>
             <div className="flex items-center space-x-3">
-
               <button
-                onClick={() => enumerateCameras()}
-                className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30"
+                onClick={handleRefresh}
+                className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 flex items-center space-x-2 transition-all active:scale-95"
+                title="Reset recognition and restart camera"
               >
-                Refresh
+                <ArrowPathIcon className={`w-4 h-4 ${isProcessing ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
               </button>
             </div>
           </div>
@@ -1481,19 +1520,14 @@ export default function SignRecognition({
               autoPlay
               playsInline
               muted
-              className={`w-full h-full object-cover rounded-xl ${!isWebcamActive
-                ? darkMode
-                  ? 'bg-gray-700'
-                  : 'bg-gray-200'
-                : ''
-                }`}
-              style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }}
+              className={`w-full h-full object-cover rounded-xl shadow-2xl ${darkMode ? 'bg-gray-900 ring-1 ring-white/10' : 'bg-black ring-1 ring-gray-200'} ${!isWebcamActive ? 'opacity-0' : 'opacity-100'}`}
+              style={{ transform: isMirrored ? 'scaleX(-1)' : 'scaleX(1)' }}
             />
             {/* Overlay for detections */}
             <canvas
               ref={overlayRef}
               className="pointer-events-none absolute inset-0 w-full h-full object-cover rounded-xl"
-              style={{ transform: isMirrored ? 'scaleX(-1)' : 'none', zIndex: 10 }}
+              style={{ transform: isMirrored ? 'scaleX(-1)' : 'scaleX(1)', zIndex: 10 }}
             />
             <canvas ref={canvasRef} className="hidden" />
 
@@ -1636,21 +1670,6 @@ export default function SignRecognition({
               </button>
             )}
 
-            {/* Mirror Button */}
-            {isWebcamActive && (
-              <button
-                onClick={() => {
-                  const v = videoRef.current;
-                  const o = overlayRef.current;
-                  if (v) {
-                    const mirrored = v.style.transform === 'scaleX(-1)';
-                    v.style.transform = mirrored ? 'scaleX(1)' : 'scaleX(-1)';
-                    if (o) o.style.transform = mirrored ? 'scaleX(1)' : 'scaleX(-1)';
-                  }
-                }}
-                className="px-6 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors"
-              >
-                🪞 Mirror
               </button>
             )}
 
