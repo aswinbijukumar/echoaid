@@ -170,7 +170,7 @@ export default function QuizGenerator() {
         <div className={`flex items-center justify-between p-6 rounded-2xl ${cardBg} border ${border}`}>
           <div>
             <h2 className="text-2xl font-bold text-white">Auto Quiz Generator</h2>
-            <p className="text-white/70">Generate quizzes automatically from Level 0 modules</p>
+            <p className="text-white/70">Auto-generates quizzes for each level by mixing questions from all lessons in that level</p>
           </div>
           <div className="flex items-center space-x-3">
             <button
