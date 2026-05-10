@@ -32,13 +32,25 @@ export default function Flashcard({
   // Function to construct proper image URL
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
-    // If it's already a full URL (including Cloudinary), return as is
     if (imagePath.startsWith('http')) return imagePath;
-    // If it's a Cloudinary URL, return as is
     if (imagePath.includes('cloudinary.com')) return imagePath;
-    // Otherwise, construct the full URL for local files
     return `${API_BASE_URL}${imagePath}`;
   };
+
+  // Function to construct proper video URL (same logic as image)
+  const getVideoUrl = (videoPath) => {
+    if (!videoPath) return null;
+    if (videoPath.startsWith('http')) return videoPath;
+    if (videoPath.includes('cloudinary.com')) return videoPath;
+    return `${API_BASE_URL}${videoPath}`;
+  };
+
+  // Determine what media to show on the front face
+  const videoUrl = getVideoUrl(card.videoPath);
+  const imageUrl = getImageUrl(card.imagePath);
+  const hasVideo = !!videoUrl;
+  const hasImage = !!imageUrl;
+  const hasMedia = hasVideo || hasImage;
 
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
   const text = darkMode ? 'text-white' : 'text-[#23272F]';
@@ -140,18 +152,54 @@ export default function Flashcard({
             /* Front of Card - Image */
             <div className="h-full flex flex-col items-center justify-center p-8">
               <div className="w-full h-full flex items-center justify-center mb-6">
-                {card.imagePath ? (
-                  <div className="relative w-full h-full">
-                    <img 
-                      src={getImageUrl(card.imagePath)} 
+                {hasVideo ? (
+                  /* Video Player — shown when videoPath is available */
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    <video
+                      key={videoUrl}
+                      src={videoUrl}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      controls
+                      className="max-w-full max-h-full rounded-lg shadow-lg object-contain"
+                      onError={(e) => {
+                        console.log('Video failed to load:', card.videoPath);
+                        e.target.style.display = 'none';
+                        const fallback = document.createElement('div');
+                        fallback.className = 'w-full h-full flex items-center justify-center bg-gray-700 rounded-lg text-gray-400 text-sm';
+                        fallback.textContent = 'Video not available';
+                        e.target.parentNode.appendChild(fallback);
+                      }}
+                    />
+                    {/* Video badge */}
+                    <span className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full flex items-center space-x-1">
+                      <PlayIcon className="w-3 h-3" />
+                      <span>Video</span>
+                    </span>
+                    {/* Additional Images Indicator */}
+                    {card.additionalImages && card.additionalImages.length > 0 && (
+                      <button
+                        onClick={() => setShowAdditionalImages(true)}
+                        className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full hover:bg-blue-600 transition-colors"
+                      >
+                        +{card.additionalImages.length} more
+                      </button>
+                    )}
+                  </div>
+                ) : hasImage ? (
+                  /* Image — shown when imagePath is available and no video */
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    <img
+                      src={imageUrl}
                       alt={card.word}
                       className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
                       onError={(e) => {
                         console.log('Image failed to load:', card.imagePath);
                         e.target.style.display = 'none';
-                        // Show fallback text
                         const fallback = document.createElement('div');
-                        fallback.className = 'w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-lg';
+                        fallback.className = 'w-full h-full flex items-center justify-center bg-gray-700 rounded-lg text-gray-400 text-sm';
                         fallback.textContent = 'Image not available';
                         e.target.parentNode.appendChild(fallback);
                       }}
@@ -167,8 +215,9 @@ export default function Flashcard({
                     )}
                   </div>
                 ) : (
-                  <div className="w-32 h-32 bg-gray-300 dark:bg-gray-600 rounded-lg flex items-center justify-center">
-                    <span className="text-gray-500 dark:text-gray-400 text-sm">No Image</span>
+                  /* Fallback — no media at all */
+                  <div className="w-32 h-32 bg-gray-700 rounded-lg flex items-center justify-center">
+                    <span className="text-gray-400 text-sm">No Media</span>
                   </div>
                 )}
               </div>

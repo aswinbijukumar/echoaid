@@ -39,7 +39,7 @@ export default function Quiz() {
 
   const { darkMode } = useTheme();
   const { logout, user } = useAuth();
-  const { devMode } = useLearning();
+  const { devMode, refresh: refreshLearningPath } = useLearning();
   const navigate = useNavigate();
   const { quizId } = useParams();
 
@@ -152,6 +152,8 @@ export default function Quiz() {
     fetchUserStats();
     // Refresh learning modules to update completion status
     fetchLearningModules();
+    // Refresh the LearningContext so LevelTree auto-loads newly unlocked level's lessons
+    refreshLearningPath();
     // Do not navigate away; let EnhancedQuiz show results until user clicks Back
   };
 

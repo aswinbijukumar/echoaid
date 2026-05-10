@@ -367,12 +367,9 @@ export const submitQuiz = async (req, res) => {
     let nextLevelUnlocked = false;
     let earnedCertificate = null;
 
-    // Robust check: quizType === 'mastery', OR title matches pattern,
-    // OR quiz has an explicit numeric level set (auto-generated mastery quizzes)
-    const hasExplicitLevel = quiz.level !== undefined && quiz.level !== null;
+    // Strict mastery check: must be explicitly typed as mastery OR match the level mastery title pattern.
     const isMastery = quiz.quizType === 'mastery'
-      || /level\s*\d+.*(mastery|challenge|check)/i.test(quiz.title)
-      || (hasExplicitLevel && (quiz.tags?.includes('auto-generated') || quiz.quizType === 'level'));
+      || /level\s*\d+.*(mastery|challenge|check)/i.test(quiz.title);
 
     if (isMastery && quizAttempt.passed) {
       // Prefer explicit level field, fallback to parsing title
@@ -382,44 +379,50 @@ export const submitQuiz = async (req, res) => {
       }
 
       if (completedLevel !== undefined && completedLevel !== null) {
-        logger.info(`🎯 Level ${completedLevel} mastery passed, unlocking Level ${completedLevel + 1}`, null, 'CONTROLLER');
-        nextLevelUnlocked = true;
+        // GUARD: Verify all skills for this level are completed before issuing cert + unlocking.
+        const allSkillsDone = await checkLevelMasteryQuizUnlock(userId, completedLevel);
+        if (!allSkillsDone) {
+          logger.warn(`⚠️ Level ${completedLevel} mastery quiz passed but not all level skills completed. Skipping.`, null, 'CONTROLLER');
+        } else {
+          logger.info(`🎯 Level ${completedLevel} mastery passed — issuing cert + unlocking Level ${completedLevel + 1}`, null, 'CONTROLLER');
+          nextLevelUnlocked = true;
 
-        // Issue Certificate for Level Mastery
-        try {
-          // Check if already issued (check all known title variants)
-          const titleVariants = [
-            `Level ${completedLevel} Mastery`,
-            completedLevel === 0 ? 'Level 0 Basics' : null,
-            completedLevel === 2 ? 'Level 2 Intermediate' : null,
-            completedLevel === 3 ? 'Level 3 Advanced' : null,
-          ].filter(Boolean);
+          // Issue certificate for THIS level (quiz pass = level mastery proven)
+          try {
+            const titleVariants = [
+              `Level ${completedLevel} Mastery`,
+              completedLevel === 0 ? 'Level 0 Basics' : null,
+              completedLevel === 2 ? 'Level 2 Intermediate' : null,
+              completedLevel === 3 ? 'Level 3 Advanced' : null,
+            ].filter(Boolean);
 
-          const existingCert = await Certificate.findOne({
-            user: userId,
-            title: { $in: titleVariants },
-            type: 'level_mastery'
-          });
-
-          if (!existingCert) {
-            let certTitle = `Level ${completedLevel} Mastery`;
-            if (completedLevel === 2) certTitle = 'Level 2 Intermediate';
-            else if (completedLevel === 3) certTitle = 'Level 3 Advanced';
-
-            earnedCertificate = new Certificate({
+            const existingCert = await Certificate.findOne({
               user: userId,
-              title: certTitle,
-              type: 'level_mastery',
-              referenceId: quizId,
-              referenceModel: 'Quiz'
+              title: { $in: titleVariants },
+              type: 'level_mastery'
             });
-            await earnedCertificate.save();
-            logger.info(`📜 Certificate issued: ${earnedCertificate.certificateCode} - ${certTitle}`, null, 'CONTROLLER');
-          } else {
-            logger.info(`📜 Certificate already exists for Level ${completedLevel} (${existingCert.title})`, null, 'CONTROLLER');
+
+            if (!existingCert) {
+              let certTitle = `Level ${completedLevel} Mastery`;
+              if (completedLevel === 2) certTitle = 'Level 2 Intermediate';
+              else if (completedLevel === 3) certTitle = 'Level 3 Advanced';
+
+              earnedCertificate = new Certificate({
+                user: userId,
+                title: certTitle,
+                type: 'level_mastery',
+                referenceId: quizId,
+                referenceModel: 'Quiz'
+              });
+              await earnedCertificate.save();
+              logger.info(`📜 Certificate issued: ${certTitle}`, null, 'CONTROLLER');
+            } else {
+              logger.info(`📜 Certificate already exists for Level ${completedLevel}`, null, 'CONTROLLER');
+              earnedCertificate = existingCert;
+            }
+          } catch (certError) {
+            logger.errorWithStack('Failed to issue certificate', certError, 'CONTROLLER');
           }
-        } catch (certError) {
-          logger.errorWithStack('Failed to issue certificate', certError, 'CONTROLLER');
         }
       }
     }

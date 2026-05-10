@@ -45,7 +45,7 @@ export default function LearningModule({ skill, onComplete, onBack, nextSkill, o
   const [showProgressionMessage, setShowProgressionMessage] = useState(false);
   const [progressionMessage, setProgressionMessage] = useState('');
   const [showQuizButton, setShowQuizButton] = useState(false);
-  const [unlockedQuizInfo, setUnlockedQuizInfo] = useState(null); // Store {id, level, isRelearning}
+  const [unlockedQuizInfo, setUnlockedQuizInfo] = useState(null);
 
   // Reset flip state when card changes
   useEffect(() => {
@@ -173,13 +173,13 @@ export default function LearningModule({ skill, onComplete, onBack, nextSkill, o
             }, 2500);
           }, 800);
         } else if (data.isLastModuleInLevel) {
-          // All modules done — show quiz prompt and auto-navigate to quiz page
+          // All lessons done — redirect to mastery quiz to earn the certificate
           setTimeout(() => {
-            setProgressionMessage(`🎯 Level ${skill.level} Complete! All modules done. Taking you to the Mastery Quiz...`);
+            setProgressionMessage(`🎯 Level ${skill.level} Complete! All lessons done. Taking you to the Mastery Quiz...`);
             setShowProgressionMessage(true);
             setShowQuizButton(true);
 
-            // Auto-redirect to quiz page after 3s so they can read the message
+            // Auto-redirect to quiz page after 3s
             setTimeout(() => {
               navigate('/quiz', { replace: false });
             }, 3000);

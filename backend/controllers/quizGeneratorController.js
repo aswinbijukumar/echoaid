@@ -1,6 +1,8 @@
 import Quiz from '../models/Quiz.js';
 import logger from '../utils/prettyLogger.js';
 import Skill from '../models/Skill.js';
+import Certificate from '../models/Certificate.js';
+import QuizAttempt from '../models/QuizAttempt.js';
 
 // Generate quiz for specific level
 export const generateQuizForLevel = async (req, res) => {
@@ -165,6 +167,24 @@ const generateLevelQuiz = async (level, adminId) => {
     if (existingQuiz) {
       logger.info(`Deleting existing quiz for Level ${level} to regenerate fresh`, null, 'CONTROLLER');
       await Quiz.findByIdAndDelete(existingQuiz._id);
+
+      // Also delete all quiz attempts for the old quiz so users must re-earn progression
+      await QuizAttempt.deleteMany({ quizId: existingQuiz._id });
+
+      // Also delete stale level_mastery certificates for this level so they must be re-earned
+      const certTitleVariants = [
+        `Level ${level} Mastery`,
+        level === 0 ? 'Level 0 Basics' : null,
+        level === 2 ? 'Level 2 Intermediate' : null,
+        level === 3 ? 'Level 3 Advanced' : null,
+      ].filter(Boolean);
+      const deletedCerts = await Certificate.deleteMany({
+        title: { $in: certTitleVariants },
+        type: 'level_mastery'
+      });
+      if (deletedCerts.deletedCount > 0) {
+        logger.info(`🗑️ Deleted ${deletedCerts.deletedCount} stale certificate(s) for Level ${level} — must be re-earned`, null, 'CONTROLLER');
+      }
     }
 
     // Get all skills for the specified level
@@ -199,10 +219,10 @@ const generateLevelQuiz = async (level, adminId) => {
     const shuffled = [...allFlashcards].sort(() => 0.5 - Math.random());
     const selectedCards = shuffled.slice(0, Math.min(10, shuffled.length));
 
-    // Build a pool of real meanings to use as wrong-answer distractors
-    // (all meanings from the full flashcard pool, excluding correct one)
-    const allMeanings = allFlashcards
-      .map(c => c.meaning)
+    // Build a pool of real word names to use as wrong-answer distractors
+    // (all words from the full flashcard pool, deduplicated)
+    const allWords = allFlashcards
+      .map(c => c.word)
       .filter(Boolean)
       .filter((v, i, a) => a.indexOf(v) === i); // unique values only
 
@@ -216,23 +236,25 @@ const generateLevelQuiz = async (level, adminId) => {
 
       usedWords.add(card.word.toLowerCase());
 
-      const correctAnswer = card.meaning || 'No meaning provided';
+      const correctAnswer = card.word; // Correct answer is always the SIGN NAME/WORD
 
-      // Use real meanings from OTHER flashcards as distractors (smart MCQ)
-      const distractorPool = allMeanings.filter(m => m !== correctAnswer);
+      // Use real words from OTHER flashcards as distractors (smart MCQ)
+      const distractorPool = allWords.filter(w => w.toLowerCase() !== correctAnswer.toLowerCase());
 
       // Shuffle distractors and pick 3
       const shuffledDistractors = [...distractorPool].sort(() => 0.5 - Math.random());
       const selectedWrong = shuffledDistractors.slice(0, 3);
 
-      // If not enough real distractors, pad with generic ones
-      const fallbacks = ['Greeting gesture', 'Number sign', 'Family sign', 'Activity sign'];
+      // If not enough real distractors, pad with generic sign names
+      const fallbacks = ['Namaste', 'Thank You', 'Please', 'Sorry', 'Yes', 'No', 'Help', 'Water'];
       while (selectedWrong.length < 3) {
         const fb = fallbacks.shift();
-        if (fb && fb !== correctAnswer) selectedWrong.push(fb);
+        if (fb && fb.toLowerCase() !== correctAnswer.toLowerCase() && !selectedWrong.includes(fb)) {
+          selectedWrong.push(fb);
+        }
       }
 
-      // Build options array and shuffle
+      // Build options array (word names) and shuffle
       const options = [
         { text: correctAnswer, isCorrect: true },
         ...selectedWrong.map(text => ({ text, isCorrect: false }))
@@ -242,9 +264,12 @@ const generateLevelQuiz = async (level, adminId) => {
       const hasImage = card.imagePath || (card.additionalImages && card.additionalImages.length > 0);
       const hasVideo = card.videoPath || (card.additionalVideos && card.additionalVideos.length > 0);
 
+      // SIGN RECOGNITION FORMAT:
+      // If media is available → show the sign visually, ask "which sign is this?"
+      // If no media → text fallback asking about the sign
       const questionText = hasImage || hasVideo
-        ? `Look at the sign for "${card.word}" and select the correct meaning:`
-        : `What does the sign "${card.word}" mean?`;
+        ? `Which sign is being shown in the image?`
+        : `What sign represents "${card.meaning}"?`;
 
       const mediaUrl = card.imagePath || (card.additionalImages && card.additionalImages[0]) || null;
       const videoUrl = card.videoPath || (card.additionalVideos && card.additionalVideos[0]) || null;
@@ -254,7 +279,7 @@ const generateLevelQuiz = async (level, adminId) => {
         type: 'multiple-choice',
         options,
         correctAnswer,
-        explanation: `The sign "${card.word}" means "${correctAnswer}". It comes from the "${card.moduleTitle}" lesson.`,
+        explanation: `The sign shown is "${correctAnswer}" (${card.meaning}). It comes from the "${card.moduleTitle}" lesson.`,
         difficulty: level <= 1 ? 'Beginner' : level <= 3 ? 'Intermediate' : 'Advanced',
         points: 10,
         mediaUrl,
@@ -269,11 +294,13 @@ const generateLevelQuiz = async (level, adminId) => {
     // Time limit: 2 minutes per question (minimum 10)
     const timeLimit = Math.max(10, questions.length * 2);
 
-    // Create the quiz
+    // Create the quiz — must set quizType:'mastery' and level so unlock logic can find it
     const quiz = new Quiz({
       title: `Level ${level} Mastery Quiz`,
       description: `Auto-generated quiz for Level ${level} — mixing questions from ${skills.length} lesson(s). Pass to unlock the next level!`,
       category: 'advanced',
+      quizType: 'mastery',        // ← required for checkLevelQuizPassed()
+      level: level,               // ← required for checkLevelQuizPassed() — supports level 0
       difficulty: level <= 1 ? 'Beginner' : level <= 3 ? 'Intermediate' : 'Advanced',
       timeLimit,
       passingScore: 70,

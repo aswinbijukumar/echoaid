@@ -77,8 +77,7 @@ const quizSchema = new mongoose.Schema({
   },
   level: {
     type: Number,
-    default: 1,
-    min: 1,
+    min: 0,
     max: 10
   },
   difficulty: {
