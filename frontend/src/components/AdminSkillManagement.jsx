@@ -251,6 +251,11 @@ export default function AdminSkillManagement() {
     setShowEditModal(true);
   };
 
+  // Exercises helpers
+  const addExercise = () => setFormData(prev => ({ ...prev, exercises: [...(prev.exercises||[]), { type: 'sign-recognition', points: 10, question: '', correctAnswer: '' }] }));
+  const removeExercise = (i) => setFormData(prev => ({ ...prev, exercises: (prev.exercises||[]).filter((_,idx)=> idx!==i) }));
+  const updateExercise = (i, field, value) => setFormData(prev => ({ ...prev, exercises: (prev.exercises||[]).map((e,idx)=> idx===i? { ...e, [field]: value } : e) }));
+
   // Flashcards editor helpers
   const addFlashcard = () => setFormData(prev => ({ ...prev, flashcards: [...(prev.flashcards||[]), { word: '', meaning: '', imagePath: '', videoPath: '', audioPath: '', difficulty: 'beginner' }] }));
   const removeFlashcard = (i) => setFormData(prev => ({ ...prev, flashcards: prev.flashcards.filter((_,idx)=> idx!==i) }));
@@ -694,7 +699,7 @@ export default function AdminSkillManagement() {
                 </div>
 
                 <div className="space-y-3">
-                  {formData.exercises.map((exercise, index) => (
+                  {(formData.exercises || []).map((exercise, index) => (
                     <div key={index} className={`p-3 border ${border} rounded-lg`}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium">Exercise {index + 1}</span>

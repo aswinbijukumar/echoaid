@@ -154,6 +154,30 @@ export default function WordBuilder({ onComplete, onExit }) {
     console.log('[WordBuilder-hand] MediaPipe Hands initialized');
   }, []);
 
+  /* ── enumerate cameras ── */
+  const getCameras = useCallback(async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      setAvailableCameras(videoDevices);
+      if (videoDevices.length > 0 && !selectedCameraId) {
+        setSelectedCameraId(videoDevices[0].deviceId);
+      }
+    } catch (err) {
+      console.error('Error enumerating cameras:', err);
+    }
+  }, [selectedCameraId]);
+
+  useEffect(() => {
+    getCameras();
+    
+    // Listen for new devices being plugged in (like Phone Link changes)
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', getCameras);
+      return () => navigator.mediaDevices.removeEventListener('devicechange', getCameras);
+    }
+  }, [getCameras]);
+
   /* ── start webcam ── */
   const startWebcam = useCallback(async (deviceId = null) => {
     try {
@@ -162,12 +186,16 @@ export default function WordBuilder({ onComplete, onExit }) {
       const constraints = {
         video: { 
           width: { ideal: 640 }, 
-          height: { ideal: 480 },
-          deviceId: deviceId ? { exact: deviceId } : undefined,
-          facingMode: deviceId ? undefined : 'user'
+          height: { ideal: 480 }
         },
         audio: false,
       };
+      
+      if (deviceId) {
+        constraints.video.deviceId = { exact: deviceId };
+      } else {
+        constraints.video.facingMode = 'user';
+      }
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       if (videoRef.current) {
@@ -190,6 +218,9 @@ export default function WordBuilder({ onComplete, onExit }) {
         }
 
         await initHands();
+        
+        // Re-enumerate cameras now that permission is granted so labels are populated
+        await getCameras();
       }
     } catch (err) {
       console.error('Camera error:', err);
@@ -197,37 +228,23 @@ export default function WordBuilder({ onComplete, onExit }) {
     }
   }, [initHands]);
 
-  /* ── enumerate cameras ── */
-  useEffect(() => {
-    const getCameras = async () => {
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        setAvailableCameras(videoDevices);
-        if (videoDevices.length > 0 && !selectedCameraId) {
-          setSelectedCameraId(videoDevices[0].deviceId);
-        }
-      } catch (err) {
-        console.error('Error enumerating cameras:', err);
-      }
-    };
-    getCameras();
-  }, [selectedCameraId]);
-
   /* ── stop webcam ── */
   const stopWebcam = useCallback(() => {
     clearInterval(intervalRef.current);
     if (cameraRef.current) {
-      try { cameraRef.current.stop(); } catch (_) {}
+      try { cameraRef.current.stop(); } catch (_) { /* ignore */ }
       cameraRef.current = null;
     }
     if (handsRef.current) {
-      try { handsRef.current.close(); } catch (_) {}
+      try { handsRef.current.close(); } catch (_) { /* ignore */ }
       handsRef.current = null;
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
     setIsWebcamActive(false);
     if (overlayRef.current) {

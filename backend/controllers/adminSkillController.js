@@ -326,21 +326,26 @@ export const updateSkill = async (req, res) => {
       }
     }
 
-    // Update fields (partial update - only update provided fields)
-    if (title !== undefined) skill.title = title.trim();
-    if (description !== undefined) skill.description = description.trim();
-    if (category !== undefined) skill.category = category;
-    if (order !== undefined) skill.order = order;
-    if (xpReward !== undefined) skill.xpReward = xpReward;
-    if (level !== undefined) skill.level = level;
-    if (isActive !== undefined) skill.isActive = isActive;
-    if (moduleType !== undefined) skill.moduleType = moduleType;
-    if (flashcards !== undefined) skill.flashcards = flashcards;
-    if (quizQuestions !== undefined) skill.quizQuestions = quizQuestions;
+    // Build update object — only include provided fields
+    const updateFields = {};
+    if (title !== undefined) updateFields.title = title.trim();
+    if (description !== undefined) updateFields.description = description.trim();
+    if (category !== undefined) updateFields.category = category;
+    if (order !== undefined) updateFields.order = order;
+    if (xpReward !== undefined) updateFields.xpReward = xpReward;
+    if (level !== undefined) updateFields.level = level;
+    if (isActive !== undefined) updateFields.isActive = isActive;
+    if (moduleType !== undefined) updateFields.moduleType = moduleType;
+    if (flashcards !== undefined) updateFields.flashcards = flashcards;
+    if (quizQuestions !== undefined) updateFields.quizQuestions = quizQuestions;
 
-    await skill.save();
-
-    const updatedSkill = await Skill.findById(skill._id)
+    // Use findByIdAndUpdate with runValidators: false so Mongoose doesn't
+    // require fields like 'createdBy' that aren't part of a partial update
+    const updatedSkill = await Skill.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateFields },
+      { new: true, runValidators: false }
+    )
       .populate('createdBy', 'name email')
       .populate('signs', 'word category difficulty')
       .populate('targetSign', 'word category difficulty');

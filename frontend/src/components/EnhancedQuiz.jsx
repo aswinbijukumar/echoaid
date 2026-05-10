@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../hooks/useTheme';
 import Modal from './Modal';
 import { useAuth } from '../context/AuthContextConstants';
+import { useLearning } from '../context/LearningContext';
 import { useNavigate } from 'react-router-dom';
 
 const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
@@ -48,8 +49,11 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
 
   const timerRef = useRef(null);
   const startTimeRef = useRef(null);
+  const feedbackTimeoutRef = useRef(null);
   const { darkMode } = useTheme();
   const { user } = useAuth();
+  const { refresh: refreshLearningPath } = useLearning();
+  const [certRedirectCountdown, setCertRedirectCountdown] = useState(null);
 
   const fetchQuiz = useCallback(async () => {
     try {
@@ -80,8 +84,21 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+      if (feedbackTimeoutRef.current) {
+        clearTimeout(feedbackTimeoutRef.current);
+      }
     };
   }, [quizId, fetchQuiz]);
+
+  // Reset feedback state when question changes
+  useEffect(() => {
+    if (feedbackTimeoutRef.current) {
+      clearTimeout(feedbackTimeoutRef.current);
+    }
+    setShowFeedback(false);
+    setShowCorrectAnimation(false);
+    setShowIncorrectAnimation(false);
+  }, [currentQuestion]);
 
   const startQuiz = async () => {
     try {
@@ -195,6 +212,27 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
 
         setShowAchievementsModal(false);
         setShowResults(true);
+
+        // If passed — refresh learning path so next level unlocks immediately (no browser refresh)
+        if (merged.passed) {
+          refreshLearningPath();
+        }
+
+        // If a certificate was earned — auto-redirect to /certificates after 4s
+        if (merged.passed && data?.data?.newCertificate) {
+          let count = 4;
+          setCertRedirectCountdown(count);
+          const interval = setInterval(() => {
+            count -= 1;
+            if (count <= 0) {
+              clearInterval(interval);
+              navigate('/certificates');
+            } else {
+              setCertRedirectCountdown(count);
+            }
+          }, 1000);
+        }
+
         if (onComplete) {
           onComplete(merged);
         }
@@ -341,7 +379,10 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
     }
 
     // Auto-advance after showing feedback
-    setTimeout(() => {
+    if (feedbackTimeoutRef.current) {
+      clearTimeout(feedbackTimeoutRef.current);
+    }
+    feedbackTimeoutRef.current = setTimeout(() => {
       setShowFeedback(false);
       setShowCorrectAnimation(false);
       setShowIncorrectAnimation(false);
@@ -448,7 +489,7 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
               </div>
             </div>
 
-            {(quiz.userStatus?.attempts || 0) >= (quiz.maxAttempts || 3) ? (
+            {((quiz.userStatus?.attempts || 0) >= (quiz.maxAttempts || 3) && !quiz.userStatus?.passed && !quiz.userStatus?.completed) ? (
               <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-6 text-center">
                 <div className="flex items-center justify-center mb-2">
                   <div className="p-3 bg-red-500/20 rounded-full">
@@ -569,15 +610,21 @@ const EnhancedQuiz = ({ quizId, onComplete, onBack }) => {
                         onClick={() => navigate('/certificates')}
                         className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-4 rounded-xl shadow-lg transition-transform transform hover:scale-105"
                       >
-                        View & Download Certificate
+                        View &amp; Download Certificate
                       </button>
+                      {certRedirectCountdown !== null && (
+                        <p className="text-yellow-300 text-sm animate-pulse">
+                          Redirecting in {certRedirectCountdown}s...
+                        </p>
+                      )}
                       <button
                         onClick={() => {
+                          setCertRedirectCountdown(null);
                           setResults(prev => ({ ...prev, newCertificate: null }));
                         }}
                         className="text-gray-400 hover:text-white text-sm"
                       >
-                        Close
+                        Stay Here
                       </button>
                     </div>
                   </div>

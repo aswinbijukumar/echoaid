@@ -14,7 +14,7 @@ import { calculateLevel, calculateXPToNextLevel } from '../utils/gamificationUti
 import { updateUserStreak } from './streakController.js';
 
 
-// Get all quizzes with filtering and pagination
+// Get all Quizzes with filtering and pagination
 export const getQuizzes = async (req, res) => {
   try {
     const {
@@ -184,7 +184,7 @@ export const startQuiz = async (req, res) => {
       if (todayAttempts >= maxDailyAttempts) {
         return res.status(403).json({
           success: false,
-          message: `Free trial limit reached. You can attempt ${maxDailyAttempts} quizzes per day. Upgrade to Pro for unlimited quizzes.`,
+          message: `Free trial limit reached. You can attempt ${maxDailyAttempts} Quizes per day. Upgrade to Pro for unlimited Quizes.`,
           data: {
             maxDailyAttempts,
             currentAttempts: todayAttempts,
@@ -228,10 +228,21 @@ export const startQuiz = async (req, res) => {
       }
     }
 
+    // Determine effective max attempts based on subscription plan
+    const plan = user?.role === 'admin' ? 'admin' : (user?.subscription?.plan || 'free');
+    const effectiveMaxAttempts = (() => {
+      if (plan === 'admin' || plan === 'enterprise') return Infinity; // Unlimited
+      if (plan === 'premium') return 8;
+      if (plan === 'pro') return 5;
+      return quiz.maxAttempts || 3; // Free / trial
+    })();
+
     // Check if user has remaining attempts
     const attempts = await QuizAttempt.find({ userId, quizId });
-    if (attempts.length >= (quiz.maxAttempts || 3)) {
-      // For Mastery quizzes, check if they've finished relearning even if attempts weren't cleared
+    const hasPassed = attempts.some(a => a.passed);
+
+    if (!hasPassed && attempts.length >= effectiveMaxAttempts) {
+      // For Mastery Quizes, check if they've finished relearning even if attempts weren't cleared
       const isMastery = quiz.quizType === 'mastery' || quiz.title.includes('Mastery');
       if (isMastery) {
         const levelMatch = quiz.title.match(/Level (\d+)/);
@@ -249,7 +260,7 @@ export const startQuiz = async (req, res) => {
       } else {
         return res.status(400).json({
           success: false,
-          message: 'Maximum attempts reached for this quiz'
+          message: 'Maximum attempts reached for this quiz. Please review your learning materials.'
         });
       }
     }
@@ -356,8 +367,12 @@ export const submitQuiz = async (req, res) => {
     let nextLevelUnlocked = false;
     let earnedCertificate = null;
 
-    // Robust check using quizType or regex (captures Mastery, Challenge, Check etc.)
-    const isMastery = quiz.quizType === 'mastery' || /level\s*\d+.*(mastery|challenge|check)/i.test(quiz.title);
+    // Robust check: quizType === 'mastery', OR title matches pattern,
+    // OR quiz has an explicit numeric level set (auto-generated mastery quizzes)
+    const hasExplicitLevel = quiz.level !== undefined && quiz.level !== null;
+    const isMastery = quiz.quizType === 'mastery'
+      || /level\s*\d+.*(mastery|challenge|check)/i.test(quiz.title)
+      || (hasExplicitLevel && (quiz.tags?.includes('auto-generated') || quiz.quizType === 'level'));
 
     if (isMastery && quizAttempt.passed) {
       // Prefer explicit level field, fallback to parsing title
@@ -372,17 +387,23 @@ export const submitQuiz = async (req, res) => {
 
         // Issue Certificate for Level Mastery
         try {
-          // Check if already issued
+          // Check if already issued (check all known title variants)
+          const titleVariants = [
+            `Level ${completedLevel} Mastery`,
+            completedLevel === 0 ? 'Level 0 Basics' : null,
+            completedLevel === 2 ? 'Level 2 Intermediate' : null,
+            completedLevel === 3 ? 'Level 3 Advanced' : null,
+          ].filter(Boolean);
+
           const existingCert = await Certificate.findOne({
             user: userId,
-            title: new RegExp(`^Level ${completedLevel} Mastery$`, 'i'),
+            title: { $in: titleVariants },
             type: 'level_mastery'
           });
 
           if (!existingCert) {
             let certTitle = `Level ${completedLevel} Mastery`;
-            if (completedLevel === 0) certTitle = 'Level 0 Mastery';
-            else if (completedLevel === 2) certTitle = 'Level 2 Intermediate';
+            if (completedLevel === 2) certTitle = 'Level 2 Intermediate';
             else if (completedLevel === 3) certTitle = 'Level 3 Advanced';
 
             earnedCertificate = new Certificate({
@@ -394,6 +415,8 @@ export const submitQuiz = async (req, res) => {
             });
             await earnedCertificate.save();
             logger.info(`📜 Certificate issued: ${earnedCertificate.certificateCode} - ${certTitle}`, null, 'CONTROLLER');
+          } else {
+            logger.info(`📜 Certificate already exists for Level ${completedLevel} (${existingCert.title})`, null, 'CONTROLLER');
           }
         } catch (certError) {
           logger.errorWithStack('Failed to issue certificate', certError, 'CONTROLLER');
@@ -577,8 +600,8 @@ export const getUserProgress = async (req, res) => {
           xpToNextLevel: user.learningStats.xpToNextLevel,
           streak: user.learningStats.streak,
           longestStreak: user.learningStats.longestStreak,
-          quizzesCompleted: user.learningStats.quizzesCompleted,
-          perfectQuizzes: user.learningStats.perfectQuizzes,
+          QuizesCompleted: user.learningStats.QuizesCompleted,
+          perfectQuizes: user.learningStats.perfectQuizes,
           averageQuizScore: user.learningStats.averageQuizScore,
           achievements: user.learningStats.achievements,
           badges: user.learningStats.badges,
@@ -602,7 +625,7 @@ export const getUserProgress = async (req, res) => {
 
 const getAdaptiveQuestions = async (quiz, user) => {
   // If user is new or has no performance data, return random questions
-  if (!user.learningStats.recentQuizzes || user.learningStats.recentQuizzes.length === 0) {
+  if (!user.learningStats.recentQuizes || user.learningStats.recentQuizes.length === 0) {
     return quiz.questions.sort(() => Math.random() - 0.5);
   }
 
@@ -756,13 +779,13 @@ const updateUserStats = async (userId, quizAttempt) => {
   const user = await User.findById(userId);
 
   // Update basic stats
-  user.learningStats.quizzesCompleted += 1;
+  user.learningStats.QuizesCompleted += 1;
   user.learningStats.totalXP += quizAttempt.xpEarned;
   user.learningStats.weeklyXP += quizAttempt.xpEarned;
   user.learningStats.monthlyXP += quizAttempt.xpEarned;
 
   if (quizAttempt.percentage === 100) {
-    user.learningStats.perfectQuizzes += 1;
+    user.learningStats.perfectQuizes += 1;
   }
 
   // Update streak
@@ -777,14 +800,14 @@ const updateUserStats = async (userId, quizAttempt) => {
     user.learningStats.categoryProgress[categoryKey] += quizAttempt.xpEarned;
   }
 
-  // Update recent quizzes (keep last 10)
-  user.learningStats.recentQuizzes.unshift({
+  // Update recent Quizes (keep last 10)
+  user.learningStats.recentQuizes.unshift({
     quizId: quizAttempt.quizId,
     score: quizAttempt.percentage,
     completedAt: quizAttempt.completedAt,
     category: quizAttempt.category
   });
-  user.learningStats.recentQuizzes = user.learningStats.recentQuizzes.slice(0, 10);
+  user.learningStats.recentQuizes = user.learningStats.recentQuizes.slice(0, 10);
 
   // Recalculate average quiz score
   const allAttempts = await QuizAttempt.find({ userId });
@@ -827,11 +850,11 @@ const checkAchievements = async (userId, quizAttempt) => {
         }
         break;
       case 'completion':
-        const totalQuizzes = await QuizAttempt.countDocuments({ userId });
-        if (totalQuizzes >= achievement.requirements.value) {
+        const totalQuizes = await QuizAttempt.countDocuments({ userId });
+        if (totalQuizes >= achievement.requirements.value) {
           isEarned = true;
         }
-        progress = Math.min(100, (totalQuizzes / achievement.requirements.value) * 100);
+        progress = Math.min(100, (totalQuizes / achievement.requirements.value) * 100);
         break;
       // Add more achievement types as needed
     }

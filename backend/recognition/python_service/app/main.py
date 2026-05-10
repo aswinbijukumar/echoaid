@@ -206,19 +206,12 @@ def process_pil_image(pil_img, t0, is_mirrored=True):
     h, w = img_rgb.shape[:2]
     
     # Extract landmarks raw
-    t_mp_start = time.time()
     landmarks_raw = extract_landmarks_raw(img_rgb)
-    t_mp_end = time.time()
-    
     if landmarks_raw is None:
         return {
             "detections": [],
             "message": "No hand detected in image",
-            "time_ms": round(float((time.time() - t0) * 1000)),
-            "processed_height": h,
-            "timers": {
-                "mediapipe_ms": round(float((t_mp_end - t_mp_start) * 1000))
-            }
+            "time_ms": round(float((time.time() - t0) * 1000))
         }
     
     # Convert to pixel coordinates as per training script
@@ -230,21 +223,12 @@ def process_pil_image(pil_img, t0, is_mirrored=True):
     processed_vector = pre_process_landmark(lm_px)
     
     # Run model
-    t_inf_start = time.time()
     detections = predict_landmarks(processed_vector, top_k=5)
-    t_inf_end = time.time()
-    
     return {
         "detections": detections,
         "time_ms": round(float((time.time() - t0) * 1000)),
         "landmarks_detected": True,
-        "landmark_count": len(landmarks_raw),
-        "processed_height": h,
-        "timers": {
-            "mediapipe_ms": round(float((t_mp_end - t_mp_start) * 1000)),
-            "inference_ms": round(float((t_inf_end - t_inf_start) * 1000)),
-            "overhead_ms": round(float((time.time() - t0 - (t_mp_end - t_mp_start) - (t_inf_end - t_inf_start)) * 1000))
-        }
+        "landmark_count": len(landmarks_raw)
     }
 
 

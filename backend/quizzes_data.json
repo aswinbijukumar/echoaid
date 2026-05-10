@@ -1,0 +1,26 @@
+[
+  {
+    "quizType": "standard",
+    "level": 1,
+    "_id": "68f62bd88ea23cd18e3928a7",
+    "title": "practice alphabets",
+    "passingScore": 50,
+    "maxAttempts": 20
+  },
+  {
+    "quizType": "standard",
+    "_id": "68f7570ab61fdab754dc00ad",
+    "title": "Level 0 Mastery Quizz",
+    "passingScore": 70,
+    "maxAttempts": 3,
+    "level": 0
+  },
+  {
+    "quizType": "standard",
+    "level": 1,
+    "_id": "68f8629b2d630a326be16cbb",
+    "title": "Level 1 Mastery Quiz",
+    "passingScore": 70,
+    "maxAttempts": 3
+  }
+]

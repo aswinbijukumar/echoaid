@@ -323,8 +323,7 @@ export default function Dictionary() {
     // Filter by search term
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = sign.word.toLowerCase().includes(searchLower) ||
-        sign.description.toLowerCase().includes(searchLower);
+      const matchesSearch = sign.word.toLowerCase().includes(searchLower);
       if (!matchesSearch) return false;
     }
 
@@ -572,8 +571,11 @@ export default function Dictionary() {
                                     </span>
                                   </div>
 
-                                  {/* Signs Grid */}
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                                  {/* Signs Grid or List */}
+                                  <div className={viewMode === 'list'
+                                    ? 'flex flex-col gap-3'
+                                    : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4'
+                                  }>
                                     {signs.map((sign) => (
                                       <div
                                         key={sign.id}

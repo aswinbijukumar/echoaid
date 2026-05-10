@@ -97,50 +97,74 @@ export default function Practice() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
+      const authHeader = token ? { 'Authorization': `Bearer ${token}` } : {};
 
       // Fetch quiz requirements
       await fetchQuizRequirements(token);
 
-      // recent attempts
-      const recentRes = await fetch(`${API_BASE_URL}/practice/attempts/recent`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : undefined
-      });
+      // Fetch recent practice attempts
+      const recentRes = await fetch(`${API_BASE_URL}/practice/attempts/recent`, { headers: authHeader });
       const recentData = await recentRes.json().catch(() => ({}));
       const attempts = recentData.data || [];
-      const recents = attempts.map(a => ({
-        id: a.sign?._id || a.sign || a._id,
-        word: a.expectedWord || a.sign?.word || 'Unknown Sign',
-        accuracy: a.score || a.confidence || 0,
-        lastPracticed: a.createdAt,
-        category: a.sign?.category || 'practice'
-      }));
+
+      // Fetch all signs dictionary for name resolution (sign field is ID only)
+      let signLookup = {};
+      try {
+        const signsRes = await fetch(`${API_BASE_URL}/dictionary/db/signs?limit=500`);
+        const signsData = await signsRes.json().catch(() => ({}));
+        (signsData.signs || []).forEach(s => {
+          signLookup[s._id || s.id] = s;
+        });
+      } catch { /* use empty lookup */ }
+
+      // Map attempts with proper sign names
+      const mapped = attempts.map(a => {
+        const signId = a.sign?._id || a.sign || null;
+        const resolvedSign = signId ? signLookup[signId] : null;
+        return {
+          id: signId || a._id,
+          word: a.expectedWord || resolvedSign?.word || a.sign?.word || null,
+          accuracy: Math.round(a.score || a.confidence || 0),
+          lastPracticed: a.createdAt,
+          category: resolvedSign?.category || a.sign?.category || 'Practice',
+        };
+      }).filter(s => s.word); // Remove entries with no resolvable name
+
+      // Deduplicate: keep only the most recent attempt per unique sign word
+      const seenWords = new Set();
+      const recents = [];
+      for (const sign of mapped) {
+        if (!seenWords.has(sign.word)) {
+          seenWords.add(sign.word);
+          recents.push(sign);
+        }
+        if (recents.length >= 6) break;
+      }
       setRecentSigns(recents);
-      // weak signs from attempts with low accuracy
-      const weak = recents.filter(r => r.accuracy < 60).slice(0, 6);
+
+      // Weak signs: from full mapped list (pre-dedup), find lowest accuracy per sign
+      const wordBestAccuracy = {};
+      for (const a of mapped) {
+        if (!wordBestAccuracy[a.word] || a.accuracy < wordBestAccuracy[a.word].accuracy) {
+          wordBestAccuracy[a.word] = a;
+        }
+      }
+      const weak = Object.values(wordBestAccuracy)
+        .filter(s => s.accuracy < 60)
+        .sort((a, b) => a.accuracy - b.accuracy)
+        .slice(0, 5);
       setWeakSigns(weak);
-      // Get daily goal from user stats
-      const userResponse = await fetch(`${API_BASE_URL}/api/auth/me`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : undefined
-      });
-      const userData = await userResponse.json().catch(() => ({}));
-      const userStats = userData.user?.learningStats || {};
 
       // Calculate today's progress from practice attempts
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayAttempts = attempts.filter(attempt => {
-        const attemptDate = new Date(attempt.lastPracticed || attempt.createdAt);
-        attemptDate.setHours(0, 0, 0, 0);
-        return attemptDate.getTime() === today.getTime();
+        const d = new Date(attempt.createdAt || attempt.lastPracticed);
+        d.setHours(0, 0, 0, 0);
+        return d.getTime() === today.getTime();
       });
-
-      const dailyGoalTarget = userStats.dailyGoal || 100;
-      const dailyGoalCompleted = Math.min(todayAttempts.length * 20, dailyGoalTarget); // 20 XP per practice
-
-      setDailyGoal({
-        completed: dailyGoalCompleted,
-        target: dailyGoalTarget
-      });
+      const dailyGoalTarget = 5;
+      setDailyGoal({ completed: Math.min(todayAttempts.length, dailyGoalTarget), target: dailyGoalTarget });
 
     } catch (error) {
       logger.errorWithStack('Error fetching practice data', error, 'PRACTICE');
@@ -181,6 +205,18 @@ export default function Practice() {
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const timeAgo = (dateStr) => {
+    if (!dateStr) return '';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
   };
 
   const startPractice = (sign, mode = 'review', exerciseType = 'sign-recognition') => {
@@ -718,7 +754,7 @@ export default function Practice() {
                           </div>
                           <div>
                             <h4 className="font-semibold text-white">{sign.word}</h4>
-                            <p className="text-sm text-white/60">{sign.category}</p>
+                            <p className="text-sm text-white/60 capitalize">{sign.category} · {timeAgo(sign.lastPracticed)}</p>
                           </div>
                         </div>
                         <div className="flex items-center space-x-3">
@@ -787,7 +823,7 @@ export default function Practice() {
                           </div>
                           <div>
                             <h4 className="font-semibold text-white">{sign.word}</h4>
-                            <p className="text-sm text-white/60">{sign.category}</p>
+                            <p className="text-sm text-white/60 capitalize">{sign.category} · {timeAgo(sign.lastPracticed)}</p>
                           </div>
                         </div>
                         <div className="flex items-center space-x-3">

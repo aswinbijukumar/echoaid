@@ -115,34 +115,6 @@ export const checkZDepth = (p1, p2, threshold = 0.1) => {
   return Math.abs(p1.z - p2.z) < threshold;
 };
 
-/**
- * Detects palm orientation (FRONT vs BACK).
- * Logic: Compares Index MCP and Pinky MCP X-positions relative to handedness.
- * Handedness is 'Left' or 'Right' as reported by MediaPipe.
- */
-export const getPalmOrientation = (landmarks, handLabel) => {
-  if (!landmarks || landmarks.length < 21) return 'UNKNOWN';
-  
-  const indexMCP = landmarks[LANDMARKS.INDEX.MCP];
-  const pinkyMCP = landmarks[LANDMARKS.PINKY.MCP];
-  
-  // If Right Hand: 
-  // Index.x < Pinky.x => Back of hand facing camera (Palm Facing Signer)
-  // Index.x > Pinky.x => Palm facing camera
-  
-  // Note: MediaPipe X is 0 (left) to 1 (right).
-  // If we are mirrored, the camera view is already flipped.
-  
-  const isIndexToLeft = indexMCP.x < pinkyMCP.x;
-  
-  if (handLabel === 'Right') {
-    return isIndexToLeft ? 'BACK' : 'FRONT';
-  } else {
-    // Left Hand is mirrored logic
-    return isIndexToLeft ? 'FRONT' : 'BACK';
-  }
-};
-
 // ... existing code ...
 
 /**
@@ -153,8 +125,6 @@ export const analyzeSign = (multiLandmarks, handedness, signKey) => {
   if (!multiLandmarks || multiLandmarks.length === 0) {
     return { isMatch: false, score: 0, feedback: ['No hands detected'] };
   }
-
-  const handLabel = handedness && handedness[0] ? handedness[0].label : 'Right';
 
   // 1. Get Target Rule
   const rule = SIGN_RULES[signKey];
@@ -263,17 +233,6 @@ export const analyzeSign = (multiLandmarks, handedness, signKey) => {
         } else {
           currentFeedback.push(geo.message || "Alignment incorrect");
         }
-      }
-    }
-
-    // D. Check Orientation (FRONT vs BACK)
-    if (rule.orientation) {
-      currentMax += 20;
-      const actualOrientation = getPalmOrientation(config.dominant, handLabel);
-      if (actualOrientation === rule.orientation) {
-        currentScore += 20;
-      } else {
-        currentFeedback.push(`Hand should be facing ${rule.orientation === 'FRONT' ? 'the camera (Palm)' : 'you (Back)'}`);
       }
     }
 

@@ -14,7 +14,6 @@ export const ISL_SIGN_RULES = {
         fingers: {
             DOMINANT: { THUMB: 'CURLED', INDEX: 'CURLED', MIDDLE: 'CURLED', RING: 'CURLED', PINKY: 'CURLED' }
         },
-        isMirrorAgnostic: true,
         geometry: [
             { type: 'DISTANCE', p1: 'DOMINANT_INDEX', part1: 'TIP', p2: 'DOMINANT_THUMB', part2: 'TIP', maxDistance: 0.05, message: "Close the circle (Index touching Thumb)" }
         ]
@@ -25,8 +24,7 @@ export const ISL_SIGN_RULES = {
         type: 'SINGLE_HANDED',
         fingers: {
             DOMINANT: { THUMB: 'CURLED', INDEX: 'STRAIGHT', MIDDLE: 'CURLED', RING: 'CURLED', PINKY: 'CURLED' }
-        },
-        isMirrorAgnostic: true
+        }
     },
     '2': {
         name: 'Number 2',
@@ -34,8 +32,7 @@ export const ISL_SIGN_RULES = {
         type: 'SINGLE_HANDED',
         fingers: {
             DOMINANT: { INDEX: 'STRAIGHT', MIDDLE: 'STRAIGHT', RING: 'CURLED', PINKY: 'CURLED' }
-        },
-        orientation: 'BACK'
+        }
     },
     '3': {
         name: 'Number 3',
@@ -59,8 +56,7 @@ export const ISL_SIGN_RULES = {
         type: 'SINGLE_HANDED',
         fingers: {
             DOMINANT: { THUMB: 'STRAIGHT', INDEX: 'STRAIGHT', MIDDLE: 'STRAIGHT', RING: 'STRAIGHT', PINKY: 'STRAIGHT' }
-        },
-        isMirrorAgnostic: true
+        }
     },
     '6': {
         name: 'Number 6',
@@ -194,8 +190,7 @@ export const ISL_SIGN_RULES = {
         type: 'SINGLE_HANDED',
         fingers: {
             DOMINANT: { INDEX: 'STRAIGHT', MIDDLE: 'CURLED', RING: 'CURLED', PINKY: 'CURLED' }
-        },
-        isMirrorAgnostic: true
+        }
     },
     'J': {
         name: 'Letter J',
@@ -259,8 +254,7 @@ export const ISL_SIGN_RULES = {
         type: 'SINGLE_HANDED',
         fingers: {
             DOMINANT: { INDEX: 'CURLED', MIDDLE: 'CURLED', RING: 'CURLED', PINKY: 'CURLED', THUMB: 'CURLED' }
-        },
-        isMirrorAgnostic: true
+        }
     },
     'P': {
         name: 'Letter P',
@@ -336,8 +330,7 @@ export const ISL_SIGN_RULES = {
         type: 'SINGLE_HANDED',
         fingers: {
             DOMINANT: { INDEX: 'STRAIGHT', MIDDLE: 'STRAIGHT', RING: 'CURLED' }
-        },
-        orientation: 'FRONT'
+        }
     },
     'W': {
         name: 'Letter W',

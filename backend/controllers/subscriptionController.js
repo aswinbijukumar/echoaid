@@ -161,14 +161,14 @@ export const getSubscriptionPlans = async (req, res) => {
         description: 'Perfect for getting started',
         features: [
           'Basic sign language learning',
-          'Limited quizzes (5 per day)',
+          'Limited Quizes (5 per day)',
           'Limited learning modules (3 per day)',
           'Basic progress tracking',
           'Community support',
           'Mobile app access'
         ],
         limitations: [
-          'Limited to 5 quizzes per day',
+          'Limited to 5 Quizes per day',
           'Limited to 3 learning modules per day',
           'Basic analytics only',
           'Standard support',
@@ -183,7 +183,7 @@ export const getSubscriptionPlans = async (req, res) => {
         price: { monthly: 299, yearly: 2999 },
         description: 'Most popular for serious learners',
         features: [
-          'Unlimited quizzes and practice',
+          'Unlimited Quizes and practice',
           'Advanced progress analytics',
           'Priority customer support',
           'Offline mode access',
@@ -300,7 +300,7 @@ export const getSubscriptionStatus = async (req, res) => {
             plan: 'admin',
             status: 'active',
             features: {
-              unlimitedQuizzes: true,
+              unlimitedQuizes: true,
               advancedAnalytics: true,
               prioritySupport: true,
               customProgressTracking: true,
@@ -387,7 +387,7 @@ export const getSubscriptionStatus = async (req, res) => {
 const updatePlanFeatures = (user, plan) => {
   const features = {
     free: {
-      unlimitedQuizzes: false,
+      unlimitedQuizes: false,
       advancedAnalytics: false,
       prioritySupport: false,
       customProgressTracking: false,
@@ -397,7 +397,7 @@ const updatePlanFeatures = (user, plan) => {
       whiteLabel: false
     },
     pro: {
-      unlimitedQuizzes: true,
+      unlimitedQuizes: true,
       advancedAnalytics: true,
       prioritySupport: true,
       customProgressTracking: true,
@@ -407,7 +407,7 @@ const updatePlanFeatures = (user, plan) => {
       whiteLabel: false
     },
     premium: {
-      unlimitedQuizzes: true,
+      unlimitedQuizes: true,
       advancedAnalytics: true,
       prioritySupport: true,
       customProgressTracking: true,
@@ -417,7 +417,7 @@ const updatePlanFeatures = (user, plan) => {
       whiteLabel: false
     },
     enterprise: {
-      unlimitedQuizzes: true,
+      unlimitedQuizes: true,
       advancedAnalytics: true,
       prioritySupport: true,
       customProgressTracking: true,
@@ -439,7 +439,7 @@ const checkFeatureAccess = (subscription, feature) => {
 
   // Trial users have limited access
   if (subscription.status === 'trial') {
-    const trialFeatures = ['unlimitedQuizzes', 'advancedAnalytics'];
+    const trialFeatures = ['unlimitedQuizes', 'advancedAnalytics'];
     return trialFeatures.includes(feature);
   }
 

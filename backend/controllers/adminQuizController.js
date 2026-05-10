@@ -4,7 +4,7 @@ import QuestionBank from '../models/QuestionBank.js';
 import User from '../models/User.js';
 import Achievement from '../models/Achievement.js';
 
-// Get all quizzes for admin management
+// Get all Quizzes for admin management
 export const getAdminQuizzes = async (req, res) => {
   try {
     const { 
@@ -239,8 +239,8 @@ export const getQuizDashboard = async (req, res) => {
     const dateFilter = getDateFilter(timeframe);
     
     // Overall statistics
-    const totalQuizzes = await Quiz.countDocuments();
-    const activeQuizzes = await Quiz.countDocuments({ isActive: true });
+    const totalQuizes = await Quiz.countDocuments();
+    const activeQuizes = await Quiz.countDocuments({ isActive: true });
     const totalAttempts = await QuizAttempt.countDocuments({
       completedAt: { $gte: dateFilter }
     });
@@ -286,8 +286,8 @@ export const getQuizDashboard = async (req, res) => {
       .limit(10)
       .lean();
 
-    // Top performing quizzes
-    const topQuizzes = await Quiz.aggregate([
+    // Top performing Quizes
+    const topQuizes = await Quiz.aggregate([
       {
         $lookup: {
           from: 'quizattempts',
@@ -324,15 +324,15 @@ export const getQuizDashboard = async (req, res) => {
       success: true,
       data: {
         overview: {
-          totalQuizzes,
-          activeQuizzes,
+          totalQuizes,
+          activeQuizes,
           totalAttempts,
           averageScore: avgScore[0]?.average || 0
         },
         categoryStats,
         difficultyStats,
         recentActivity,
-        topQuizzes
+        topQuizes
       }
     });
   } catch (error) {

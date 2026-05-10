@@ -139,7 +139,8 @@ export default function LearningModule({ skill, onComplete, onBack, nextSkill, o
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const json = await response.json();
+        const data = json.data || json; // unwrap nested .data
         console.log('Module completed successfully', data);
 
         // Show level-up animation if user leveled up
@@ -172,10 +173,16 @@ export default function LearningModule({ skill, onComplete, onBack, nextSkill, o
             }, 2500);
           }, 800);
         } else if (data.isLastModuleInLevel) {
+          // All modules done — show quiz prompt and auto-navigate to quiz page
           setTimeout(() => {
-            setProgressionMessage(`🎯 Level ${skill.level} completed! Time for the Level ${skill.level} Mastery Quiz!`);
+            setProgressionMessage(`🎯 Level ${skill.level} Complete! All modules done. Taking you to the Mastery Quiz...`);
             setShowProgressionMessage(true);
             setShowQuizButton(true);
+
+            // Auto-redirect to quiz page after 3s so they can read the message
+            setTimeout(() => {
+              navigate('/quiz', { replace: false });
+            }, 3000);
           }, 1000);
         }
 

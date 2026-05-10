@@ -4,6 +4,27 @@ import sendEmail from '../utils/sendEmail.js';
 import logger from '../utils/prettyLogger.js';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Multer setup for /api/admin/upload (memory storage so we can pipe to Cloudinary)
+export const uploadMiddleware = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|gif|webp|mp4|webm|avi|mov|mp3|wav|ogg|m4a/;
+    const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
+    if (allowed.test(ext) || allowed.test(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type'));
+    }
+  }
+}).single('file');
 
 
 // @desc    Get all admins (Super Admin only)
@@ -708,56 +729,58 @@ export const getAdminDashboard = async (req, res) => {
 // @access  Private (Admin, Super Admin)
 export const uploadMedia = async (req, res) => {
   try {
-    if (!req.files || !req.files.file) {
+    // req.file is populated by the multer middleware attached in admin.js
+    if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    const file = req.files.file;
-    const folder = req.body.folder || 'misc';
+    const folder = req.body.folder || 'learning-modules';
 
-    // Verify file type (basic check)
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm'];
-    if (!allowedTypes.includes(file.mimetype)) {
-      return res.status(400).json({ success: false, message: 'Invalid file type' });
-    }
+    // Try Cloudinary first, fall back to local storage
+    const cloudinaryConfigured = !!(
+      process.env.CLOUDINARY_CLOUD_NAME &&
+      process.env.CLOUDINARY_API_KEY &&
+      process.env.CLOUDINARY_API_SECRET
+    );
 
-    // Upload to Cloudinary
-    // Use a temp file path if available, or buffer stream if needed.
-    // Express-fileupload usually provides .tempFilePath if configured, or .data buffer.
-    // Let's assume tempFilePath is available or use a stream upload helper if not.
-    // Ideally we should use the same pattern as contentController.js.
-
-    // Check contentController.js pattern (I recall seeing it use uploaded.secure_url directly from a "uploaded" object)
-    // It likely uses the cloudinary.uploader.upload method.
-
-    let result;
-    if (file.tempFilePath) {
-      result = await cloudinary.uploader.upload(file.tempFilePath, {
-        folder: `echoaid/${folder}`,
-        resource_type: 'auto'
+    if (cloudinaryConfigured) {
+      const uploaded = await new Promise((resolve, reject) => {
+        cloudinary.uploader.upload_stream(
+          { folder: `echoaid/${folder}`, resource_type: 'auto' },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        ).end(req.file.buffer);
       });
-    } else {
-      // If no temp file, we can write buffer to a temp file or use stream.
-      // Easiest is to ensure temp files are used in app config.
-      // But purely for robustness, let's write to a temp file if needed or use a direct upload stream.
-      // For now, let's assume valid tempFilePath as typically configured in `server.js` with `useTempFiles: true`.
-      result = await cloudinary.uploader.upload(file.tempFilePath, {
-        folder: `echoaid/${folder}`,
-        resource_type: 'auto'
+
+      return res.status(200).json({
+        success: true,
+        message: 'File uploaded successfully to Cloudinary',
+        filePath: uploaded.secure_url,
+        url: uploaded.secure_url,
+        publicId: uploaded.public_id
       });
     }
 
-    res.status(200).json({
+    // Local storage fallback
+    const uploadsDir = path.join(__dirname, '..', 'uploads', 'learning-modules');
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+    const ext = path.extname(req.file.originalname) || '';
+    const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+    const filePath = path.join(uploadsDir, uniqueName);
+    fs.writeFileSync(filePath, req.file.buffer);
+    const localUrl = `/uploads/learning-modules/${uniqueName}`;
+
+    return res.status(200).json({
       success: true,
-      data: {
-        url: result.secure_url,
-        public_id: result.public_id,
-        resource_type: result.resource_type
-      }
+      message: 'File uploaded successfully to local storage',
+      filePath: localUrl,
+      url: localUrl
     });
 
   } catch (error) {
-    console.error('Upload Error:', error);
+    logger.errorWithStack('Upload Error:', error, 'CONTROLLER');
     res.status(500).json({ success: false, message: 'Upload failed', error: error.message });
   }
 }; 

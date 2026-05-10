@@ -118,15 +118,6 @@ export default function Sidebar({ handleLogout }) {
               <ArrowRightOnRectangleIcon className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} />
               <span>LOGOUT</span>
             </button>
-
-            {/* Developer Mode Toggle */}
-            <button
-              onClick={toggleDevMode}
-              className={`mt-2 flex items-center justify-center space-x-2 w-full py-2 text-xs font-mono rounded border border-dashed hover:opacity-100 transition-opacity
-                  ${devMode ? 'text-green-500 border-green-500 opacity-100' : 'text-gray-500 border-gray-500 opacity-50'}`}
-            >
-              <span>🛠️ DEV MODE: {devMode ? 'ON' : 'OFF'}</span>
-            </button>
           </div>
         </nav>
       </div>

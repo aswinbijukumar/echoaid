@@ -802,22 +802,27 @@ export default function LearningModulesManagement() {
     }
   };
 
-  const playAudio = async (audioText) => {
+  const playAudio = async (audioText, cardIndex) => {
     try {
-      // Stop any currently playing audio
-      if (playingAudio) {
-        speechSynthesis.cancel();
+      // If this card is already playing → stop it (toggle off)
+      if (playingAudio === cardIndex) {
+        audioGenerator.stop();
+        setPlayingAudio(null);
+        return;
       }
-      
-      // Use browser TTS to play the audio
+
+      // Stop whatever is currently playing (different card or null)
+      audioGenerator.stop();
+      setPlayingAudio(cardIndex);
+
+      // Play and automatically clear state when done
       await audioGenerator.generateAudio(audioText);
-      setPlayingAudio(true);
-      
-      // Reset playing state after a delay (TTS doesn't have onend event easily accessible)
-      setTimeout(() => setPlayingAudio(null), audioText.length * 100); // Rough estimate
+      setPlayingAudio(null);
     } catch (error) {
-      console.error('Audio play error:', error);
-      setError('Failed to play audio');
+      if (error !== 'cancelled') {
+        console.error('Audio play error:', error);
+        setError('Failed to play audio');
+      }
       setPlayingAudio(null);
     }
   };
@@ -1552,11 +1557,26 @@ export default function LearningModulesManagement() {
                             {cleanCard.generatedAudio && (
                               <button
                                 type="button"
-                                onClick={() => playAudio(cleanCard.generatedAudio.audioText)}
-                                className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center space-x-1 text-sm"
+                                onClick={() => playAudio(cleanCard.generatedAudio.audioText, index)}
+                                className={`px-3 py-2 rounded-lg transition-colors flex items-center space-x-1 text-sm text-white ${
+                                  playingAudio === index
+                                    ? 'bg-red-500 hover:bg-red-600'
+                                    : 'bg-blue-500 hover:bg-blue-600'
+                                }`}
                               >
-                                <SpeakerWaveIcon className="w-4 h-4" />
-                                <span>Play</span>
+                                {playingAudio === index ? (
+                                  <>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                      <rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>
+                                    </svg>
+                                    <span>Pause</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <SpeakerWaveIcon className="w-4 h-4" />
+                                    <span>Play</span>
+                                  </>
+                                )}
                               </button>
                             )}
                             {cleanCard.generatedAudio && (

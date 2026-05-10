@@ -271,7 +271,7 @@ export const completeSkillLesson = async (req, res) => {
         if (allLevelSkillsCompleted) {
           // Find and reset quiz attempts for this level's mastery quiz
 
-          const masteryQuizzes = await Quiz.find({
+          const masteryQuizes = await Quiz.find({
             level: skill.level,
             isActive: true,
             $or: [
@@ -280,9 +280,9 @@ export const completeSkillLesson = async (req, res) => {
             ]
           }).select('_id title').lean();
 
-          if (masteryQuizzes.length > 0) {
-            const quizIds = masteryQuizzes.map(q => q._id);
-            logger.info(`🔄 Deleting attempts for ${masteryQuizzes.length} quizzes to allow retake: ${masteryQuizzes.map(q => q.title).join(', ')}`, null, 'CONTROLLER');
+          if (masteryQuizes.length > 0) {
+            const quizIds = masteryQuizes.map(q => q._id);
+            logger.info(`🔄 Deleting attempts for ${masteryQuizes.length} Quizes to allow retake: ${masteryQuizes.map(q => q.title).join(', ')}`, null, 'CONTROLLER');
             const deletedResult = await QuizAttempt.deleteMany({ userId: user._id, quizId: { $in: quizIds } });
 
             quizUnlocked = true;

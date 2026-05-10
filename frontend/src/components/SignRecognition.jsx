@@ -3,7 +3,6 @@ import { detectImageFromDataUrl } from '../utils/recognitionClient';
 import { analyzeSign } from '../utils/HandGeometry';
 import { SIGN_RULES } from '../constants/SignRules';
 import { useTheme } from '../hooks/useTheme';
-import { compressImage } from '../utils/imageUtils';
 import FloatingChatbot from './FloatingChatbot';
 import {
   ChatBubbleLeftRightIcon,
@@ -130,17 +129,6 @@ export default function SignRecognition({
       category: 'Numbers',
       tips: ['Open hand wide', 'Fingers spread apart', 'Palm facing forward'],
       commonMistakes: ['Fingers touching', 'Hand cupped', 'Thumb bent'],
-      learningLevel: 'Foundation',
-      xpValue: 10
-    },
-    '2': {
-      name: 'Number 2',
-      description: 'Extend your index and middle fingers in a "V" shape (BACK of hand to camera).',
-      usage: 'Used for counting, mathematics, and numerical communication.',
-      difficulty: 'Beginner',
-      category: 'Numbers',
-      tips: ['Show the BACK of your hand', 'Spread fingers for V shape', 'Keep fingers straight'],
-      commonMistakes: ['Palm facing camera', 'Fingers touching', 'Thumb sticking out'],
       learningLevel: 'Foundation',
       xpValue: 10
     },
@@ -423,12 +411,12 @@ export default function SignRecognition({
     },
     'V': {
       name: 'Letter V',
-      description: 'Hold your index and middle fingers in a "V" (PALM facing camera).',
+      description: 'Hold your index and middle fingers in a "V" (palm facing out).',
       usage: 'Used in spelling words, names, and as a standalone letter.',
       difficulty: 'Beginner',
       category: 'Alphabet',
-      tips: ['Show the PALM of your hand', 'V shape', 'Palm forward'],
-      commonMistakes: ['Back of hand to camera (that is 2!)', 'Fingers together', '3 fingers up'],
+      tips: ['Spread index and middle', 'V shape', 'Palm forward'],
+      commonMistakes: ['Fingers together', 'Palm back', '3 fingers up'],
       learningLevel: 'Foundation',
       xpValue: 10
     },
@@ -596,14 +584,8 @@ export default function SignRecognition({
   // Compute expected label from the selected sign word (first alphanumeric uppercased)
   const getExpectedLabel = useCallback(() => {
     const word = targetSign?.word || '';
-    if (word === 'Free Practice' || targetSign?.id === 'free-practice') return null;
-    
-    // If it's a single alphanumeric character, return it
     const match = (word.match(/[A-Za-z0-9]/) || [null])[0];
-    if (match && word.length === 1) return match.toUpperCase();
-    
-    // For full words (dictionary), return the word itself if it's in our mapping
-    return word.toUpperCase();
+    return match ? match.toUpperCase() : null;
   }, [targetSign]);
 
   // MediaPipe initialization removed
@@ -711,7 +693,7 @@ export default function SignRecognition({
 
       // Start Camera
       if (cameraRef.current) {
-        try { cameraRef.current.stop(); } catch (_) {}
+        try { cameraRef.current.stop(); } catch (_) { /* ignore */ }
       }
 
       const camera = new Camera(videoRef.current, {
@@ -748,6 +730,14 @@ export default function SignRecognition({
     }
   }, [selectedCameraId]);
 
+  useEffect(() => {
+    // Listen for new devices being plugged in (like Phone Link changes)
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', enumerateCameras);
+      return () => navigator.mediaDevices.removeEventListener('devicechange', enumerateCameras);
+    }
+  }, [enumerateCameras]);
+
   // Initialize webcam (no MediaPipe)
   const initializeWebcam = useCallback(async (overrideDeviceId) => {
     try {
@@ -770,15 +760,20 @@ export default function SignRecognition({
 
       console.log('[camera] Requesting camera access...', { selectedCameraId });
 
+      const idToUse = overrideDeviceId || selectedCameraId;
       const constraints = {
         video: {
           width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: overrideDeviceId || selectedCameraId ? undefined : 'user',
-          deviceId: overrideDeviceId || selectedCameraId ? { exact: overrideDeviceId || selectedCameraId } : undefined
+          height: { ideal: 480 }
         },
         audio: false
       };
+      
+      if (idToUse) {
+        constraints.video.deviceId = { exact: idToUse };
+      } else {
+        constraints.video.facingMode = 'user';
+      }
 
       // Add timeout to getUserMedia
       const stream = await Promise.race([
@@ -826,6 +821,9 @@ export default function SignRecognition({
 
           // Initialize hand detection
           await initializeHands();
+          
+          // Re-enumerate cameras now that permission is granted so labels are populated
+          await enumerateCameras();
 
           console.log('[camera] Camera started successfully');
         } catch (playError) {
@@ -883,7 +881,7 @@ export default function SignRecognition({
         streamRef.current = null;
       }
     };
-  }, [selectedCameraId, enumerateCameras, initializeHands, currentMode]);
+  }, [selectedCameraId, enumerateCameras, initializeHands]);
 
   // Periodic Keras Recognition Polling - REPLACED BY WEBSOCKET
   useEffect(() => {
@@ -981,20 +979,8 @@ export default function SignRecognition({
 
       console.log('[recognition] Starting detection for image:', imageDataUrl?.substring(0, 50) + '...');
 
-      // 1. COMPRESS ON CLIENT SIDE (Optimization)
-      // This reduces upload payload from ~2MB to ~50KB, drastically lowering latency
-      let processedImageData = imageDataUrl;
-      try {
-        console.time('compression');
-        processedImageData = await compressImage(imageDataUrl, 640);
-        console.timeEnd('compression');
-        console.log('[recognition] Client-side compression complete');
-      } catch (compErr) {
-        console.warn('[recognition] Compression failed, falling back to original:', compErr);
-      }
-
-      // 2. SEND TO BACKEND
-      const data = await detectImageFromDataUrl(processedImageData, { signId: targetSign?._id, isMirrored });
+      // Use the new data URL function
+      const data = await detectImageFromDataUrl(imageDataUrl, { signId: targetSign?._id, isMirrored });
       const expected = getExpectedLabel();
 
       // Map YOLO detections to a single result for session scoring
@@ -1113,37 +1099,15 @@ export default function SignRecognition({
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsWebcamActive(false);
     setIsVideoReady(false);
     setKerasPrediction(null);
     setHandDetected(false);
     isProcessingWsRef.current = false; // Reset lock on stop
   }, []);
-
-  // Handle manual refresh (reset state + restart camera)
-  const handleRefresh = useCallback(async () => {
-    console.log('[ui] Manual refresh triggered');
-    try {
-      // 1. Clear all recognition states
-      setRecognitionResult(null);
-      setKerasPrediction(null);
-      setDetailedDetections([]);
-      setGuidanceNotes([]);
-      setError('');
-      
-      // 2. Restart camera lifecycle
-      stopWebcam();
-      await enumerateCameras();
-      
-      if (currentMode === 'webcam') {
-        setTimeout(() => initializeWebcam(), 300);
-      }
-      
-      console.log('[ui] Refresh complete');
-    } catch (err) {
-      console.error('[ui] Refresh failed:', err);
-      setError('Failed to refresh system.');
-    }
-  }, [stopWebcam, enumerateCameras, initializeWebcam, currentMode]);
 
   // Capture frame from webcam with optional cropping; returns null if frame is too dark/blank
   const captureFrame = useCallback((cropArea = null) => {
@@ -1390,11 +1354,9 @@ export default function SignRecognition({
 
   // Initialize webcam when component mounts
   useEffect(() => {
-    if (currentMode === 'webcam') {
+    if (mode === 'webcam') {
       initializeWebcam();
       openWebSocket();
-    } else {
-      stopWebcam();
     }
 
     const onVisibility = () => {
@@ -1419,7 +1381,7 @@ export default function SignRecognition({
       }
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [mode, currentMode, initializeWebcam, stopWebcam, openWebSocket]);
+  }, [mode, initializeWebcam, stopWebcam, openWebSocket]);
 
   return (
     <div className="w-full">
@@ -1466,13 +1428,12 @@ export default function SignRecognition({
               </button>
             </div>
             <div className="flex items-center space-x-3">
+
               <button
-                onClick={handleRefresh}
-                className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 flex items-center space-x-2 transition-all active:scale-95"
-                title="Reset recognition and restart camera"
+                onClick={() => enumerateCameras()}
+                className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30"
               >
-                <ArrowPathIcon className={`w-4 h-4 ${isProcessing ? 'animate-spin' : ''}`} />
-                <span>Refresh</span>
+                Refresh
               </button>
             </div>
           </div>
@@ -1520,14 +1481,19 @@ export default function SignRecognition({
               autoPlay
               playsInline
               muted
-              className={`w-full h-full object-cover rounded-xl shadow-2xl ${darkMode ? 'bg-gray-900 ring-1 ring-white/10' : 'bg-black ring-1 ring-gray-200'} ${!isWebcamActive ? 'opacity-0' : 'opacity-100'}`}
-              style={{ transform: isMirrored ? 'scaleX(-1)' : 'scaleX(1)' }}
+              className={`w-full h-full object-cover rounded-xl ${!isWebcamActive
+                ? darkMode
+                  ? 'bg-gray-700'
+                  : 'bg-gray-200'
+                : ''
+                }`}
+              style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }}
             />
             {/* Overlay for detections */}
             <canvas
               ref={overlayRef}
               className="pointer-events-none absolute inset-0 w-full h-full object-cover rounded-xl"
-              style={{ transform: isMirrored ? 'scaleX(-1)' : 'scaleX(1)', zIndex: 10 }}
+              style={{ transform: isMirrored ? 'scaleX(-1)' : 'none', zIndex: 10 }}
             />
             <canvas ref={canvasRef} className="hidden" />
 
@@ -1670,6 +1636,21 @@ export default function SignRecognition({
               </button>
             )}
 
+            {/* Mirror Button */}
+            {isWebcamActive && (
+              <button
+                onClick={() => {
+                  const v = videoRef.current;
+                  const o = overlayRef.current;
+                  if (v) {
+                    const mirrored = v.style.transform === 'scaleX(-1)';
+                    v.style.transform = mirrored ? 'scaleX(1)' : 'scaleX(-1)';
+                    if (o) o.style.transform = mirrored ? 'scaleX(1)' : 'scaleX(-1)';
+                  }
+                }}
+                className="px-6 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors"
+              >
+                🪞 Mirror
               </button>
             )}
 
@@ -1832,7 +1813,6 @@ export default function SignRecognition({
                   onClick={() => {
                     setPreviewUrl(null);
                     setRecognitionResult(null);
-                    setKerasPrediction(null);
                     setError('');
                   }}
                   className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-semibold"

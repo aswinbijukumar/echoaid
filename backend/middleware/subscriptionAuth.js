@@ -21,7 +21,7 @@ export const checkSubscriptionAccess = (feature) => {
           plan: 'admin', 
           status: 'active', 
           features: { 
-            unlimitedQuizzes: true, 
+            unlimitedQuizes: true, 
             advancedAnalytics: true, 
             prioritySupport: true, 
             customProgressTracking: true, 

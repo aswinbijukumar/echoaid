@@ -13,7 +13,8 @@ import {
   getAdminDashboard,
   getUserStats,
   toggleUserStatus,
-  uploadMedia
+  uploadMedia,
+  uploadMiddleware
 } from '../controllers/adminController.js';
 import { protect, adminAndSuperAdmin, canManageUsers, canViewAnalytics } from '../middleware/roleAuth.js';
 
@@ -41,7 +42,7 @@ router.put('/users/:id', adminAndSuperAdmin, canManageUsers, updateUser);
 router.patch('/users/:id/toggle-status', adminAndSuperAdmin, canManageUsers, toggleUserStatus);
 router.delete('/users/:id', adminAndSuperAdmin, canManageUsers, deleteUser);
 
-// Media upload route (Admin and Super Admin)
-router.post('/upload', adminAndSuperAdmin, canManageUsers, uploadMedia);
+// Media upload route (Admin and Super Admin) — multer middleware parses multipart/form-data
+router.post('/upload', adminAndSuperAdmin, uploadMiddleware, uploadMedia);
 
-export default router; 
+export default router;

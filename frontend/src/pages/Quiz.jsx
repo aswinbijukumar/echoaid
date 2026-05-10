@@ -38,11 +38,20 @@ export default function Quiz() {
   });
 
   const { darkMode } = useTheme();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { devMode } = useLearning();
   const navigate = useNavigate();
   const { quizId } = useParams();
-  // const [searchParams] = useSearchParams();
+
+  // Compute the effective per-quiz attempt limit based on the user's plan
+  const getEffectiveMaxAttempts = (quiz) => {
+    const plan = user?.subscription?.plan || 'free';
+    const role = user?.role;
+    if (role === 'admin' || plan === 'enterprise') return Infinity;
+    if (plan === 'premium') return 8;
+    if (plan === 'pro') return 5;
+    return quiz?.maxAttempts || 3;
+  };
 
   const bg = darkMode ? 'bg-[#1A1A1A]' : 'bg-white';
   const text = darkMode ? 'text-white' : 'text-[#23272F]';
@@ -507,7 +516,7 @@ export default function Quiz() {
                               <div className="flex items-center space-x-2 text-sm text-gray-500">
                                 <span>{quiz.stats?.totalAttempts || 0} attempts</span>
                               </div>
-                              {isLocked ? (
+                               {isLocked ? (
                                 <div className="flex items-center space-x-2 text-gray-500">
                                   <LockClosedIcon className="w-4 h-4" />
                                   <span className="text-sm">
@@ -519,7 +528,17 @@ export default function Quiz() {
                                 </div>
                               ) : (
                                 <div className="flex flex-col space-y-2 w-full">
-                                  <span>Attempts: {quiz.userStatus?.attempts || 0}/{quiz.maxAttempts}</span>
+                                  {status !== 'completed' && (() => {
+                                    const effectiveMax = getEffectiveMaxAttempts(quiz);
+                                    const displayAttempts = Math.min(quiz.userStatus?.attempts || 0, effectiveMax === Infinity ? (quiz.userStatus?.attempts || 0) : effectiveMax);
+                                    const displayMax = effectiveMax === Infinity ? '∞' : effectiveMax;
+                                    const isAtLimit = (quiz.userStatus?.attempts || 0) >= effectiveMax;
+                                    return (
+                                      <span className={isAtLimit ? 'text-red-500 font-medium text-sm' : 'text-sm text-gray-400'}>
+                                        Attempts: {displayAttempts}/{displayMax}
+                                      </span>
+                                    );
+                                  })()}
                                   <button
                                     className={`w-full px-6 py-2 text-white rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg ${status === 'completed'
                                       ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
@@ -532,7 +551,7 @@ export default function Quiz() {
                                         relearningInfo.incompleteModules.length === 0 &&
                                         !relearningInfo.hasRelearning;
 
-                                      if (quiz.userStatus?.attempts >= quiz.maxAttempts &&
+                                      if (quiz.userStatus?.attempts >= getEffectiveMaxAttempts(quiz) &&
                                         status !== 'completed' &&
                                         !isLevelActuallyComplete) {
                                         navigate('/learn');
@@ -541,7 +560,11 @@ export default function Quiz() {
                                       }
                                     }}
                                   >
-                                    {status === 'completed' ? 'Retake Quiz' : 'Start Quiz'}
+                                    {status === 'completed' 
+                                      ? 'Retake Quiz' 
+                                      : (quiz.userStatus?.attempts >= getEffectiveMaxAttempts(quiz) && !getRelearningInfo(quiz)?.isLevelActuallyComplete)
+                                        ? 'Review Modules'
+                                        : 'Start Quiz'}
                                   </button>
                                 </div>
                               )}

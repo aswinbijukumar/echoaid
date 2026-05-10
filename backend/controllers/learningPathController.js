@@ -88,7 +88,7 @@ export const getLearningPath = async (req, res) => {
     );
 
     // Add progress information to units and lessons
-    const unitsWithProgress = learningPath.units.map(unit => {
+    const unitsWithProgress = await Promise.all(learningPath.units.map(async unit => {
       const completedUnit = userPathProgress?.completedUnits.find(
         cu => cu.unit.toString() === unit._id.toString()
       );
@@ -115,7 +115,7 @@ export const getLearningPath = async (req, res) => {
         completedAt: completedUnit?.completedAt,
         isUnlocked: await checkUnitUnlock(unit, userPathProgress, userId)
       };
-    });
+    }));
 
     const pathWithProgress = {
       ...learningPath.toObject(),

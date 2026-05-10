@@ -95,19 +95,8 @@ export default function Dashboard() {
 
       // Update previous streak for next comparison
       setPreviousStreak(currentStreak);
-
-      // Check for Level Up
-      if (userStats.level > 0) {
-        if (!isInitialized) {
-          setPrevLevel(userStats.level);
-          setIsInitialized(true);
-        } else if (userStats.level > prevLevel) {
-          setShowLevelUpModal(true);
-          setPrevLevel(userStats.level);
-        }
-      }
     }
-  }, [userStats, previousStreak, prevLevel]);
+  }, [userStats, previousStreak]);
 
   // Handle streak message from DailyStreak component
   const handleStreakMessage = (message) => {

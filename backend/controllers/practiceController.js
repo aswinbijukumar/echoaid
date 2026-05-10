@@ -456,8 +456,8 @@ const updateUserGamificationStats = async (userId, practiceAttempt) => {
         signsLearned: 0,
         averageAccuracy: 0,
         lastPracticeDate: null,
-        quizzesCompleted: 0,
-        perfectQuizzes: 0,
+        QuizesCompleted: 0,
+        perfectQuizes: 0,
         averageQuizScore: 0,
         categoryProgress: {
           alphabet: 0,
@@ -471,7 +471,7 @@ const updateUserGamificationStats = async (userId, practiceAttempt) => {
         dailyGoal: 100,
         weeklyGoal: 500,
         monthlyGoal: 2000,
-        recentQuizzes: [],
+        recentQuizes: [],
         weakAreas: []
       };
     }

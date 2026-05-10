@@ -157,7 +157,7 @@ const userSchema = new mongoose.Schema({
       default: 'monthly'
     },
     features: {
-      unlimitedQuizzes: { type: Boolean, default: false },
+      unlimitedQuizes: { type: Boolean, default: false },
       advancedAnalytics: { type: Boolean, default: false },
       prioritySupport: { type: Boolean, default: false },
       customProgressTracking: { type: Boolean, default: false },
@@ -244,11 +244,11 @@ const userSchema = new mongoose.Schema({
       default: null
     },
     // Quiz-specific stats
-    quizzesCompleted: {
+    QuizesCompleted: {
       type: Number,
       default: 0
     },
-    perfectQuizzes: {
+    perfectQuizes: {
       type: Number,
       default: 0
     },
@@ -284,7 +284,7 @@ const userSchema = new mongoose.Schema({
       default: 2000
     },
     // Performance tracking
-    recentQuizzes: [{
+    recentQuizes: [{
       quizId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz' },
       score: { type: Number },
       completedAt: { type: Date },

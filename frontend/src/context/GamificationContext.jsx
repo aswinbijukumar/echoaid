@@ -15,21 +15,29 @@ export function GamificationProvider({ children }) {
     const [isLevelModalOpen, setIsLevelModalOpen] = useState(false);
     const [leveledUpTo, setLeveledUpTo] = useState(1);
 
-    // Initial sync
+    // Initial sync - store prevLevel in sessionStorage so it persists across re-renders
     useEffect(() => {
         if (!isInitialized && stats.level > 0) {
-            setPrevLevel(stats.level);
+            // On first load, read the saved level from sessionStorage
+            const savedLevel = parseInt(sessionStorage.getItem('echoaid_user_level') || '0', 10);
+            if (savedLevel === 0) {
+                // First ever visit this session, just save the current level
+                sessionStorage.setItem('echoaid_user_level', String(stats.level));
+                setPrevLevel(stats.level);
+            } else {
+                setPrevLevel(savedLevel);
+            }
             setIsInitialized(true);
         }
     }, [stats.level, isInitialized]);
 
-    // Check for level up
+    // Check for level up - only after initialization
     useEffect(() => {
-        if (isInitialized && stats.level > prevLevel) {
+        if (isInitialized && stats.level > 0 && stats.level > prevLevel) {
             setLeveledUpTo(stats.level);
             setIsLevelModalOpen(true);
-        }
-        if (stats.level > 0) {
+            // Save new level to sessionStorage
+            sessionStorage.setItem('echoaid_user_level', String(stats.level));
             setPrevLevel(stats.level);
         }
     }, [stats.level, isInitialized, prevLevel]);

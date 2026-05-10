@@ -218,7 +218,7 @@ export const checkAchievements = async (req, res) => {
           // Count completed activities based on category
           let completedCount = 0;
           if (achievement.requirements.category === 'quiz') {
-            completedCount = user.learningStats?.completedQuizzes || 0;
+            completedCount = user.learningStats?.completedQuizes || 0;
           } else if (achievement.requirements.category === 'practice') {
             completedCount = user.learningStats?.completedPractices || 0;
           }
